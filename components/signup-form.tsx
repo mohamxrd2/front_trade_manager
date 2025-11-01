@@ -1,0 +1,427 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/context/AuthContext'
+import { registerUser, type RegisterCredentials } from '@/services/auth'
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import Link from "next/link"
+import Image from "next/image"
+import { Loader2, Eye, EyeOff } from 'lucide-react'
+
+/**
+ * Fonction de validation du mot de passe selon les règles Laravel
+ */
+const validatePassword = (password: string): string | null => {
+  if (password.length < 8) {
+    return 'Le mot de passe doit contenir au moins 8 caractères'
+  }
+  
+  if (!/[A-Z]/.test(password)) {
+    return 'Le mot de passe doit contenir au moins une lettre majuscule'
+  }
+  
+  if (!/[a-z]/.test(password)) {
+    return 'Le mot de passe doit contenir au moins une lettre minuscule'
+  }
+  
+  if (!/[0-9]/.test(password)) {
+    return 'Le mot de passe doit contenir au moins un chiffre'
+  }
+  
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return 'Le mot de passe doit contenir au moins un symbole (!@#$%^&* etc.)'
+  }
+  
+  return null
+}
+
+export function SignupForm({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  const [formData, setFormData] = useState<RegisterCredentials>({
+    first_name: '',
+    last_name: '',
+    username: '',
+    email: '',
+    password: '',
+    password_confirmation: ''
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false)
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [passwordValidation, setPasswordValidation] = useState({
+    length: false,
+    uppercase: false,
+    lowercase: false,
+    number: false,
+    symbol: false
+  })
+  
+  const { updateUser } = useAuth()
+  const router = useRouter()
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+    
+    // Validation dynamique du mot de passe
+    if (name === 'password') {
+      setPasswordValidation({
+        length: value.length >= 8,
+        uppercase: /[A-Z]/.test(value),
+        lowercase: /[a-z]/.test(value),
+        number: /[0-9]/.test(value),
+        symbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)
+      })
+    }
+    
+    // Effacer l'erreur quand l'utilisateur tape
+    if (error) setError('')
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError('')
+
+    // Validation du mot de passe côté frontend
+    const passwordError = validatePassword(formData.password)
+    if (passwordError) {
+      setError(passwordError)
+      return
+    }
+
+    // Vérifier que les mots de passe correspondent
+    if (formData.password !== formData.password_confirmation) {
+      setError('Les mots de passe ne correspondent pas')
+      return
+    }
+
+    // Vérifier que les conditions sont acceptées
+    if (!acceptTerms) {
+      setError('Vous devez accepter les conditions d\'utilisation')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const result = await registerUser(formData)
+      
+      if (result.success && result.user && result.token) {
+        // Mettre à jour le contexte d'authentification
+        updateUser(result.user)
+        
+        // Rediriger vers le dashboard
+        router.push('/dashboard')
+      } else {
+        setError(result.error || 'Erreur lors de l\'inscription')
+      }
+    } catch {
+      setError('Une erreur inattendue s\'est produite')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className={cn("flex flex-col gap-6 max-w-4xl mx-auto w-full", className)} {...props}>
+      <Card className="overflow-hidden p-0">
+        <CardContent className="grid p-0 md:grid-cols-2 h-[calc(100vh-8rem)]">
+          <ScrollArea className="h-full">
+            <form onSubmit={handleSubmit} className="p-6 md:p-8">
+              <FieldGroup>
+              <div className="flex flex-col items-center gap-2 text-center">
+                <h1 className="text-2xl font-bold">Créez votre compte</h1>
+                <p className="text-muted-foreground text-balance">
+                  Rejoignez Trade Manager et commencez votre parcours
+                </p>
+              </div>
+              
+              {error && (
+                <Field>
+                  <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4 border border-red-200 dark:border-red-800">
+                    <p className="text-sm text-red-600 dark:text-red-400 whitespace-pre-line">{error}</p>
+                  </div>
+                </Field>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="first_name">Prénom</FieldLabel>
+                  <Input
+                    id="first_name"
+                    name="first_name"
+                    type="text"
+                    placeholder="John"
+                    value={formData.first_name}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isLoading}
+                    className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="last_name">Nom</FieldLabel>
+                  <Input
+                    id="last_name"
+                    name="last_name"
+                    type="text"
+                    placeholder="Doe"
+                    value={formData.last_name}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isLoading}
+                    className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                  />
+                </Field>
+              </div>
+
+              <Field>
+                <FieldLabel htmlFor="username">Nom d&apos;utilisateur</FieldLabel>
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  placeholder="johndoe"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  required
+                  disabled={isLoading}
+                  className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                  disabled={isLoading}
+                  className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="password">Mot de passe</FieldLabel>
+                <div className="relative">
+                  <Input 
+                    id="password" 
+                    name="password"
+                    type={showPassword ? 'text' : 'password'} 
+                    placeholder="Entrez votre mot de passe"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isLoading}
+                    className="pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Validation dynamique du mot de passe */}
+                {formData.password && (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={`w-2 h-2 rounded-full ${passwordValidation.length ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span className={passwordValidation.length ? 'text-green-600' : 'text-gray-500'}>
+                        Au moins 8 caractères
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={`w-2 h-2 rounded-full ${passwordValidation.uppercase ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span className={passwordValidation.uppercase ? 'text-green-600' : 'text-gray-500'}>
+                        Une lettre majuscule
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={`w-2 h-2 rounded-full ${passwordValidation.lowercase ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span className={passwordValidation.lowercase ? 'text-green-600' : 'text-gray-500'}>
+                        Une lettre minuscule
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={`w-2 h-2 rounded-full ${passwordValidation.number ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span className={passwordValidation.number ? 'text-green-600' : 'text-gray-500'}>
+                        Un chiffre
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <div className={`w-2 h-2 rounded-full ${passwordValidation.symbol ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                      <span className={passwordValidation.symbol ? 'text-green-600' : 'text-gray-500'}>
+                        Un symbole (!@#$%^&* etc.)
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                <FieldDescription className="text-xs text-muted-foreground">
+                  Le mot de passe doit respecter tous les critères ci-dessus.
+                </FieldDescription>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="password_confirmation">Confirmer le mot de passe</FieldLabel>
+                <div className="relative">
+                  <Input 
+                    id="password_confirmation" 
+                    name="password_confirmation"
+                    type={showPasswordConfirmation ? 'text' : 'password'} 
+                    placeholder="Confirmez votre mot de passe"
+                    value={formData.password_confirmation}
+                    onChange={handleInputChange}
+                    required
+                    disabled={isLoading}
+                    className="pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPasswordConfirmation(!showPasswordConfirmation)}
+                    disabled={isLoading}
+                  >
+                    {showPasswordConfirmation ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </Button>
+                </div>
+              </Field>
+
+              <Field>
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="terms"
+                    type="checkbox"
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                    required
+                    disabled={isLoading}
+                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  />
+                  <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer">
+                    J&apos;accepte les{" "}
+                    <a href="#" className="text-primary hover:underline">
+                      Conditions d&apos;utilisation
+                    </a>{" "}
+                    et la{" "}
+                    <a href="#" className="text-primary hover:underline">
+                      Politique de confidentialité
+                    </a>
+                  </label>
+                </div>
+              </Field>
+
+                       <Field>
+                         <Button 
+                           type="submit" 
+                           variant="default"
+                           className="w-full"
+                           disabled={isLoading || !acceptTerms}
+                         >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Création du compte...
+                    </>
+                  ) : (
+                    'Créer un compte'
+                  )}
+                </Button>
+              </Field>
+
+              <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+                Ou continuer avec
+              </FieldSeparator>
+
+              <Field className="grid grid-cols-3 gap-4">
+                <Button variant="outline" type="button" disabled>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4">
+                    <path
+                      d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  <span className="sr-only">S&apos;inscrire avec Apple</span>
+                </Button>
+                <Button variant="outline" type="button" disabled>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4">
+                    <path
+                      d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  <span className="sr-only">S&apos;inscrire avec Google</span>
+                </Button>
+                <Button variant="outline" type="button" disabled>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4">
+                    <path
+                      d="M6.915 4.03c-1.968 0-3.683 1.28-4.871 3.113C.704 9.208 0 11.883 0 14.449c0 .706.07 1.369.21 1.973a6.624 6.624 0 0 0 .265.86 5.297 5.297 0 0 0 .371.761c.696 1.159 1.818 1.927 3.593 1.927 1.497 0 2.633-.671 3.965-2.444.76-1.012 1.144-1.626 2.663-4.32l.756-1.339.186-.325c.061.1.121.196.183.3l2.152 3.595c.724 1.21 1.665 2.556 2.47 3.314 1.046.987 1.992 1.22 3.06 1.22 1.075 0 1.876-.355 2.455-.843a3.743 3.743 0 0 0 .81-.973c.542-.939.861-2.127.861-3.745 0-2.72-.681-5.357-2.084-7.45-1.282-1.912-2.957-2.93-4.716-2.93-1.047 0-2.088.467-3.053 1.308-.652.57-1.257 1.29-1.82 2.05-.69-.875-1.335-1.547-1.958-2.056-1.182-.966-2.315-1.303-3.454-1.303zm10.16 2.053c1.147 0 2.188.758 2.992 1.999 1.132 1.748 1.647 4.195 1.647 6.4 0 1.548-.368 2.9-1.839 2.9-.58 0-1.027-.23-1.664-1.004-.496-.601-1.343-1.878-2.832-4.358l-.617-1.028a44.908 44.908 0 0 0-1.255-1.98c.07-.109.141-.224.211-.327 1.12-1.667 2.118-2.602 3.358-2.602zm-10.201.553c1.265 0 2.058.791 2.675 1.446.307.327.737.871 1.234 1.579l-1.02 1.566c-.757 1.163-1.882 3.017-2.837 4.338-1.191 1.649-1.81 1.817-2.486 1.817-.524 0-1.038-.237-1.383-.794-.263-.426-.464-1.13-.464-2.046 0-2.221.63-4.535 1.66-6.088.454-.687.964-1.226 1.533-1.533a2.264 2.264 0 0 1 1.088-.285z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  <span className="sr-only">S&apos;inscrire avec Meta</span>
+                </Button>
+              </Field>
+
+              <FieldDescription className="text-center">
+                Vous avez déjà un compte ? <Link href="/login" className="underline-offset-2 hover:underline">Se connecter</Link>
+              </FieldDescription>
+            </FieldGroup>
+            </form>
+          </ScrollArea>
+          <div className="bg-muted relative hidden md:block h-full">
+            <Image
+              src="/placeholder.svg"
+              alt="Image"
+              fill
+              className="object-cover dark:brightness-[0.2] dark:grayscale"
+            />
+          </div>
+        </CardContent>
+      </Card>
+      <FieldDescription className="px-6 text-center">
+        En cliquant sur continuer, vous acceptez nos <a href="#" className="underline-offset-2 hover:underline">Conditions d&apos;utilisation</a>{" "}
+        et notre <a href="#" className="underline-offset-2 hover:underline">Politique de confidentialité</a>.
+      </FieldDescription>
+    </div>
+  )
+}
