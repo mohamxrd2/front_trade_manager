@@ -5,28 +5,28 @@ export default function ContentSection() {
     return (
         <section className="py-16 md:py-32">
             <div className="mx-auto max-w-5xl space-y-8 px-6 md:space-y-16">
-                <h2 className="relative z-10 max-w-xl text-4xl font-medium lg:text-5xl">The Lyra ecosystem brings together our models.</h2>
+                <h2 className="relative z-10 max-w-xl text-4xl font-medium lg:text-5xl">Analytics et Statistiques en Temps Réel</h2>
                 <div className="relative">
                     <div className="relative z-10 space-y-4 md:w-1/2">
                         <p>
-                            Lyra is evolving to be more than just the models. <span className="font-medium">It supports an entire ecosystem</span> — from products innovate.
+                            Trade Manager vous offre <span className="font-medium">des outils d'analyse puissants</span> pour comprendre et optimiser vos performances commerciales.
                         </p>
-                        <p>It supports an entire ecosystem — from products to the APIs and platforms helping developers and businesses innovate</p>
+                        <p>Visualisez l'évolution de vos ventes et dépenses, analysez vos tendances, identifiez vos meilleurs produits et recevez des prédictions intelligentes pour optimiser vos réapprovisionnements.</p>
 
                         <div className="grid grid-cols-2 gap-3 pt-6 sm:gap-4">
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                     <Zap className="size-4" />
-                                    <h3 className="text-sm font-medium">Faaast</h3>
+                                    <h3 className="text-sm font-medium">Temps Réel</h3>
                                 </div>
-                                <p className="text-muted-foreground text-sm">It supports an entire helping developers and innovate.</p>
+                                <p className="text-muted-foreground text-sm">Mise à jour automatique de vos données après chaque transaction pour un suivi en temps réel de vos performances.</p>
                             </div>
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                     <Cpu className="size-4" />
-                                    <h3 className="text-sm font-medium">Powerful</h3>
+                                    <h3 className="text-sm font-medium">Prédictions IA</h3>
                                 </div>
-                                <p className="text-muted-foreground text-sm">It supports an entire helping developers and businesses.</p>
+                                <p className="text-muted-foreground text-sm">Calculs automatiques de réapprovisionnement basés sur vos ventes moyennes pour éviter les ruptures de stock.</p>
                             </div>
                         </div>
                     </div>
@@ -35,7 +35,7 @@ export default function ContentSection() {
                             <Image
                                 src="/charts.png"
                                 className="hidden rounded-[12px] dark:block"
-                                alt="payments illustration dark"
+                                alt="Graphiques et analytics Trade Manager - Visualisation des ventes et dépenses"
                                 width={1207}
                                 height={929}
                             />

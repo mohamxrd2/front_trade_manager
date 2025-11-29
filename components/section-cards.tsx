@@ -1,102 +1,175 @@
-import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
+'use client'
 
-import { Badge } from "@/components/ui/badge"
 import {
   Card,
-  CardAction,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
+import { Wallet, Package, ShoppingBag, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useTranslation } from "@/lib/i18n/hooks/useTranslation";
+import { useCurrency } from '@/lib/utils/currency';
 
-export function SectionCards() {
+export function SectionCards({
+  user,
+}: {
+  user: {
+    total_articles?: number;
+    total_low_stock?: number;
+    total_remaining_quantity?: number;
+    calculated_wallet?: number;
+  };
+}) {
+  const { t } = useTranslation()
+  const { currency } = useCurrency()
+  
+  // Formatage des valeurs avec des valeurs par défaut
+  const formatCurrency = (value?: number) => {
+    if (!value && value !== 0) return "0";
+    return new Intl.NumberFormat("fr-FR", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const formatNumber = (value?: number) => {
+    if (!value && value !== 0) return "0";
+    return new Intl.NumberFormat("fr-FR").format(value);
+  };
+
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Total Revenue (FCFA)</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-          1,250 XOF
+    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-2 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+      {/* Carte Portefeuille / Revenu total */}
+      <Card className="@container/card group hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {t('dashboard.netRevenue')}
           </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              +12.5%
-            </Badge>
-          </CardAction>
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <Wallet className="h-4 w-4 text-primary" />
+          </div>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Trending up this month <IconTrendingUp className="size-4" />
-          </div>
-          <div className="text-muted-foreground">
-            Visitors for the last 6 months
-          </div>
+        <CardHeader className="pt-1">
+          <CardTitle className="text-2xl font-bold tabular-nums @[250px]/card:text-3xl">
+            {formatCurrency(user.calculated_wallet)}{" "}
+            <span className="text-sm font-normal text-muted-foreground">
+              {currency}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardFooter className="flex-col items-start  pt-1">
+          <CardDescription className="text-xs">
+            {t('dashboard.netRevenueDescription')}
+          </CardDescription>
         </CardFooter>
       </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Quantitée restantes</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            890 
+
+      {/* Carte Quantité restante */}
+      <Card className="@container/card group hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {t('dashboard.availableStock')}
           </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <IconTrendingDown />
-              -20%
-            </Badge>
-          </CardAction>
+          <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+            <Package className="h-4 w-4 text-blue-500" />
+          </div>
         </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Down 20% this period <IconTrendingDown className="size-4" />
-          </div>
-          <div className="text-muted-foreground">
-            Acquisition needs attention
-          </div>
+        <CardHeader >
+          <CardTitle className="text-2xl font-bold tabular-nums @[250px]/card:text-3xl">
+            {formatNumber(user.total_remaining_quantity)}{" "}
+            <span className="text-sm font-normal text-muted-foreground">
+              {t('common.pieces')}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardFooter className="flex-col items-start  pt-1">
+          <CardDescription className="text-xs">
+            {t('dashboard.availableStockDescription')}
+          </CardDescription>
         </CardFooter>
       </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Nombre darticles</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-         25
+
+      {/* Carte Nombre d'articles */}
+      <Card className="@container/card group hover:shadow-md transition-shadow">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {t('dashboard.catalog')}
           </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              +12.5%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Strong user retention <IconTrendingUp className="size-4" />
+          <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+            <ShoppingBag className="h-4 w-4 text-green-500" />
           </div>
-          <div className="text-muted-foreground">Engagement exceed targets</div>
+        </CardHeader>
+        <CardHeader >
+          <CardTitle className="text-2xl font-bold tabular-nums @[250px]/card:text-3xl">
+            {formatNumber(user.total_articles)}{" "}
+            <span className="text-sm font-normal text-muted-foreground">
+              {t('common.models')}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardFooter className="flex-col items-start  pt-1">
+          <CardDescription className="text-xs">
+            {t('dashboard.catalogDescription')}
+          </CardDescription>
         </CardFooter>
       </Card>
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Stock faible</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            5
+
+      {/* Carte Stock faible */}
+      <Card
+        className={cn(
+          "@container/card group hover:shadow-md transition-shadow",
+          user.total_low_stock &&
+            user.total_low_stock > 0 &&
+            "border-orange-200 dark:border-orange-800"
+        )}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {t('dashboard.stockAlert')}
           </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              +4.5%
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Steady performance increase <IconTrendingUp className="size-4" />
+          <div
+            className={cn(
+              "h-8 w-8 rounded-full flex items-center justify-center transition-colors",
+              user.total_low_stock && user.total_low_stock > 0
+                ? "bg-orange-500/10 group-hover:bg-orange-500/20"
+                : "bg-gray-500/10 group-hover:bg-gray-500/20"
+            )}
+          >
+            <AlertTriangle
+              className={cn(
+                "h-4 w-4",
+                user.total_low_stock && user.total_low_stock > 0
+                  ? "text-orange-500"
+                  : "text-gray-500"
+              )}
+            />
           </div>
-          <div className="text-muted-foreground">Meets growth projections</div>
+        </CardHeader>
+        <CardHeader >
+          <CardTitle
+            className={cn(
+              "text-2xl font-bold tabular-nums @[250px]/card:text-3xl",
+              user.total_low_stock &&
+                user.total_low_stock > 0 &&
+                "text-orange-600 dark:text-orange-400"
+            )}
+          >
+            {formatNumber(user.total_low_stock)}{" "}
+            <span className="text-sm font-normal text-muted-foreground">
+              {t('common.models')}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardFooter className="flex-col items-start  pt-1">
+          <CardDescription className="text-xs">
+            {user.total_low_stock && user.total_low_stock > 0
+              ? t('dashboard.stockAlertDescription')
+              : t('dashboard.noStockAlert')}
+          </CardDescription>
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }

@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/context/AuthContext'
-import { registerUser, type RegisterCredentials } from '@/services/auth'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { useAuth, type RegisterData } from '@/contexts/AuthContext'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -21,49 +23,62 @@ import Image from "next/image"
 import { Loader2, Eye, EyeOff } from 'lucide-react'
 
 /**
- * Fonction de validation du mot de passe selon les règles Laravel
+ * Schéma de validation Zod pour le formulaire d'inscription
  */
-const validatePassword = (password: string): string | null => {
-  if (password.length < 8) {
-    return 'Le mot de passe doit contenir au moins 8 caractères'
-  }
-  
-  if (!/[A-Z]/.test(password)) {
-    return 'Le mot de passe doit contenir au moins une lettre majuscule'
-  }
-  
-  if (!/[a-z]/.test(password)) {
-    return 'Le mot de passe doit contenir au moins une lettre minuscule'
-  }
-  
-  if (!/[0-9]/.test(password)) {
-    return 'Le mot de passe doit contenir au moins un chiffre'
-  }
-  
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-    return 'Le mot de passe doit contenir au moins un symbole (!@#$%^&* etc.)'
-  }
-  
-  return null
-}
+const signupSchema = z.object({
+  first_name: z
+    .string()
+    .min(1, 'Le prénom est requis')
+    .min(2, 'Le prénom doit contenir au moins 2 caractères'),
+  last_name: z
+    .string()
+    .min(1, 'Le nom est requis')
+    .min(2, 'Le nom doit contenir au moins 2 caractères'),
+  username: z
+    .string()
+    .min(1, 'Le nom d\'utilisateur est requis')
+    .min(3, 'Le nom d\'utilisateur doit contenir au moins 3 caractères')
+    .regex(/^[a-zA-Z0-9_]+$/, 'Le nom d\'utilisateur ne peut contenir que des lettres, chiffres et underscores'),
+  email: z
+    .string()
+    .min(1, 'L\'email est requis')
+    .email('L\'email doit être valide'),
+  password: z
+    .string()
+    .min(1, 'Le mot de passe est requis')
+    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+    .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une lettre majuscule')
+    .regex(/[a-z]/, 'Le mot de passe doit contenir au moins une lettre minuscule')
+    .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre')
+    .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Le mot de passe doit contenir au moins un symbole (!@#$%^&* etc.)'),
+  password_confirmation: z
+    .string()
+    .min(1, 'La confirmation du mot de passe est requise'),
+  company_share: z
+    .number()
+    .min(0, 'La part de l\'entreprise doit être entre 0 et 100')
+    .max(100, 'La part de l\'entreprise doit être entre 0 et 100'),
+  acceptTerms: z
+    .boolean()
+    .refine((val) => val === true, {
+      message: 'Vous devez accepter les conditions d\'utilisation',
+    }),
+}).refine((data) => data.password === data.password_confirmation, {
+  message: 'Les mots de passe ne correspondent pas',
+  path: ['password_confirmation'],
+})
+
+type SignupFormData = z.infer<typeof signupSchema>
 
 export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const [formData, setFormData] = useState<RegisterCredentials>({
-    first_name: '',
-    last_name: '',
-    username: '',
-    email: '',
-    password: '',
-    password_confirmation: ''
-  })
   const [showPassword, setShowPassword] = useState(false)
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
   const [isLoading, setIsLoading] = useState(false)
-  const [acceptTerms, setAcceptTerms] = useState(false)
   const [passwordValidation, setPasswordValidation] = useState({
     length: false,
     uppercase: false,
@@ -72,66 +87,82 @@ export function SignupForm({
     symbol: false
   })
   
-  const { updateUser } = useAuth()
+  const { register: registerUser } = useAuth()
   const router = useRouter()
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-    
-    // Validation dynamique du mot de passe
-    if (name === 'password') {
+  // Configuration de react-hook-form avec Zod
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      username: '',
+      email: '',
+      password: '',
+      password_confirmation: '',
+      company_share: 100,
+      acceptTerms: false,
+    },
+  })
+
+  // Observer le champ password pour la validation visuelle
+  const password = watch('password')
+
+  // Mettre à jour la validation visuelle du mot de passe
+  useEffect(() => {
+    if (password) {
       setPasswordValidation({
-        length: value.length >= 8,
-        uppercase: /[A-Z]/.test(value),
-        lowercase: /[a-z]/.test(value),
-        number: /[0-9]/.test(value),
-        symbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)
+        length: password.length >= 8,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /[0-9]/.test(password),
+        symbol: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+      })
+    } else {
+      setPasswordValidation({
+        length: false,
+        uppercase: false,
+        lowercase: false,
+        number: false,
+        symbol: false
       })
     }
-    
-    // Effacer l'erreur quand l'utilisateur tape
-    if (error) setError('')
-  }
+  }, [password])
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError('')
-
-    // Validation du mot de passe côté frontend
-    const passwordError = validatePassword(formData.password)
-    if (passwordError) {
-      setError(passwordError)
-      return
-    }
-
-    // Vérifier que les mots de passe correspondent
-    if (formData.password !== formData.password_confirmation) {
-      setError('Les mots de passe ne correspondent pas')
-      return
-    }
-
-    // Vérifier que les conditions sont acceptées
-    if (!acceptTerms) {
-      setError('Vous devez accepter les conditions d\'utilisation')
-      return
-    }
-
+  // Fonction de soumission du formulaire (appelée uniquement si la validation réussit)
+  const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true)
+    setError('')
+    setFieldErrors({})
 
     try {
-      const result = await registerUser(formData)
+      // Convertir les données du formulaire au format RegisterData
+      const registerData: RegisterData = {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        username: data.username,
+        email: data.email,
+        password: data.password,
+        password_confirmation: data.password_confirmation,
+        company_share: data.company_share,
+      }
+
+      const result = await registerUser(registerData)
       
-      if (result.success && result.user && result.token) {
-        // Mettre à jour le contexte d'authentification
-        updateUser(result.user)
-        
-        // Rediriger vers le dashboard
+      if (result.success) {
+        // Rediriger vers le dashboard après inscription réussie
         router.push('/dashboard')
       } else {
+        // Afficher les erreurs de validation par champ si disponibles
+        if (result.errors) {
+          setFieldErrors(result.errors)
+        }
+        // Afficher le message d'erreur général
         setError(result.error || 'Erreur lors de l\'inscription')
       }
     } catch {
@@ -146,7 +177,7 @@ export function SignupForm({
       <Card className="overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2 h-[calc(100vh-8rem)]">
           <ScrollArea className="h-full">
-            <form onSubmit={handleSubmit} className="p-6 md:p-8">
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 md:p-8">
               <FieldGroup>
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Créez votre compte</h1>
@@ -168,29 +199,49 @@ export function SignupForm({
                   <FieldLabel htmlFor="first_name">Prénom</FieldLabel>
                   <Input
                     id="first_name"
-                    name="first_name"
                     type="text"
                     placeholder="John"
-                    value={formData.first_name}
-                    onChange={handleInputChange}
-                    required
+                    {...register('first_name')}
                     disabled={isLoading}
-                    className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                    className={cn(
+                      "transition-all duration-200 focus:ring-2 focus:ring-blue-500",
+                      (errors.first_name || fieldErrors.first_name) && "border-[#ef4444] focus:ring-[#ef4444]"
+                    )}
                   />
+                  {errors.first_name && (
+                    <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                      {errors.first_name.message}
+                    </FieldDescription>
+                  )}
+                  {fieldErrors.first_name && (
+                    <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                      {fieldErrors.first_name.join(', ')}
+                    </FieldDescription>
+                  )}
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="last_name">Nom</FieldLabel>
                   <Input
                     id="last_name"
-                    name="last_name"
                     type="text"
                     placeholder="Doe"
-                    value={formData.last_name}
-                    onChange={handleInputChange}
-                    required
+                    {...register('last_name')}
                     disabled={isLoading}
-                    className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                    className={cn(
+                      "transition-all duration-200 focus:ring-2 focus:ring-blue-500",
+                      (errors.last_name || fieldErrors.last_name) && "border-[#ef4444] focus:ring-[#ef4444]"
+                    )}
                   />
+                  {errors.last_name && (
+                    <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                      {errors.last_name.message}
+                    </FieldDescription>
+                  )}
+                  {fieldErrors.last_name && (
+                    <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                      {fieldErrors.last_name.join(', ')}
+                    </FieldDescription>
+                  )}
                 </Field>
               </div>
 
@@ -198,30 +249,50 @@ export function SignupForm({
                 <FieldLabel htmlFor="username">Nom d&apos;utilisateur</FieldLabel>
                 <Input
                   id="username"
-                  name="username"
                   type="text"
                   placeholder="johndoe"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  required
+                  {...register('username')}
                   disabled={isLoading}
-                  className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                  className={cn(
+                    "transition-all duration-200 focus:ring-2 focus:ring-blue-500",
+                    (errors.username || fieldErrors.username) && "border-[#ef4444] focus:ring-[#ef4444]"
+                  )}
                 />
+                {errors.username && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {errors.username.message}
+                  </FieldDescription>
+                )}
+                {fieldErrors.username && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {fieldErrors.username.join(', ')}
+                  </FieldDescription>
+                )}
               </Field>
 
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
-                  name="email"
                   type="email"
                   placeholder="john@example.com"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
+                  {...register('email')}
                   disabled={isLoading}
-                  className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                  className={cn(
+                    "transition-all duration-200 focus:ring-2 focus:ring-blue-500",
+                    (errors.email || fieldErrors.email) && "border-[#ef4444] focus:ring-[#ef4444]"
+                  )}
                 />
+                {errors.email && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {errors.email.message}
+                  </FieldDescription>
+                )}
+                {fieldErrors.email && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {fieldErrors.email.join(', ')}
+                  </FieldDescription>
+                )}
               </Field>
 
               <Field>
@@ -229,14 +300,14 @@ export function SignupForm({
                 <div className="relative">
                   <Input 
                     id="password" 
-                    name="password"
                     type={showPassword ? 'text' : 'password'} 
                     placeholder="Entrez votre mot de passe"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    required
+                    {...register('password')}
                     disabled={isLoading}
-                    className="pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                    className={cn(
+                      "pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500",
+                      (errors.password || fieldErrors.password) && "border-[#ef4444] focus:ring-[#ef4444]"
+                    )}
                   />
                   <Button
                     type="button"
@@ -255,7 +326,7 @@ export function SignupForm({
                 </div>
                 
                 {/* Validation dynamique du mot de passe */}
-                {formData.password && (
+                {password && (
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center gap-2 text-xs">
                       <div className={`w-2 h-2 rounded-full ${passwordValidation.length ? 'bg-green-500' : 'bg-gray-300'}`}></div>
@@ -293,6 +364,16 @@ export function SignupForm({
                 <FieldDescription className="text-xs text-muted-foreground">
                   Le mot de passe doit respecter tous les critères ci-dessus.
                 </FieldDescription>
+                {errors.password && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {errors.password.message}
+                  </FieldDescription>
+                )}
+                {fieldErrors.password && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {fieldErrors.password.join(', ')}
+                  </FieldDescription>
+                )}
               </Field>
 
               <Field>
@@ -300,14 +381,14 @@ export function SignupForm({
                 <div className="relative">
                   <Input 
                     id="password_confirmation" 
-                    name="password_confirmation"
                     type={showPasswordConfirmation ? 'text' : 'password'} 
                     placeholder="Confirmez votre mot de passe"
-                    value={formData.password_confirmation}
-                    onChange={handleInputChange}
-                    required
+                    {...register('password_confirmation')}
                     disabled={isLoading}
-                    className="pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                    className={cn(
+                      "pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500",
+                      (errors.password_confirmation || fieldErrors.password_confirmation) && "border-[#ef4444] focus:ring-[#ef4444]"
+                    )}
                   />
                   <Button
                     type="button"
@@ -324,20 +405,28 @@ export function SignupForm({
                     )}
                   </Button>
                 </div>
+                {errors.password_confirmation && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {errors.password_confirmation.message}
+                  </FieldDescription>
+                )}
+                {fieldErrors.password_confirmation && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {fieldErrors.password_confirmation.join(', ')}
+                  </FieldDescription>
+                )}
               </Field>
 
               <Field>
                 <div className="flex items-center space-x-2">
                   <input
-                    id="terms"
+                    id="acceptTerms"
                     type="checkbox"
-                    checked={acceptTerms}
-                    onChange={(e) => setAcceptTerms(e.target.checked)}
-                    required
+                    {...register('acceptTerms')}
                     disabled={isLoading}
                     className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                   />
-                  <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer">
+                  <label htmlFor="acceptTerms" className="text-sm text-muted-foreground cursor-pointer">
                     J&apos;accepte les{" "}
                     <a href="#" className="text-primary hover:underline">
                       Conditions d&apos;utilisation
@@ -348,6 +437,11 @@ export function SignupForm({
                     </a>
                   </label>
                 </div>
+                {errors.acceptTerms && (
+                  <FieldDescription className="text-[#ef4444] text-xs mt-1">
+                    {errors.acceptTerms.message}
+                  </FieldDescription>
+                )}
               </Field>
 
                        <Field>
@@ -355,7 +449,7 @@ export function SignupForm({
                            type="submit" 
                            variant="default"
                            className="w-full"
-                           disabled={isLoading || !acceptTerms}
+                           disabled={isLoading}
                          >
                   {isLoading ? (
                     <>
@@ -410,7 +504,7 @@ export function SignupForm({
           </ScrollArea>
           <div className="bg-muted relative hidden md:block h-full">
             <Image
-              src="/placeholder.svg"
+              src="/"
               alt="Image"
               fill
               className="object-cover dark:brightness-[0.2] dark:grayscale"

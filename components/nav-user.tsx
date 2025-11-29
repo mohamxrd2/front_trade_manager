@@ -1,18 +1,14 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   IconDotsVertical,
   IconLogout,
   IconUserCircle,
-} from "@tabler/icons-react"
+} from "@tabler/icons-react";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,48 +17,50 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
-import { useAuth } from "@/context/AuthContext"
-import Link from "next/link"
+} from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
 export function NavUser({
   user,
 }: {
   user: {
-    name: string
-    email: string
-    avatar: string
-  }
+    name: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    avatar: string;
+  };
 }) {
-  const { isMobile } = useSidebar()
-  const { logout } = useAuth()
-  const router = useRouter()
-  const [mounted, setMounted] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const { isMobile } = useSidebar();
+  const { logout } = useAuth();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setMounted(true), 0)
-    return () => clearTimeout(timer)
-  }, [])
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleLogout = async () => {
     try {
-      setIsLoggingOut(true)
-      await logout()
-      router.push('/login')
+      setIsLoggingOut(true);
+      // La fonction logout du contexte gère déjà la redirection
+      await logout();
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error)
-      // Même en cas d'erreur, rediriger vers login
-      router.push('/login')
+      console.error("Erreur lors de la déconnexion:", error);
+      // En cas d'erreur, rediriger manuellement
+      router.push("/login");
     } finally {
-      setIsLoggingOut(false)
+      setIsLoggingOut(false);
     }
-  }
+  };
 
   if (!mounted) {
     return (
@@ -70,6 +68,7 @@ export function NavUser({
         <SidebarMenuItem>
           <SidebarMenuButton size="lg">
             <Avatar className="h-8 w-8 rounded-lg grayscale">
+              <AvatarImage src={user.avatar} alt={user.name} />
               <AvatarFallback className="rounded-lg">CN</AvatarFallback>
             </Avatar>
             <div className="grid flex-1 text-left text-sm leading-tight">
@@ -81,7 +80,7 @@ export function NavUser({
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
-    )
+    );
   }
 
   return (
@@ -93,9 +92,15 @@ export function NavUser({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+              <Avatar className="h-10 w-10">
+                <AvatarImage
+                  src={user.avatar }
+                  alt={user?.first_name || "User"}
+                />
+                <AvatarFallback className="text-black dark:text-white">
+                  {user?.first_name?.[0]}
+                  {user?.last_name?.[0]}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -114,10 +119,16 @@ export function NavUser({
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-                </Avatar>
+              <Avatar className="h-8 w-8">
+                <AvatarImage
+                  src={user.avatar}
+                  alt={user?.first_name || "User"}
+                />
+                <AvatarFallback className="dark:text-white text-gray-900">
+                  {user?.first_name?.[0]}
+                  {user?.last_name?.[0]}
+                </AvatarFallback>
+              </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
                   <span className="text-muted-foreground truncate text-xs">
@@ -136,17 +147,17 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={handleLogout}
               disabled={isLoggingOut}
               className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
             >
               <IconLogout />
-              {isLoggingOut ? 'Déconnexion...' : 'Se déconnecter'}
+              {isLoggingOut ? "Déconnexion..." : "Se déconnecter"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

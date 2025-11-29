@@ -12,13 +12,14 @@ import {
   IconListDetails,
   IconSettings,
   IconUsers,
-
+  IconBell,
 } from "@tabler/icons-react"
 
-import { useAuth } from "@/context/AuthContext"
+import { useAuth } from "@/contexts/AuthContext"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
 import Link from "next/link"
 import {
   Sidebar,
@@ -30,38 +31,38 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
+const getNavData = (t: (key: string) => string) => ({
   navMain: [
     {
-      title: "Dashboard",
+      title: t("nav.dashboard"),
       url: "/dashboard",
       icon: IconDashboard,
     },
     {
-      title: "Statistiques",
+      title: t("nav.analytics"),
       url: "/analytics",
       icon: IconChartBar,
     },
     {
-      title: "Transactions",
+      title: t("nav.transactions"),
       url: "/wallet",
       icon: IconDatabase,
     },
    
     {
-      title: "Produits",
+      title: t("nav.products"),
       url: "/products",
       icon: IconListDetails,
     },
     {
-      title: "Collaborateurs",
+      title: t("nav.collaborators"),
       url: "/collaborators",
       icon: IconUsers,
+    },
+    {
+      title: t("nav.notifications"),
+      url: "/notifications",
+      icon: IconBell,
     },
    
   ],
@@ -115,7 +116,7 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Settings",
+      title: t("nav.settings"),
       url: "/settings",
       icon: IconSettings,
     },
@@ -147,20 +148,77 @@ const data = {
   //     icon: IconFileWord,
   //   },
   // ],
-}
+})
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = useAuth()
+  const { user, loading, isAuthenticated } = useAuth()
+  const { t } = useTranslation()
+  const data = getNavData(t)
 
-  // Données utilisateur par défaut si pas connecté
-  const userData = user ? {
+  // Pendant le chargement, ne pas afficher de données fallback
+  // Attendre que loading soit false avant d'afficher quoi que ce soit
+  if (loading) {
+    // Optionnel : afficher un état de chargement minimal
+    const userData = {
+      name: t('common.loading'),
+      first_name: t('common.loading'),
+      last_name: '',
+      email: '',
+      avatar: ''
+    }
+    return (
+      <Sidebar collapsible="offcanvas" {...props}>
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                className="data-[slot=sidebar-menu-button]:!p-1.5"
+              >
+                <Link href="/">
+                  <IconInnerShadowTop className="!size-5" />
+                  <span className="text-base font-semibold">Trade Manager</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+        <SidebarContent>
+          <NavMain items={data.navMain} />
+          <NavSecondary items={data.navSecondary} className="mt-auto" />
+        </SidebarContent>
+        <SidebarFooter>
+          <NavUser user={userData} />
+        </SidebarFooter>
+      </Sidebar>
+    )
+  }
+
+  // Vérifier que les données utilisateur sont complètes et que l'utilisateur est authentifié
+  // IMPORTANT: Ne jamais afficher les valeurs par défaut si loading est true
+  const hasValidUserData = !loading && 
+    isAuthenticated && 
+    user && 
+    typeof user.first_name === 'string' && user.first_name.trim() !== '' &&
+    typeof user.last_name === 'string' && user.last_name.trim() !== '' &&
+    typeof user.email === 'string' && user.email.trim() !== ''
+
+  // Données utilisateur - seulement afficher les vraies données si authentifié ET loading est false
+  // Si loading est true, on est déjà sorti plus haut avec "Chargement..."
+  const userData = hasValidUserData ? {
     name: `${user.first_name} ${user.last_name}`,
+    first_name: user.first_name,
+    last_name: user.last_name,
     email: user.email,
-    avatar: user.profile_image || '/avatars/default-avatar.jpg'
+    avatar: user.profile_image || ' '
   } : {
-    name: 'Utilisateur',
-    email: 'user@example.com',
-    avatar: '/avatars/default-avatar.jpg'
+    // Si on arrive ici et que loading est false, c'est qu'on n'est pas authentifié
+    // On affiche des valeurs génériques (mais jamais pendant le chargement)
+    name: t('common.loading'),
+    first_name: t('common.loading'),
+    last_name: '',
+    email: '',
+    avatar: ' '
   }
 
   return (

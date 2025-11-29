@@ -3,27 +3,27 @@ import Link from 'next/link'
 
 const links = [
     {
-        title: 'Features',
+        title: 'Fonctionnalités',
+        href: '#features',
+    },
+    {
+        title: 'Analytics',
+        href: '/analytics',
+    },
+    {
+        title: 'Tarifs',
+        href: '#pricing',
+    },
+    {
+        title: 'Documentation',
         href: '#',
     },
     {
-        title: 'Solution',
+        title: 'Support',
         href: '#',
     },
     {
-        title: 'Customers',
-        href: '#',
-    },
-    {
-        title: 'Pricing',
-        href: '#',
-    },
-    {
-        title: 'Help',
-        href: '#',
-    },
-    {
-        title: 'About',
+        title: 'À propos',
         href: '#',
     },
 ]
@@ -158,7 +158,7 @@ export default function FooterSection() {
                         </svg>
                     </Link>
                 </div>
-                <span className="text-muted-foreground block text-center text-sm"> © {new Date().getFullYear()} Tailark, All rights reserved</span>
+                <span className="text-muted-foreground block text-center text-sm"> © {new Date().getFullYear()} Trade Manager, Tous droits réservés</span>
             </div>
         </footer>
     )

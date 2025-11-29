@@ -1,7 +1,8 @@
 'use client'
 import Link from 'next/link'
 import { Logo } from '@/components/logo'
-import { Menu, X, User } from 'lucide-react'
+import { Menu, X,  } from 'lucide-react'
+import { IconDashboard } from "@tabler/icons-react"
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -15,7 +16,7 @@ import {
 import React from 'react'
 import { cn } from '@/lib/utils'
 import { ModeToggle } from '@/components/modal-toggle'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/contexts/AuthContext'
 const menuItems = [
     { name: 'Features', href: '#link' },
     { name: 'Solution', href: '#link' },
@@ -87,7 +88,7 @@ export const HeroHeader = () => {
                                     ))}
                                 </ul>
                             </div>
-                            <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
+                            <div className="flex w-full items-center flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
                                 {!isAuthenticated ? (
                                     <>
                                         <Button
@@ -117,12 +118,12 @@ export const HeroHeader = () => {
                                                     variant="ghost"
                                                     size="sm"
                                                     className="relative h-8 w-8 rounded-full">
-                                                    <Avatar className="h-8 w-8">
+                                                    <Avatar className="h-10 w-10">
                                                         <AvatarImage 
                                                             src={user?.profile_image || '/avatars/default-avatar.jpg'} 
                                                             alt={user?.first_name || 'User'} 
                                                         />
-                                                        <AvatarFallback>
+                                                        <AvatarFallback className='dark:text-white text-gray-900'>
                                                             {user?.first_name?.[0]}{user?.last_name?.[0]}
                                                         </AvatarFallback>
                                                     </Avatar>
@@ -142,7 +143,7 @@ export const HeroHeader = () => {
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem asChild>
                                                     <Link href="/dashboard">
-                                                        <User className="mr-2 h-4 w-4" />
+                                                        <IconDashboard className="mr-2 h-4 w-4" />
                                                         <span>Dashboard</span>
                                                     </Link>
                                                 </DropdownMenuItem>
