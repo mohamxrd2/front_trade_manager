@@ -5,7 +5,7 @@ import { type Icon } from "@tabler/icons-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { useState, useLayoutEffect } from "react"
+import { useState } from "react"
 
 import {
   SidebarGroup,
@@ -26,11 +26,7 @@ export function NavSecondary({
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   const pathname = usePathname()
-  const [mounted, setMounted] = useState(false)
-
-  useLayoutEffect(() => {
-    setMounted(true)
-  }, [])
+  const [mounted] = useState(() => typeof window !== 'undefined')
 
   if (!mounted) {
     return (
@@ -44,8 +40,11 @@ export function NavSecondary({
                   className="transition-all duration-200 ease-in-out hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   <Link href={item.url}>
-                    <item.icon className="transition-colors duration-200 text-gray-500 dark:text-gray-400" />
-                    <span>{item.title}</span>
+                    <item.icon 
+                      className="transition-colors duration-200 text-gray-500 dark:text-gray-400 h-4 w-4" 
+                      strokeWidth={1.5}
+                    />
+                    <span className="text-sm">{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -76,13 +75,14 @@ export function NavSecondary({
                   <Link href={item.url}>
                     <item.icon 
                       className={cn(
-                        "transition-colors duration-200",
+                        "transition-colors duration-200 h-4 w-4",
                         isActive
                           ? "text-green-600 dark:text-green-300"
                           : "text-gray-500 dark:text-gray-400"
                       )}
+                      strokeWidth={1.5}
                     />
-                    <span>{item.title}</span>
+                    <span className="text-sm">{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { useLanguage } from '@/lib/i18n/context/LanguageContext'
 import { useSettings } from '@/contexts/SettingsContext'
+import api from '@/lib/api'
 import {
   Card,
   CardContent,
@@ -52,6 +54,15 @@ import {
   Loader2,
 } from 'lucide-react'
 import { ModeToggle } from '@/components/modal-toggle'
+import { getTransactionsForStats } from '@/lib/services/statistics'
+import { type ApiTransaction } from '@/lib/services/transactions'
+import { getArticles } from '@/lib/services/articles'
+import { 
+  exportToCSV, 
+  exportToExcel, 
+  formatTransactionsForExport, 
+  formatProductsForExport 
+} from '@/lib/utils/export'
 
 interface SettingsState {
   // Interface
@@ -133,6 +144,7 @@ const loadSettings = (): SettingsState => {
 
 export default function SettingsPage() {
   const { theme } = useTheme()
+  const router = useRouter()
   const { t } = useTranslation()
   const { language, setLanguage } = useLanguage()
   const { settings: apiSettings, loading: settingsLoading, updateSettings } = useSettings()
@@ -140,11 +152,16 @@ export default function SettingsPage() {
   const [mounted] = useState(() => typeof window !== 'undefined')
   const [showResetSettingsDialog, setShowResetSettingsDialog] = useState(false)
   const [showResetDataDialog, setShowResetDataDialog] = useState(false)
+  const [isResettingSettings, setIsResettingSettings] = useState(false)
+  const [isResettingData, setIsResettingData] = useState(false)
   
   // État local pour le seuil de stock faible (avec bouton Enregistrer)
   const [localLowStockThreshold, setLocalLowStockThreshold] = useState<number>(80)
   const [isSavingThreshold, setIsSavingThreshold] = useState(false)
   const [hasThresholdChanges, setHasThresholdChanges] = useState(false)
+  
+  // État pour les exports
+  const [isExporting, setIsExporting] = useState<string | null>(null)
   
   // Initialiser la valeur locale depuis les settings API
   useEffect(() => {
@@ -327,77 +344,307 @@ export default function SettingsPage() {
     toast.success(t('settings.backup.saveFrequencyChanged', { frequency: frequencyLabel }))
   }
 
-  const handleResetSettings = () => {
-    setSettings(defaultSettings)
-    setShowResetSettingsDialog(false)
-    toast.success(t('settings.reset.settingsResetSuccess'))
+  /**
+   * Réinitialiser les réglages (remettre low_stock_threshold à 80)
+   */
+  const handleResetSettings = async () => {
+    setIsResettingSettings(true)
+    try {
+      // Mettre à jour uniquement le low_stock_threshold à 80
+      await updateSettings({
+        low_stock_threshold: 80,
+      })
+
+      // Mettre à jour aussi la valeur locale
+      setLocalLowStockThreshold(80)
+      setHasThresholdChanges(false)
+
+      toast.success(t('settings.reset.settingsResetSuccess'), {
+        description: 'Le seuil de stock faible a été remis à 80%',
+      })
+
+      setShowResetSettingsDialog(false)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Impossible de réinitialiser les réglages'
+      toast.error(t('common.error'), {
+        description: errorMessage,
+      })
+    } finally {
+      setIsResettingSettings(false)
+    }
   }
 
+  /**
+   * Réinitialiser toutes les données (supprimer transactions et produits)
+   */
   const handleResetData = async () => {
+    setIsResettingData(true)
     try {
-      // TODO: Appeler l'API pour supprimer toutes les données
-      // await api.delete('/api/reset-data')
-      setShowResetDataDialog(false)
+      toast.info('Suppression en cours...', {
+        description: 'Récupération des données',
+      })
+
+      // Récupérer toutes les transactions
+      const transactions = await fetchAllTransactions()
+
+      // Récupérer tous les produits
+      const products = await fetchAllProducts()
+
+      if (transactions.length === 0 && products.length === 0) {
+        toast.warning('Aucune donnée', {
+          description: 'Aucune donnée à supprimer',
+        })
+        setShowResetDataDialog(false)
+        return
+      }
+
+      toast.info('Suppression en cours...', {
+        description: `Suppression de ${transactions.length} transaction(s) et ${products.length} produit(s)`,
+      })
+
+      // Supprimer toutes les transactions en parallèle (par lots de 10)
+      const transactionBatches = []
+      for (let i = 0; i < transactions.length; i += 10) {
+        transactionBatches.push(
+          Promise.all(
+            transactions.slice(i, i + 10).map(transaction =>
+              api.delete(`/api/transactions/${transaction.id}`)
+            )
+          )
+        )
+      }
+      await Promise.all(transactionBatches)
+
+      // Supprimer tous les produits en parallèle (par lots de 10)
+      const articleBatches = []
+      for (let i = 0; i < products.length; i += 10) {
+        articleBatches.push(
+          Promise.all(
+            products.slice(i, i + 10).map(article =>
+              api.delete(`/api/articles/${article.id}`)
+            )
+          )
+        )
+      }
+      await Promise.all(articleBatches)
+
       toast.success(t('settings.reset.dataResetSuccess'), {
-        description: t('settings.reset.dataResetDescription'),
+        description: `${transactions.length} transaction(s) et ${products.length} produit(s) supprimé(s)`,
       })
-    } catch {
+
+      setShowResetDataDialog(false)
+
+      // Rafraîchir la page pour mettre à jour les données
+      router.refresh()
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : t('settings.reset.resetError')
       toast.error(t('common.error'), {
-        description: t('settings.reset.resetError'),
+        description: errorMessage,
       })
+    } finally {
+      setIsResettingData(false)
     }
   }
 
+  /**
+   * Récupère toutes les transactions depuis l'API
+   */
+  const fetchAllTransactions = async (): Promise<ApiTransaction[]> => {
+    try {
+      const transactions = await getTransactionsForStats()
+      return transactions
+    } catch (error) {
+      console.error('Erreur lors de la récupération des transactions:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Récupère tous les produits depuis l'API
+   */
+  const fetchAllProducts = async () => {
+    try {
+      const products = await getArticles()
+      return products
+    } catch (error) {
+      console.error('Erreur lors de la récupération des produits:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Exporte les transactions en CSV
+   */
   const handleExportTransactionsCSV = async () => {
+    setIsExporting('transactions-csv')
     try {
-      // TODO: Appeler l'API pour exporter
-      // const response = await api.get('/api/transactions/export', { params: { format: 'csv' } })
+      toast.info('Export en cours...', {
+        description: 'Récupération des transactions',
+      })
+
+      // Récupérer toutes les transactions
+      const transactions = await fetchAllTransactions()
+
+      if (transactions.length === 0) {
+        toast.warning('Aucune donnée', {
+          description: 'Aucune transaction à exporter',
+        })
+        return
+      }
+
+      // Formater les données
+      const formattedData = formatTransactionsForExport(
+        transactions,
+        apiSettings?.currency || 'FCFA'
+      )
+
+      // Exporter en CSV
+      exportToCSV(formattedData, `transactions_${new Date().toISOString().split('T')[0]}`)
+
       toast.success(t('settings.export.exportSuccess'), {
-        description: t('settings.export.transactionsExportCSVSuccess'),
+        description: `${transactions.length} transaction(s) exportée(s) en CSV`,
       })
-    } catch {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : t('settings.export.transactionsExportError')
       toast.error(t('common.error'), {
-        description: t('settings.export.transactionsExportError'),
+        description: errorMessage,
       })
+    } finally {
+      setIsExporting(null)
     }
   }
 
+  /**
+   * Exporte les transactions en Excel
+   */
   const handleExportTransactionsExcel = async () => {
+    setIsExporting('transactions-excel')
     try {
-      // TODO: Appeler l'API pour exporter
+      toast.info('Export en cours...', {
+        description: 'Récupération des transactions',
+      })
+
+      // Récupérer toutes les transactions
+      const transactions = await fetchAllTransactions()
+
+      if (transactions.length === 0) {
+        toast.warning('Aucune donnée', {
+          description: 'Aucune transaction à exporter',
+        })
+        return
+      }
+
+      // Formater les données
+      const formattedData = formatTransactionsForExport(
+        transactions,
+        apiSettings?.currency || 'FCFA'
+      )
+
+      // Exporter en Excel
+      exportToExcel(
+        formattedData, 
+        `transactions_${new Date().toISOString().split('T')[0]}`,
+        'Transactions'
+      )
+
       toast.success(t('settings.export.exportSuccess'), {
-        description: t('settings.export.transactionsExportExcelSuccess'),
+        description: `${transactions.length} transaction(s) exportée(s) en Excel`,
       })
-    } catch {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : t('settings.export.transactionsExportError')
       toast.error(t('common.error'), {
-        description: t('settings.export.transactionsExportError'),
+        description: errorMessage,
       })
+    } finally {
+      setIsExporting(null)
     }
   }
 
+  /**
+   * Exporte les produits en CSV
+   */
   const handleExportProductsCSV = async () => {
+    setIsExporting('products-csv')
     try {
-      // TODO: Appeler l'API pour exporter
+      toast.info('Export en cours...', {
+        description: 'Récupération des produits',
+      })
+
+      // Récupérer tous les produits
+      const products = await fetchAllProducts()
+
+      if (products.length === 0) {
+        toast.warning('Aucune donnée', {
+          description: 'Aucun produit à exporter',
+        })
+        return
+      }
+
+      // Formater les données
+      const formattedData = formatProductsForExport(
+        products, 
+        apiSettings?.currency || 'FCFA'
+      )
+
+      // Exporter en CSV
+      exportToCSV(formattedData, `produits_${new Date().toISOString().split('T')[0]}`)
+
       toast.success(t('settings.export.exportSuccess'), {
-        description: t('settings.export.productsExportCSVSuccess'),
+        description: `${products.length} produit(s) exporté(s) en CSV`,
       })
-    } catch {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : t('settings.export.productsExportError')
       toast.error(t('common.error'), {
-        description: t('settings.export.productsExportError'),
+        description: errorMessage,
       })
+    } finally {
+      setIsExporting(null)
     }
   }
 
+  /**
+   * Exporte les produits en Excel
+   */
   const handleExportProductsExcel = async () => {
+    setIsExporting('products-excel')
     try {
-      // TODO: Appeler l'API pour exporter
+      toast.info('Export en cours...', {
+        description: 'Récupération des produits',
+      })
+
+      // Récupérer tous les produits
+      const products = await fetchAllProducts()
+
+      if (products.length === 0) {
+        toast.warning('Aucune donnée', {
+          description: 'Aucun produit à exporter',
+        })
+        return
+      }
+
+      // Formater les données
+      const formattedData = formatProductsForExport(
+        products, 
+        apiSettings?.currency || 'FCFA'
+      )
+
+      // Exporter en Excel
+      exportToExcel(
+        formattedData, 
+        `produits_${new Date().toISOString().split('T')[0]}`,
+        'Produits'
+      )
+
       toast.success(t('settings.export.exportSuccess'), {
-        description: t('settings.export.productsExportExcelSuccess'),
+        description: `${products.length} produit(s) exporté(s) en Excel`,
       })
-    } catch {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : t('settings.export.productsExportError')
       toast.error(t('common.error'), {
-        description: t('settings.export.productsExportError'),
+        description: errorMessage,
       })
+    } finally {
+      setIsExporting(null)
     }
   }
 
@@ -755,16 +1002,36 @@ export default function SettingsPage() {
                 <Button
                   variant="outline"
                   onClick={handleExportTransactionsCSV}
+                  disabled={isExporting === 'transactions-csv'}
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('settings.export.exportCSV')}
+                  {isExporting === 'transactions-csv' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Export...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      {t('settings.export.exportCSV')}
+                    </>
+                  )}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={handleExportTransactionsExcel}
+                  disabled={isExporting === 'transactions-excel'}
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('settings.export.exportExcel')}
+                  {isExporting === 'transactions-excel' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Export...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      {t('settings.export.exportExcel')}
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -774,13 +1041,39 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label>{t('settings.export.exportProducts')}</Label>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" onClick={handleExportProductsCSV}>
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('settings.export.exportCSV')}
+                <Button 
+                  variant="outline" 
+                  onClick={handleExportProductsCSV}
+                  disabled={isExporting === 'products-csv'}
+                >
+                  {isExporting === 'products-csv' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Export...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      {t('settings.export.exportCSV')}
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" onClick={handleExportProductsExcel}>
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('settings.export.exportExcel')}
+                <Button 
+                  variant="outline" 
+                  onClick={handleExportProductsExcel}
+                  disabled={isExporting === 'products-excel'}
+                >
+                  {isExporting === 'products-excel' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Export...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      {t('settings.export.exportExcel')}
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -892,18 +1185,33 @@ export default function SettingsPage() {
           <DialogHeader>
             <DialogTitle>{t('settings.reset.resetSettings')}</DialogTitle>
             <DialogDescription>
-              {t('settings.reset.resetSettingsConfirm')}
+              Êtes-vous sûr de vouloir réinitialiser les réglages ? Le seuil de stock faible sera remis à 80%.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setShowResetSettingsDialog(false)}
+              disabled={isResettingSettings}
             >
               {t('common.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleResetSettings}>
-              {t('settings.reset.resetSettings')}
+            <Button
+              variant="default"
+              onClick={handleResetSettings}
+              disabled={isResettingSettings}
+            >
+              {isResettingSettings ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Réinitialisation...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Confirmer
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -913,20 +1221,52 @@ export default function SettingsPage() {
       <Dialog open={showResetDataDialog} onOpenChange={setShowResetDataDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('settings.reset.resetData')}</DialogTitle>
-            <DialogDescription>
-              {t('settings.reset.resetDataConfirm')}
+            <DialogTitle className="text-destructive">
+              {t('settings.reset.resetData')}
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2">
+                <p className="font-semibold text-destructive">
+                  ⚠️ ATTENTION : Cette action est irréversible !
+                </p>
+                <p>
+                  Vous êtes sur le point de supprimer :
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-4">
+                  <li>Toutes vos transactions (ventes et dépenses)</li>
+                  <li>Tous vos produits (articles simples et variables)</li>
+                  <li>Toutes les variations des articles variables</li>
+                </ul>
+                <p className="mt-2 font-semibold">
+                  Cette action ne peut pas être annulée. Êtes-vous absolument sûr ?
+                </p>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setShowResetDataDialog(false)}
+              disabled={isResettingData}
             >
               {t('common.cancel')}
             </Button>
-            <Button variant="destructive" onClick={handleResetData}>
-              {t('settings.reset.resetData')}
+            <Button
+              variant="destructive"
+              onClick={handleResetData}
+              disabled={isResettingData}
+            >
+              {isResettingData ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Supprimer définitivement
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

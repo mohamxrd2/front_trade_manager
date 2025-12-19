@@ -20,6 +20,7 @@ import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
+import { useNotifications } from "@/hooks/useNotifications"
 import Link from "next/link"
 import {
   Sidebar,
@@ -120,39 +121,15 @@ const getNavData = (t: (key: string) => string) => ({
       url: "/settings",
       icon: IconSettings,
     },
-    // {
-    //   title: "Reports",
-    //   url: "/reports",
-    //   icon: IconReport,
-    // },
-    // {
-    //   title: "Customers",
-    //   url: "/customers",
-    //   icon: IconUsers,
-    // },
+ 
   ],
-  // documents: [
-  //   {
-  //     name: "Data Library",
-  //     url: "/data-library",
-  //     icon: IconDatabase,
-  //   },
-  //   {
-  //     name: "Reports",
-  //     url: "/reports",
-  //     icon: IconReport,
-  //   },
-  //   {
-  //     name: "Word Assistant",
-  //     url: "/word-assistant",
-  //     icon: IconFileWord,
-  //   },
-  // ],
+
 })
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, loading, isAuthenticated } = useAuth()
   const { t } = useTranslation()
+  const { unreadCount } = useNotifications()
   const data = getNavData(t)
 
   // Pendant le chargement, ne pas afficher de données fallback
@@ -237,9 +214,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarHeader>
+        </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={data.navMain} unreadNotificationCount={unreadCount} />
         {/* <NavDocuments items={data.documents} /> */}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
