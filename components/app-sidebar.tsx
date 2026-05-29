@@ -8,10 +8,12 @@ import {
   IconDatabase,
   IconFileAi,
   IconFileDescription,
+  IconFileInvoice,
   IconInnerShadowTop,
   IconListDetails,
   IconSettings,
   IconUsers,
+  IconUsersGroup,
   IconBell,
 } from "@tabler/icons-react"
 
@@ -54,6 +56,16 @@ const getNavData = (t: (key: string) => string) => ({
       title: t("nav.products"),
       url: "/products",
       icon: IconListDetails,
+    },
+    {
+      title: t("nav.invoices"),
+      url: "/invoices",
+      icon: IconFileInvoice,
+    },
+    {
+      title: t("nav.clients"),
+      url: "/clients",
+      icon: IconUsersGroup,
     },
     {
       title: t("nav.collaborators"),
@@ -217,7 +229,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} unreadNotificationCount={unreadCount} />
-        {/* <NavDocuments items={data.documents} /> */}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

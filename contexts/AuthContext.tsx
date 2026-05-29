@@ -69,61 +69,63 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   /**
    * Vérifie l'état d'authentification en appelant getUser()
-   * Retourne null si non authentifié (401), sinon retourne l'utilisateur
+   * 
+   * Comportement:
+   * - getUser() retourne null si non authentifié (401) → état normal, pas d'erreur
+   * - getUser() retourne User si authentifié
+   * - getUser() peut throw uniquement pour les vraies erreurs (500, etc.)
    */
   const checkAuth = useCallback(async (): Promise<void> => {
-    try {
-      if (typeof window === 'undefined') {
-        return
-      }
+    if (typeof window === 'undefined') {
+      return
+    }
 
+    try {
+      // getUser() retourne null si 401 (non authentifié) - c'est normal
       const userData = await getUser()
 
       if (userData) {
-        // Utilisateur authentifié
+        // ✅ Utilisateur authentifié
         setUser(userData)
         setIsAuthenticated(true)
         
         // Vérifier l'onboarding si l'utilisateur est connecté
-        // Ne rediriger que si on n'est pas déjà sur la page d'onboarding ou de login
         const currentPath = window.location.pathname
-        if (currentPath !== '/onboarding' && currentPath !== '/login' && currentPath !== '/register') {
+        const skipOnboardingCheck = ['/onboarding', '/login', '/register', '/'].includes(currentPath)
+        
+        if (!skipOnboardingCheck) {
           try {
             const onboardingStatus = await checkOnboardingService()
             
             if (!onboardingStatus.is_complete) {
-              // Rediriger vers l'onboarding si non complété
               router.push('/onboarding')
             }
           } catch (onboardingError) {
-            // Si erreur 404, l'onboarding n'existe pas encore, rediriger vers onboarding
+            // Si erreur 404, l'onboarding n'existe pas encore
             const axiosError = onboardingError as { response?: { status?: number } }
             if (axiosError?.response?.status === 404) {
               router.push('/onboarding')
             }
-            // Pour les autres erreurs, ne rien faire (on laisse l'utilisateur continuer)
+            // Pour les autres erreurs, continuer silencieusement
           }
         }
       } else {
-        // Non authentifié (401)
+        // ✅ Non authentifié (getUser a retourné null)
+        // C'est un état NORMAL après déconnexion ou première visite
+        // Pas de log d'erreur ici
         setUser(null)
         setIsAuthenticated(false)
       }
     } catch (error: unknown) {
-      // Erreur réseau ou serveur (pas 401)
-      const err = error as Error & { code?: string; response?: { status?: number } }
-      const isNetworkError = err?.code === 'ERR_NETWORK' || !err?.response
-
-      if (process.env.NODE_ENV !== 'production' && isNetworkError) {
-        console.debug('Erreur réseau lors de la vérification de session:', err?.message || 'Serveur inaccessible')
+      // ⚠️ Vraie erreur (500, etc.) - getUser a throw
+      // Ne devrait presque jamais arriver car getUser gère les erreurs réseau
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('checkAuth: Erreur inattendue', error)
       }
-
-      // En cas d'erreur réseau, on ne change pas l'état (on ne sait pas si on est connecté ou non)
-      // En cas d'erreur serveur autre que 401, on considère comme non authentifié
-      if (!isNetworkError) {
-        setUser(null)
-        setIsAuthenticated(false)
-      }
+      
+      // En cas d'erreur, considérer comme non authentifié
+      setUser(null)
+      setIsAuthenticated(false)
     }
   }, [router])
 

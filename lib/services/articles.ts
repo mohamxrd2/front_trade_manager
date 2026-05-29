@@ -595,6 +595,255 @@ export async function deleteArticle(id: string | number): Promise<{ success: boo
  * @returns L'article modifié avec les données complètes
  * @throws Erreur si la requête échoue (404, 403, 422 validation, 500 serveur, etc.)
  */
+// ============================================================================
+// GESTION DU STOCK
+// ============================================================================
+
+/**
+ * Utilisateur ayant effectué un réapprovisionnement
+ */
+export interface StockHistoryUser {
+  id: string
+  first_name: string
+  last_name: string
+  username: string
+}
+
+/**
+ * Entrée de l'historique de réapprovisionnement
+ */
+export interface StockHistoryEntry {
+  id: string
+  user_id: string
+  article_id: string
+  quantity_added: number
+  note: string | null
+  created_at: string
+  updated_at: string
+  user: StockHistoryUser
+}
+
+/**
+ * Résumé de l'historique de stock
+ */
+export interface StockHistorySummary {
+  total_replenished: number
+  replenishment_count: number
+}
+
+/**
+ * Réponse complète de l'API stock-history
+ */
+export interface StockHistoryResponse {
+  success: boolean
+  message: string
+  data: {
+    article: {
+      id: string
+      name: string
+      current_quantity: number
+    }
+    history: StockHistoryEntry[]
+    summary: StockHistorySummary
+    pagination: {
+      current_page: number
+      per_page: number
+      total: number
+      last_page: number
+    }
+  }
+}
+
+/**
+ * Payload pour ajouter du stock
+ */
+export interface AddStockPayload {
+  quantity: number
+}
+
+/**
+ * Ajoute du stock à un article
+ * 
+ * @param articleId - L'ID de l'article
+ * @param quantity - La quantité à ajouter (doit être >= 1)
+ * @returns L'article mis à jour
+ * @throws Erreur si la requête échoue (422 validation, 401 non authentifié, 500 serveur)
+ */
+export async function addStock(articleId: string | number, quantity: number): Promise<Article> {
+  try {
+    const response = await api.post<{ success: boolean; message: string; data: Article }>(
+      `/api/articles/${articleId}/add-stock`,
+      { quantity }
+    )
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('✅ Stock ajouté avec succès:', {
+        articleId,
+        quantity,
+        newTotal: response.data.data.quantity,
+      })
+    }
+    
+    return response.data.data
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError<{ 
+      message?: string
+      errors?: ValidationErrors
+    }>
+
+    // Erreur 422 : Validation (quantity invalide)
+    if (axiosError.response?.status === 422) {
+      const validationError = new Error(
+        axiosError.response.data.message || 'La quantité doit être supérieure à 0'
+      ) as Error & {
+        status: number
+        errors: ValidationErrors
+      }
+      validationError.status = 422
+      validationError.errors = axiosError.response.data.errors || {}
+      throw validationError
+    }
+
+    // Erreur 404 : Article non trouvé
+    if (axiosError.response?.status === 404) {
+      throw new Error('Article non trouvé')
+    }
+
+    // Erreur 401 : Non authentifié
+    if (isSilentError(error)) {
+      throw error
+    }
+    
+    if (axiosError.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
+      throw new Error('Non authentifié')
+    }
+
+    // Erreur 500 : Erreur serveur
+    if (axiosError.response?.status === 500) {
+      const errorMessage = axiosError.response?.data?.message || 'Erreur serveur'
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('🚨 Erreur 500 lors de l\'ajout de stock:', errorMessage)
+      }
+      throw new Error(`Erreur serveur: ${errorMessage}`)
+    }
+
+    // Autres erreurs
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('🚨 Erreur lors de l\'ajout de stock:', error)
+    }
+
+    throw error
+  }
+}
+
+/**
+ * Récupère l'historique de réapprovisionnement d'un article
+ * 
+ * @param articleId - L'ID de l'article
+ * @returns Objet contenant l'historique, le résumé et les infos article
+ */
+export async function getStockHistory(articleId: string | number): Promise<{
+  history: StockHistoryEntry[]
+  summary: StockHistorySummary
+  article: { id: string; name: string; current_quantity: number } | null
+}> {
+  try {
+    const response = await api.get<StockHistoryResponse>(
+      `/api/articles/${articleId}/stock-history`
+    )
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('📦 Stock history API response:', response.data)
+    }
+
+    // Extraire les données de la structure imbriquée
+    // Structure: response.data.data.history (pas response.data.history)
+    const responseData = response.data
+    
+    if (!responseData.success || !responseData.data) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('⚠️ Réponse API stock-history invalide:', responseData)
+      }
+      return {
+        history: [],
+        summary: { total_replenished: 0, replenishment_count: 0 },
+        article: null
+      }
+    }
+
+    const { history, summary, article } = responseData.data
+    
+    // Trier par date décroissante (plus récent en premier)
+    const sortedHistory = [...(history || [])].sort((a, b) => {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('✅ Historique de stock récupéré:', {
+        articleId,
+        entries: sortedHistory.length,
+        totalReplenished: summary?.total_replenished || 0,
+      })
+    }
+    
+    return {
+      history: sortedHistory,
+      summary: summary || { total_replenished: 0, replenishment_count: 0 },
+      article: article || null
+    }
+  } catch (error: unknown) {
+    const axiosError = error as AxiosError<{ message?: string }>
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('❌ Erreur getStockHistory:', {
+        status: axiosError.response?.status,
+        message: axiosError.message,
+        data: axiosError.response?.data
+      })
+    }
+
+    // Erreur 404 : Pas d'historique ou article non trouvé → retourner objet vide
+    if (axiosError.response?.status === 404) {
+      return {
+        history: [],
+        summary: { total_replenished: 0, replenishment_count: 0 },
+        article: null
+      }
+    }
+
+    // Erreur 401 : Non authentifié
+    if (isSilentError(error)) {
+      throw error
+    }
+    
+    if (axiosError.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
+      throw new Error('Non authentifié')
+    }
+
+    // Erreur 500 : Erreur serveur
+    if (axiosError.response?.status === 500) {
+      throw new Error('Erreur serveur lors du chargement de l\'historique')
+    }
+
+    // Pour les autres erreurs, retourner un objet vide pour ne pas bloquer l'UI
+    return {
+      history: [],
+      summary: { total_replenished: 0, replenishment_count: 0 },
+      article: null
+    }
+  }
+}
+
+// ============================================================================
+// MODIFICATION D'ARTICLE
+// ============================================================================
+
 export async function updateArticle(id: string | number, data: UpdateArticlePayload): Promise<Article> {
   try {
     const response = await api.put<ArticleCreateResponse>(`/api/articles/${id}`, data)

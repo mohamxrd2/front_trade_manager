@@ -50,6 +50,8 @@ import { toast } from 'sonner'
 import { type ApiTransaction } from '@/lib/services/transactions'
 import { createVariation, getVariations, deleteVariation, type Variation } from '@/lib/services/variations'
 import { deleteArticle, type Article } from '@/lib/services/articles'
+import { AddStockDialog } from '@/components/products/add-stock-dialog'
+import { StockHistoryList } from '@/components/products/stock-history-list'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { EditArticleDialog } from '@/components/products/edit-article-dialog'
 import api from '@/lib/api'
@@ -100,6 +102,10 @@ export default function ProductDetailPage() {
   const [editVariationDialogOpen, setEditVariationDialogOpen] = useState(false)
   const [deleteVariationDialogOpen, setDeleteVariationDialogOpen] = useState(false)
   const [variationToDelete, setVariationToDelete] = useState<Variation | null>(null)
+
+  // États pour l'ajout de stock
+  const [addStockDialogOpen, setAddStockDialogOpen] = useState(false)
+  const [stockHistoryRefreshKey, setStockHistoryRefreshKey] = useState(0)
 
   // Charger les transactions de vente et les variations pour cet article
   useEffect(() => {
@@ -265,6 +271,26 @@ export default function ProductDetailPage() {
     await fetchVariations()
     
     toast.success(t('products.variationUpdated'))
+  }
+
+  // Fonction pour gérer le succès de l'ajout de stock
+  const handleAddStockSuccess = async () => {
+    // ⚡ Rafraîchir l'historique de stock IMMÉDIATEMENT (avant les await)
+    // Cela garantit que le useEffect du composant StockHistoryList se déclenche
+    setStockHistoryRefreshKey(prev => prev + 1)
+    
+    // Recharger l'article depuis SWR (en parallèle, non bloquant pour l'historique)
+    mutateArticle()
+    
+    // Invalider les caches pour mettre à jour les statistiques (en parallèle)
+    Promise.all([
+      invalidateArticles(),
+      invalidateUserStats(),
+    ]).catch(err => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('Erreur lors de l\'invalidation du cache:', err)
+      }
+    })
   }
 
   // Fonction pour gérer la suppression d'une variation
@@ -454,6 +480,14 @@ export default function ProductDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button 
+              size="sm"
+              onClick={() => setAddStockDialogOpen(true)}
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t('products.addStock')}
+            </Button>
             <Button 
               variant="outline" 
               size="sm"
@@ -939,6 +973,12 @@ export default function ProductDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Historique de réapprovisionnement */}
+            <StockHistoryList 
+              articleId={productId} 
+              refreshKey={stockHistoryRefreshKey}
+            />
           </div>
         </div>
       </div>
@@ -1013,6 +1053,16 @@ export default function ProductDetailPage() {
             setEditingVariation(null)
           }}
           onSuccess={handleEditVariationSuccess}
+        />
+      )}
+
+      {/* Modal d'ajout de stock */}
+      {article && (
+        <AddStockDialog
+          article={article}
+          open={addStockDialogOpen}
+          onClose={() => setAddStockDialogOpen(false)}
+          onSuccess={handleAddStockSuccess}
         />
       )}
 

@@ -121,38 +121,224 @@
   }
 }
 
-/* Styles pour nprogress */
+/* ============================================================================
+   STYLES NPROGRESS - Barre de progression intelligente (vert boutons)
+   ============================================================================ */
+
 #nprogress {
   pointer-events: none;
-  z-index: 9999;
+  z-index: 99999;
 }
 
+/* Barre principale - Gradient vert comme les boutons */
 #nprogress .bar {
-  background: hsl(var(--primary)) !important;
   position: fixed !important;
-  z-index: 9999 !important;
+  z-index: 99999 !important;
   top: 0 !important;
   left: 0 !important;
   width: 100% !important;
   height: 3px !important;
-  transition: width 0.35s ease !important;
+  
+  /* Gradient vert identique aux boutons (green-500 → green-600) */
+  background: linear-gradient(
+    90deg,
+    #22c55e 0%,
+    #16a34a 100%
+  ) !important;
+  
+  /* Animation fluide */
+  transition: width 0.2s ease-out, opacity 0.2s ease !important;
+  
+  /* Ombre verte subtile pour profondeur */
+  box-shadow: 
+    0 0 10px rgba(34, 197, 94, 0.6),
+    0 0 5px rgba(22, 163, 74, 0.4) !important;
 }
 
+/* Mode sombre - vert légèrement plus lumineux */
+.dark #nprogress .bar {
+  background: linear-gradient(
+    90deg,
+    #4ade80 0%,
+    #22c55e 100%
+  ) !important;
+  
+  box-shadow: 
+    0 0 12px rgba(74, 222, 128, 0.7),
+    0 0 6px rgba(34, 197, 94, 0.5) !important;
+}
+
+/* Effet de lueur verte à l'extrémité */
 #nprogress .peg {
   display: block !important;
   position: absolute !important;
-  right: 0px !important;
-  width: 100px !important;
+  right: 0 !important;
+  width: 120px !important;
   height: 100% !important;
-  box-shadow: 0 0 10px hsl(var(--primary)), 0 0 5px hsl(var(--primary)) !important;
-  opacity: 1.0 !important;
-  transform: rotate(3deg) translate(0px, -4px) !important;
+  opacity: 1 !important;
+  
+  /* Lueur verte */
+  box-shadow: 
+    0 0 15px rgba(34, 197, 94, 0.9),
+    0 0 8px rgba(22, 163, 74, 0.7),
+    0 0 4px rgba(74, 222, 128, 0.5) !important;
+  
+  /* Légère rotation pour effet dynamique */
+  transform: rotate(2deg) translate(1px, -2px) !important;
 }
 
-/* Masquer le spinner */
+.dark #nprogress .peg {
+  box-shadow: 
+    0 0 18px rgba(74, 222, 128, 0.9),
+    0 0 10px rgba(34, 197, 94, 0.7),
+    0 0 5px rgba(134, 239, 172, 0.5) !important;
+}
+
+/* Masquer le spinner (on utilise uniquement la barre) */
 #nprogress .spinner {
   display: none !important;
 }
 
+/* Animation pulse subtile pendant le chargement */
+@keyframes nprogress-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+#nprogress .bar {
+  animation: nprogress-pulse 1.5s ease-in-out infinite !important;
+}
+
+/* Responsive - barre légèrement plus épaisse sur mobile pour visibilité */
+@media (max-width: 640px) {
+  #nprogress .bar {
+    height: 4px !important;
+  }
+  
+  #nprogress .peg {
+    width: 80px !important;
+  }
+}
+
 /* Styles pour react-day-picker */
 @import 'react-day-picker/dist/style.css';
+
+/* ============================================================================
+   STYLES D'IMPRESSION
+   ============================================================================ */
+
+@media print {
+  /* Masquer les éléments non imprimables */
+  header,
+  nav,
+  aside,
+  footer,
+  .no-print,
+  button,
+  [data-sidebar],
+  [role="navigation"],
+  .fixed,
+  .sticky {
+    display: none !important;
+  }
+
+  /* Reset des couleurs pour l'impression */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Afficher le contenu principal en pleine largeur */
+  main,
+  .print-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Styles des cartes pour impression */
+  .card,
+  [class*="Card"] {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Tableaux */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 8px !important;
+  }
+
+  th {
+    background-color: #f5f5f5 !important;
+    font-weight: bold !important;
+  }
+
+  /* Couleurs de texte pour impression */
+  .text-muted-foreground {
+    color: #666 !important;
+  }
+
+  .text-green-600,
+  .text-green-700 {
+    color: #16a34a !important;
+  }
+
+  .text-red-600,
+  .text-red-700 {
+    color: #dc2626 !important;
+  }
+
+  /* Badges */
+  .badge,
+  [class*="Badge"] {
+    border: 1px solid currentColor !important;
+    background: transparent !important;
+  }
+
+  /* Liens */
+  a {
+    color: black !important;
+    text-decoration: none !important;
+  }
+
+  /* Images */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Éviter les coupures de page */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid !important;
+  }
+
+  /* Grille en colonne unique pour impression */
+  .grid {
+    display: block !important;
+  }
+
+  .grid > * {
+    margin-bottom: 1rem !important;
+  }
+
+  /* Marges d'impression */
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+}

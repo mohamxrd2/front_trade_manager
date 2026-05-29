@@ -1,113 +1,309 @@
-import axios, { type AxiosInstance, type InternalAxiosRequestConfig, type AxiosResponse } from 'axios'
+import axios, {
+  type AxiosInstance,
+  type AxiosError,
+  type InternalAxiosRequestConfig,
+  type AxiosResponse,
+} from 'axios'
+
+// ============================================================================
+// TYPES ET INTERFACES
+// ============================================================================
 
 /**
- * Configuration Axios pour Laravel Sanctum avec cookies HTTP-only
- * 
- * - baseURL: http://localhost:8000
- * - withCredentials: true (pour envoyer les cookies)
- * - Intercepteur pour récupérer automatiquement le cookie CSRF avant POST/PUT/DELETE
- * - Gestion du header X-XSRF-TOKEN pour les requêtes CSRF
+ * Types d'erreurs API possibles
  */
-const api: AxiosInstance = axios.create({
-  baseURL: 'http://localhost:8000',
+export enum ApiErrorType {
+  NETWORK = 'NETWORK_ERROR',
+  TIMEOUT = 'TIMEOUT_ERROR',
+  CORS = 'CORS_ERROR',
+  UNAUTHORIZED = 'UNAUTHORIZED',
+  FORBIDDEN = 'FORBIDDEN',
+  NOT_FOUND = 'NOT_FOUND',
+  VALIDATION = 'VALIDATION_ERROR',
+  SERVER = 'SERVER_ERROR',
+  CSRF = 'CSRF_ERROR',
+  UNKNOWN = 'UNKNOWN_ERROR',
+}
+
+/**
+ * Interface pour une erreur API structurée
+ */
+export interface ApiError extends Error {
+  type: ApiErrorType
+  status?: number
+  url?: string
+  silent?: boolean
+  isRetryable?: boolean
+  originalError?: AxiosError
+}
+
+/**
+ * Configuration du retry
+ */
+interface RetryConfig {
+  maxRetries: number
+  retryDelay: number
+  retryableStatuses: number[]
+}
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const API_CONFIG = {
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  timeout: 30000, // 30 secondes
   withCredentials: true,
   headers: {
-    'Accept': 'application/json',
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest',
   },
-})
+}
 
-// Variable pour stocker le token CSRF
+const RETRY_CONFIG: RetryConfig = {
+  maxRetries: 3,
+  retryDelay: 1000, // 1 seconde entre chaque retry
+  retryableStatuses: [408, 429, 500, 502, 503, 504], // Statuts HTTP retryables
+}
+
+// ============================================================================
+// ÉTAT GLOBAL
+// ============================================================================
+
 let xsrfToken: string | null = null
-
-// Variable pour éviter les appels CSRF multiples simultanés
 let csrfPromise: Promise<void> | null = null
-
-// Flag pour indiquer qu'on est en train de se déconnecter
 let isLoggingOut = false
-
-// Flag pour indiquer qu'une redirection vers /login est en cours
-// Cela permet d'éviter d'afficher des erreurs multiples lors de l'expiration de session
 let isRedirectingToLogin = false
 
-// Fonction pour définir le flag de déconnexion
-export function setLoggingOut(value: boolean) {
+// ============================================================================
+// FONCTIONS UTILITAIRES EXPORTÉES
+// ============================================================================
+
+export function setLoggingOut(value: boolean): void {
   isLoggingOut = value
 }
 
-// Fonction pour vérifier si on est en train de se déconnecter
 export function getIsLoggingOut(): boolean {
   return isLoggingOut
 }
 
-// Fonction pour définir le flag de redirection
-export function setRedirectingToLogin(value: boolean) {
+export function setRedirectingToLogin(value: boolean): void {
   isRedirectingToLogin = value
 }
 
-// Fonction pour vérifier si une redirection est en cours
 export function getIsRedirectingToLogin(): boolean {
   return isRedirectingToLogin
 }
 
+// ============================================================================
+// FONCTIONS UTILITAIRES INTERNES
+// ============================================================================
+
 /**
- * Extrait le token CSRF depuis les cookies de la réponse
- * Le cookie XSRF-TOKEN est envoyé par Laravel dans Set-Cookie
+ * Logger conditionnel (uniquement en dev)
  */
+const logger = {
+  debug: (...args: unknown[]) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[API]', ...args)
+    }
+  },
+  info: (...args: unknown[]) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('[API]', ...args)
+    }
+  },
+  warn: (...args: unknown[]) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[API]', ...args)
+    }
+  },
+  error: (...args: unknown[]) => {
+    console.error('[API]', ...args)
+  },
+}
+
+/**
+ * Délai avec Promise
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Calcule le délai de retry avec backoff exponentiel
+ */
+function getRetryDelay(attempt: number): number {
+  return RETRY_CONFIG.retryDelay * Math.pow(2, attempt - 1)
+}
+
+/**
+ * Vérifie si l'erreur est une erreur réseau
+ */
+function isNetworkError(error: AxiosError): boolean {
+  return (
+    !error.response &&
+    error.code !== 'ECONNABORTED' &&
+    (error.message === 'Network Error' ||
+      error.message.includes('Network Error') ||
+      error.code === 'ERR_NETWORK')
+  )
+}
+
+/**
+ * Vérifie si l'erreur est une erreur CORS
+ */
+function isCorsError(error: AxiosError): boolean {
+  // CORS errors typically don't have a response and may show specific patterns
+  if (!error.response && error.message === 'Network Error') {
+    // Check if it's likely CORS (browser blocks the response entirely)
+    return typeof window !== 'undefined' && !navigator.onLine === false
+  }
+  return false
+}
+
+/**
+ * Vérifie si l'erreur est un timeout
+ */
+function isTimeoutError(error: AxiosError): boolean {
+  return (
+    error.code === 'ECONNABORTED' ||
+    error.message.includes('timeout') ||
+    error.code === 'ETIMEDOUT'
+  )
+}
+
+/**
+ * Vérifie si la requête peut être retentée
+ */
+function isRetryable(error: AxiosError): boolean {
+  // Network errors are retryable
+  if (isNetworkError(error)) return true
+
+  // Timeout errors are retryable
+  if (isTimeoutError(error)) return true
+
+  // Some HTTP status codes are retryable
+  if (error.response?.status) {
+    return RETRY_CONFIG.retryableStatuses.includes(error.response.status)
+  }
+
+  return false
+}
+
+/**
+ * Crée une erreur API structurée
+ */
+function createApiError(
+  message: string,
+  type: ApiErrorType,
+  options: {
+    status?: number
+    url?: string
+    silent?: boolean
+    isRetryable?: boolean
+    originalError?: AxiosError
+  } = {}
+): ApiError {
+  const error = new Error(message) as ApiError
+  error.type = type
+  error.status = options.status
+  error.url = options.url
+  error.silent = options.silent ?? false
+  error.isRetryable = options.isRetryable ?? false
+  error.originalError = options.originalError
+  return error
+}
+
+/**
+ * Détermine le type d'erreur à partir d'une erreur Axios
+ */
+function getErrorType(error: AxiosError): ApiErrorType {
+  if (isTimeoutError(error)) return ApiErrorType.TIMEOUT
+  if (isCorsError(error)) return ApiErrorType.CORS
+  if (isNetworkError(error)) return ApiErrorType.NETWORK
+
+  const status = error.response?.status
+
+  switch (status) {
+    case 401:
+      return ApiErrorType.UNAUTHORIZED
+    case 403:
+      return ApiErrorType.FORBIDDEN
+    case 404:
+      return ApiErrorType.NOT_FOUND
+    case 419:
+      return ApiErrorType.CSRF
+    case 422:
+      return ApiErrorType.VALIDATION
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      return ApiErrorType.SERVER
+    default:
+      return ApiErrorType.UNKNOWN
+  }
+}
+
+/**
+ * Génère un message d'erreur lisible
+ */
+function getErrorMessage(error: AxiosError, type: ApiErrorType): string {
+  const defaultMessages: Record<ApiErrorType, string> = {
+    [ApiErrorType.NETWORK]: 'Erreur de connexion réseau. Vérifiez votre connexion internet.',
+    [ApiErrorType.TIMEOUT]: 'La requête a expiré. Le serveur met trop de temps à répondre.',
+    [ApiErrorType.CORS]: 'Erreur CORS. Le serveur n\'autorise pas cette origine.',
+    [ApiErrorType.UNAUTHORIZED]: 'Session expirée. Veuillez vous reconnecter.',
+    [ApiErrorType.FORBIDDEN]: 'Accès refusé. Vous n\'avez pas les permissions nécessaires.',
+    [ApiErrorType.NOT_FOUND]: 'Ressource introuvable.',
+    [ApiErrorType.VALIDATION]: 'Données invalides.',
+    [ApiErrorType.SERVER]: 'Erreur serveur. Veuillez réessayer plus tard.',
+    [ApiErrorType.CSRF]: 'Token de sécurité expiré. Veuillez rafraîchir la page.',
+    [ApiErrorType.UNKNOWN]: 'Une erreur inattendue s\'est produite.',
+  }
+
+  // Try to extract message from response
+  const responseData = error.response?.data as { message?: string; error?: string } | undefined
+  const serverMessage = responseData?.message || responseData?.error
+
+  return serverMessage || defaultMessages[type]
+}
+
+// ============================================================================
+// GESTION CSRF
+// ============================================================================
+
 function extractCsrfTokenFromCookies(cookies: string): string | null {
   if (!cookies) return null
 
-  // Chercher le cookie XSRF-TOKEN (peut être XSRF-TOKEN ou xsrf-token)
-  const patterns = [
-    /XSRF-TOKEN=([^;]+)/i,
-    /xsrf-token=([^;]+)/i,
-  ]
+  const patterns = [/XSRF-TOKEN=([^;]+)/i, /xsrf-token=([^;]+)/i]
 
   for (const pattern of patterns) {
     const match = cookies.match(pattern)
-    if (match && match[1]) {
-      // Décoder le token (Laravel encode parfois les valeurs de cookie)
-      const token = decodeURIComponent(match[1])
-      if (token && token.length > 0) {
-        return token
-      }
+    if (match?.[1]) {
+      return decodeURIComponent(match[1])
     }
   }
 
   return null
 }
 
-/**
- * Lit le token CSRF depuis document.cookie
- * Laravel Sanctum stocke le token dans un cookie non-HTTP-only (XSRF-TOKEN)
- */
 function readCsrfTokenFromCookie(): string | null {
-  if (typeof document === 'undefined') {
-    return null
-  }
-
-  const cookies = document.cookie
-  return extractCsrfTokenFromCookies(cookies)
+  if (typeof document === 'undefined') return null
+  return extractCsrfTokenFromCookies(document.cookie)
 }
 
-/**
- * Récupère le cookie CSRF depuis Laravel Sanctum
- * et stocke le token pour l'utiliser dans les headers
- * Attend jusqu'à ce que le token soit disponible dans document.cookie
- */
 async function getCsrfCookie(): Promise<void> {
-  // Si une requête CSRF est déjà en cours, attendre qu'elle se termine
   if (csrfPromise) {
     await csrfPromise
     return
   }
 
-  // Créer une nouvelle promesse pour la requête CSRF
   csrfPromise = api
     .get('/sanctum/csrf-cookie')
     .then(async () => {
-      // Attendre que le cookie soit disponible dans document.cookie
-      // Le navigateur peut mettre un peu de temps à traiter le cookie
       let attempts = 0
       const maxAttempts = 10
       const delayMs = 50
@@ -116,269 +312,319 @@ async function getCsrfCookie(): Promise<void> {
         const token = readCsrfTokenFromCookie()
         if (token) {
           xsrfToken = token
-          if (process.env.NODE_ENV !== 'production') {
-            console.debug('✅ Token CSRF récupéré depuis document.cookie', `(tentative ${attempts + 1})`)
-          }
+          logger.debug('✅ Token CSRF récupéré', `(tentative ${attempts + 1})`)
           csrfPromise = null
           return
         }
 
-        // Attendre un peu avant de réessayer
-        await new Promise(resolve => setTimeout(resolve, delayMs))
+        await delay(delayMs)
         attempts++
       }
 
-      // Si après toutes les tentatives le token n'est toujours pas disponible
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('⚠️ Token CSRF non trouvé après plusieurs tentatives')
-      }
+      logger.warn('⚠️ Token CSRF non trouvé après plusieurs tentatives')
       csrfPromise = null
     })
     .catch((error) => {
       csrfPromise = null
-      // En développement, logger l'erreur mais continuer
-      if (process.env.NODE_ENV !== 'production') {
-        console.debug('⚠️ CSRF cookie non disponible:', error?.message || 'Erreur inconnue')
-      }
-      // Ne pas throw l'erreur pour ne pas bloquer les requêtes
+      logger.debug('⚠️ CSRF cookie non disponible:', error?.message || 'Erreur inconnue')
     })
 
   return csrfPromise
 }
 
-/**
- * Intercepteur de requête : récupère automatiquement le cookie CSRF
- * avant chaque requête POST, PUT, PATCH, DELETE et ajoute le header X-XSRF-TOKEN
- */
+// ============================================================================
+// CRÉATION DE L'INSTANCE AXIOS
+// ============================================================================
+
+const api: AxiosInstance = axios.create(API_CONFIG)
+
+// ============================================================================
+// INTERCEPTEUR DE REQUÊTE
+// ============================================================================
+
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Vérifier si c'est une méthode qui nécessite CSRF
     const method = config.method?.toUpperCase()
     const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method || '')
+    const url = `${config.baseURL || ''}${config.url || ''}`
 
-    // Si c'est déjà la requête CSRF elle-même, ne pas la modifier
+    // Log de la requête sortante
+    logger.info(`📤 ${method} ${config.url}`)
+
+    // Skip CSRF for the CSRF cookie request itself
     if (config.url === '/sanctum/csrf-cookie') {
       return config
     }
 
-    // Si la méthode nécessite CSRF, récupérer le cookie avant
+    // Handle CSRF token for mutating requests
     if (needsCsrf) {
       try {
-        // D'abord, essayer de lire le token depuis document.cookie (si déjà présent)
         if (!xsrfToken && typeof document !== 'undefined') {
           xsrfToken = readCsrfTokenFromCookie()
         }
 
-        // Si on n'a toujours pas le token, le récupérer depuis le serveur
         if (!xsrfToken) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.debug('🔄 Récupération du cookie CSRF pour la requête:', config.url)
-          }
+          logger.debug('🔄 Récupération du cookie CSRF pour:', config.url)
           await getCsrfCookie()
-          // Après getCsrfCookie(), le token devrait être disponible
-          // Réessayer de lire depuis document.cookie (getCsrfCookie attend déjà)
           xsrfToken = readCsrfTokenFromCookie()
-          
-          // Si toujours pas disponible, attendre un peu et réessayer
+
           if (!xsrfToken && typeof document !== 'undefined') {
-            await new Promise(resolve => setTimeout(resolve, 100))
+            await delay(100)
             xsrfToken = readCsrfTokenFromCookie()
-            
-            // Dernière tentative
+
             if (!xsrfToken) {
-              await new Promise(resolve => setTimeout(resolve, 100))
+              await delay(100)
               xsrfToken = readCsrfTokenFromCookie()
             }
           }
         }
 
-        // Ajouter le header X-XSRF-TOKEN si on a le token
         if (xsrfToken && config.headers) {
           config.headers['X-XSRF-TOKEN'] = xsrfToken
-          if (process.env.NODE_ENV !== 'production') {
-            console.debug('📤 Header X-XSRF-TOKEN ajouté à la requête:', config.url)
-            console.debug('   Token (premiers 30 caractères):', xsrfToken.substring(0, 30) + '...')
-          }
+          logger.debug('📤 Header X-XSRF-TOKEN ajouté')
         } else {
-          // Si le token n'est toujours pas disponible, c'est un problème critique
-          if (process.env.NODE_ENV !== 'production') {
-            console.error('❌ ERREUR CRITIQUE: Token CSRF non disponible pour la requête', config.url)
-            console.error('   Tous les cookies disponibles:', typeof document !== 'undefined' ? document.cookie : 'N/A')
-            console.error('   xsrfToken stocké:', xsrfToken)
-            console.error('   Cette requête va probablement échouer avec une erreur 419')
-          }
-          // Ne pas bloquer la requête, mais elle échouera probablement
-          // Cela permet au backend de renvoyer une erreur 419 claire
+          logger.error('❌ Token CSRF non disponible pour:', config.url)
         }
       } catch (error) {
-        // En cas d'erreur, continuer quand même (le backend peut ne pas nécessiter CSRF)
-        if (process.env.NODE_ENV !== 'production') {
-          console.debug('⚠️ Erreur lors de la récupération du cookie CSRF:', error)
-        }
+        logger.debug('⚠️ Erreur lors de la récupération du cookie CSRF:', error)
       }
     }
 
     return config
   },
   (error) => {
+    logger.error('❌ Erreur intercepteur requête:', error.message)
     return Promise.reject(error)
   }
 )
 
-/**
- * Intercepteur de réponse : lit le token CSRF depuis document.cookie après chaque requête
- * et gestion globale des erreurs avec retry automatique pour les erreurs 419
- */
+// ============================================================================
+// INTERCEPTEUR DE RÉPONSE AVEC RETRY
+// ============================================================================
+
 api.interceptors.response.use(
   (response: AxiosResponse) => {
-    // Après chaque requête, vérifier si le token CSRF est disponible dans document.cookie
-    // (utile si le token a été mis à jour par le serveur)
+    const { config, status } = response
+    const method = config.method?.toUpperCase()
+
+    // Log de la réponse réussie
+    logger.info(`✅ ${method} ${config.url} → ${status}`)
+
+    // Update CSRF token if available
     if (typeof document !== 'undefined') {
       const token = readCsrfTokenFromCookie()
       if (token) {
-        // Mettre à jour le token même si on en a déjà un (au cas où il a changé)
         xsrfToken = token
-        if (process.env.NODE_ENV !== 'production' && response.config.url === '/sanctum/csrf-cookie') {
-          console.debug('✅ Token CSRF mis à jour depuis document.cookie après réponse')
-          console.debug('   Token (premiers 30 caractères):', token.substring(0, 30) + '...')
-        }
-      } else if (response.config.url === '/sanctum/csrf-cookie' && process.env.NODE_ENV !== 'production') {
-        console.warn('⚠️ Token CSRF non trouvé dans document.cookie après l\'appel /sanctum/csrf-cookie')
-        console.warn('   Cela peut indiquer un problème de configuration CORS ou de domaine')
       }
     }
 
     return response
   },
-  async (error) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean
+      _retryCount?: number
+    }
 
-    // Gestion spécifique de l'erreur 419 avec retry automatique
-    if (error.response?.status === 419 && originalRequest && !originalRequest._retry) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('⚠️ Erreur 419 détectée - Tentative de récupération d\'un nouveau token CSRF')
-        console.warn('   Token actuel:', xsrfToken ? xsrfToken.substring(0, 30) + '...' : 'AUCUN')
+    const status = error.response?.status
+    const method = originalRequest?.method?.toUpperCase()
+    const url = originalRequest?.url
+
+    // ✅ URLs de polling qui ne doivent pas logger d'erreurs en boucle
+    const isPollingRequest = url?.includes('notifications') || 
+                             url?.includes('unread-count') ||
+                             url?.includes('health')
+
+    // Log de l'erreur (sauf pour les requêtes de polling)
+    if (!isPollingRequest) {
+      if (status) {
+        logger.warn(`❌ ${method} ${url} → ${status}`)
+      } else if (isNetworkError(error)) {
+        logger.error(`🔌 Network Error: ${method} ${url}`)
+      } else if (isTimeoutError(error)) {
+        logger.error(`⏱️ Timeout: ${method} ${url}`)
+      } else {
+        logger.error(`❌ Error: ${method} ${url} → ${error.message}`)
       }
+    }
 
-      // Marquer la requête comme étant en cours de retry
+    // Déterminer le type d'erreur
+    const errorType = getErrorType(error)
+    const errorMessage = getErrorMessage(error, errorType)
+
+    // ========================================================================
+    // RETRY AUTOMATIQUE POUR LES ERREURS RÉSEAU/TIMEOUT
+    // ========================================================================
+    if (
+      isRetryable(error) &&
+      originalRequest &&
+      (originalRequest._retryCount ?? 0) < RETRY_CONFIG.maxRetries
+    ) {
+      originalRequest._retryCount = (originalRequest._retryCount ?? 0) + 1
+      const retryDelay = getRetryDelay(originalRequest._retryCount)
+
+      logger.info(
+        `🔄 Retry ${originalRequest._retryCount}/${RETRY_CONFIG.maxRetries} dans ${retryDelay}ms pour ${url}`
+      )
+
+      await delay(retryDelay)
+      return api(originalRequest)
+    }
+
+    // ========================================================================
+    // GESTION ERREUR 419 (CSRF)
+    // ========================================================================
+    if (status === 419 && originalRequest && !originalRequest._retry) {
+      logger.warn('⚠️ Erreur 419 - Récupération d\'un nouveau token CSRF')
+
       originalRequest._retry = true
-
-      // Réinitialiser le token pour forcer une nouvelle récupération
       xsrfToken = null
 
       try {
-        // Récupérer un nouveau token CSRF
         await getCsrfCookie()
+        await delay(200)
 
-        // Attendre un peu pour que le cookie soit bien disponible
-        await new Promise(resolve => setTimeout(resolve, 200))
-
-        // Lire le nouveau token depuis document.cookie
         const newToken = readCsrfTokenFromCookie()
         if (newToken) {
           xsrfToken = newToken
-          if (process.env.NODE_ENV !== 'production') {
-            console.debug('✅ Nouveau token CSRF récupéré, nouvelle tentative de la requête')
-          }
-
-          // Ajouter le nouveau token au header de la requête originale
           if (originalRequest.headers) {
             originalRequest.headers['X-XSRF-TOKEN'] = newToken
           }
-
-          // Réessayer la requête originale avec le nouveau token
+          logger.debug('✅ Nouveau token CSRF, nouvelle tentative')
           return api(originalRequest)
-        } else {
-          if (process.env.NODE_ENV !== 'production') {
-            console.error('❌ Impossible de récupérer un nouveau token CSRF après erreur 419')
-            console.error('   Cookies disponibles:', typeof document !== 'undefined' ? document.cookie : 'N/A')
-          }
         }
       } catch (csrfError) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('❌ Erreur lors de la récupération du nouveau token CSRF:', csrfError)
-        }
-      }
-    } else if (error.response?.status === 419 && originalRequest && originalRequest._retry) {
-      // Si on a déjà fait un retry et que ça échoue encore, c'est un problème plus grave
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('❌ Erreur 419 persistante après retry - Le token CSRF ne peut pas être récupéré')
-        console.error('   Vérifiez la configuration CORS et SANCTUM_STATEFUL_DOMAINS dans Laravel')
+        logger.error('❌ Impossible de récupérer un nouveau token CSRF:', csrfError)
       }
     }
-    
-    // Gestion de l'erreur 401 (Non authentifié) : rediriger vers /login
-    // Ignorer les erreurs 401 pendant la déconnexion (c'est normal)
-    if (error.response?.status === 401 && !isLoggingOut) {
-      // Vérifier si on est sur une route protégée (dashboard)
+
+    // ========================================================================
+    // GESTION ERREUR 401 (NON AUTHENTIFIÉ)
+    // ========================================================================
+    if (status === 401 && !isLoggingOut) {
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname
-        const isProtectedRoute = currentPath.startsWith('/dashboard') || 
-                                  currentPath.startsWith('/wallet') ||
-                                  currentPath.startsWith('/analytics') ||
-                                  currentPath.startsWith('/products') ||
-                                  currentPath.startsWith('/collaborators') ||
-                                  currentPath.startsWith('/notifications') ||
-                                  currentPath.startsWith('/settings') ||
-                                  currentPath.startsWith('/onboarding')
-        
-        // Si on est sur une route protégée et qu'on reçoit une 401, rediriger vers /login
+        const protectedRoutes = [
+          '/dashboard',
+          '/wallet',
+          '/analytics',
+          '/products',
+          '/collaborators',
+          '/notifications',
+          '/settings',
+          '/onboarding',
+          '/account',
+        ]
+
+        const isProtectedRoute = protectedRoutes.some((route) =>
+          currentPath.startsWith(route)
+        )
+
         if (isProtectedRoute && currentPath !== '/login') {
-          // Si une redirection est déjà en cours, marquer cette erreur comme silencieuse
           if (isRedirectingToLogin) {
-            const silentError = new Error('Unauthorized - Redirecting to login (silent)') as Error & { 
-              silent?: boolean 
-              response?: { status?: number }
-            }
-            silentError.silent = true
-            silentError.response = { status: 401 }
-            return Promise.reject(silentError)
+            return Promise.reject(
+              createApiError('Redirection vers login en cours', ApiErrorType.UNAUTHORIZED, {
+                status: 401,
+                url,
+                silent: true,
+              })
+            )
           }
-          
-          // Marquer qu'une redirection est en cours pour éviter les erreurs multiples
+
           isRedirectingToLogin = true
-          
-          // Émettre un événement pour que AuthContext mette à jour l'état
           window.dispatchEvent(new CustomEvent('auth:unauthorized'))
-          
-          // Rediriger vers /login après un court délai pour permettre aux autres requêtes
-          // de détecter le flag isRedirectingToLogin
+
           setTimeout(() => {
             window.location.href = '/login'
           }, 50)
-          
-          // Rejeter avec une erreur silencieuse pour éviter les logs et toasts
-          const silentError = new Error('Unauthorized - Redirecting to login') as Error & { 
-            silent?: boolean 
-            response?: { status?: number }
-          }
-          silentError.silent = true
-          silentError.response = { status: 401 }
-          return Promise.reject(silentError)
+
+          return Promise.reject(
+            createApiError('Session expirée', ApiErrorType.UNAUTHORIZED, {
+              status: 401,
+              url,
+              silent: true,
+            })
+          )
         }
       }
     }
-    
-    // Si on est en train de se déconnecter et qu'on reçoit une 401, c'est normal
-    // Ne pas afficher d'erreur, juste rejeter silencieusement avec une erreur spéciale
-    // qui sera ignorée par les services et les composants
-    if (error.response?.status === 401 && isLoggingOut) {
-      const silentError = new Error('Unauthorized during logout - Ignoring') as Error & { 
-        isLoggingOut?: boolean 
-        silent?: boolean 
-        response?: { status?: number }
-      }
-      silentError.isLoggingOut = true
-      silentError.silent = true
-      // Préserver la structure de l'erreur axios pour que les services puissent la détecter
-      silentError.response = { status: 401 }
-      return Promise.reject(silentError)
+
+    // Erreur 401 pendant la déconnexion → silencieuse
+    if (status === 401 && isLoggingOut) {
+      return Promise.reject(
+        createApiError('Déconnexion en cours', ApiErrorType.UNAUTHORIZED, {
+          status: 401,
+          url,
+          silent: true,
+        })
+      )
     }
-    
-    // Les erreurs sont gérées dans les fonctions auth individuelles
-    return Promise.reject(error)
+
+    // ========================================================================
+    // GESTION ERREUR 403 (FORBIDDEN)
+    // ========================================================================
+    if (status === 403) {
+      logger.warn('🚫 Accès refusé:', url)
+      return Promise.reject(
+        createApiError(errorMessage, ApiErrorType.FORBIDDEN, {
+          status: 403,
+          url,
+          originalError: error,
+        })
+      )
+    }
+
+    // ========================================================================
+    // GESTION ERREURS 5XX (SERVEUR)
+    // ========================================================================
+    if (status && status >= 500) {
+      logger.error('💥 Erreur serveur:', status, url)
+      return Promise.reject(
+        createApiError(errorMessage, ApiErrorType.SERVER, {
+          status,
+          url,
+          isRetryable: true,
+          originalError: error,
+        })
+      )
+    }
+
+    // ========================================================================
+    // ERREUR GÉNÉRIQUE
+    // ========================================================================
+    return Promise.reject(
+      createApiError(errorMessage, errorType, {
+        status,
+        url,
+        isRetryable: isRetryable(error),
+        originalError: error,
+      })
+    )
   }
 )
 
+// ============================================================================
+// EXPORT
+// ============================================================================
+
 export default api
 
+/**
+ * Helper pour vérifier le type d'une erreur
+ */
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof Error && 'type' in error && typeof (error as ApiError).type === 'string'
+}
+
+/**
+ * Helper pour obtenir le message d'erreur approprié
+ */
+export function getApiErrorMessage(error: unknown): string {
+  if (isApiError(error)) {
+    return error.message
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'Une erreur inattendue s\'est produite'
+}

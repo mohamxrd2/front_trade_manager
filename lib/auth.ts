@@ -1,4 +1,4 @@
-import api, { setLoggingOut } from './api'
+import api, { setLoggingOut, isApiError, ApiErrorType, type ApiError } from './api'
 import type { AxiosError } from 'axios'
 
 /**
@@ -58,6 +58,65 @@ export interface ValidationErrors {
   [field: string]: string[]
 }
 
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Vérifie si une erreur est une erreur 401 (non authentifié)
+ * Gère les deux formats : ApiError et AxiosError
+ */
+function isUnauthorizedError(error: unknown): boolean {
+  // Format ApiError (nouveau système)
+  if (isApiError(error)) {
+    return error.type === ApiErrorType.UNAUTHORIZED || error.status === 401
+  }
+
+  // Format AxiosError (ancien système)
+  const axiosError = error as AxiosError
+  return axiosError?.response?.status === 401
+}
+
+/**
+ * Vérifie si une erreur est une erreur silencieuse (ne pas logger)
+ */
+function isSilentError(error: unknown): boolean {
+  if (isApiError(error)) {
+    return error.silent === true
+  }
+  
+  const legacyError = error as Error & { silent?: boolean }
+  return legacyError?.silent === true
+}
+
+/**
+ * Vérifie si une erreur est une erreur réseau
+ */
+function isNetworkError(error: unknown): boolean {
+  if (isApiError(error)) {
+    return error.type === ApiErrorType.NETWORK || error.type === ApiErrorType.TIMEOUT
+  }
+
+  const axiosError = error as AxiosError
+  return axiosError?.code === 'ERR_NETWORK' || !axiosError?.response
+}
+
+/**
+ * Récupère le code de statut HTTP d'une erreur
+ */
+function getErrorStatus(error: unknown): number | undefined {
+  if (isApiError(error)) {
+    return error.status
+  }
+
+  const axiosError = error as AxiosError
+  return axiosError?.response?.status
+}
+
+// ============================================================================
+// API FUNCTIONS
+// ============================================================================
+
 /**
  * Récupère le cookie CSRF depuis Laravel Sanctum
  * Cette fonction est appelée automatiquement par l'intercepteur axios,
@@ -87,47 +146,29 @@ export async function login(credentials: LoginCredentials): Promise<User> {
     const response = await api.post<User>('/api/login', credentials)
     return response.data
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<{ message?: string }>
-
-    // Gestion spécifique de l'erreur 401 (identifiants invalides) - cas normal, pas d'erreur console
-    if (axiosError.response?.status === 401) {
-      // Erreur 401 est normale quand les identifiants sont incorrects
-      // Ne pas logger comme erreur, juste re-throw pour que le contexte gère l'affichage
+    // Erreur 401 est normale quand les identifiants sont incorrects
+    // Ne pas logger comme erreur, juste re-throw pour que le contexte gère l'affichage
+    if (isUnauthorizedError(error)) {
       throw error
     }
 
     // Gestion spécifique de l'erreur 419 (CSRF token mismatch)
-    if (axiosError.response?.status === 419) {
+    const status = getErrorStatus(error)
+    if (status === 419) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('🚨 Erreur 419 - CSRF token mismatch')
         console.error('   Le token CSRF n\'a pas été correctement envoyé.')
-        console.error('   Vérifiez que:')
-        console.error('   1. Le cookie XSRF-TOKEN est présent dans document.cookie')
-        console.error('   2. Le header X-XSRF-TOKEN est envoyé avec la requête')
-        console.error('   3. La configuration CORS Laravel permet les credentials')
-        console.error('   4. SANCTUM_STATEFUL_DOMAINS inclut localhost:3000')
       }
       
-      // Créer une erreur avec un message plus clair
-      const csrfError = new Error('Erreur de sécurité CSRF. Veuillez rafraîchir la page et réessayer.') as Error & { response?: { status?: number } }
-      csrfError.response = { status: 419 }
+      const csrfError = new Error('Erreur de sécurité CSRF. Veuillez rafraîchir la page et réessayer.') as ApiError
+      csrfError.type = ApiErrorType.CSRF
+      csrfError.status = 419
       throw csrfError
     }
 
     // Pour les autres erreurs (500, réseau, etc.), logger comme erreur
-    if (process.env.NODE_ENV !== 'production') {
-      const errorParts: string[] = []
-      if (axiosError.response?.status) errorParts.push(`Status: ${axiosError.response.status}`)
-      if (axiosError.response?.data) {
-        const dataStr = typeof axiosError.response.data === 'object'
-          ? JSON.stringify(axiosError.response.data)
-          : String(axiosError.response.data)
-        errorParts.push(`Data: ${dataStr}`)
-      }
-      if (axiosError.message) errorParts.push(`Message: ${axiosError.message}`)
-      if (errorParts.length > 0) {
-        console.error('🚨 Erreur login:', errorParts.join(' | '))
-      }
+    if (process.env.NODE_ENV !== 'production' && !isSilentError(error)) {
+      console.error('🚨 Erreur login:', error)
     }
 
     throw error
@@ -140,11 +181,6 @@ export async function login(credentials: LoginCredentials): Promise<User> {
  * @param data - Données d'inscription
  * @returns L'utilisateur créé
  * @throws Erreur si l'inscription échoue
- * 
- * Format des erreurs :
- * - 422 (Validation) : { message: string, errors: { field: string[] } }
- * - 500 (Serveur) : { message: string }
- * - Autres : AxiosError
  */
 export async function register(data: RegisterData): Promise<User> {
   try {
@@ -152,30 +188,21 @@ export async function register(data: RegisterData): Promise<User> {
     const response = await api.post<User>('/api/register', data)
     return response.data
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<{ message?: string; errors?: ValidationErrors }>
-
-    // Logging détaillé en développement
-    if (process.env.NODE_ENV !== 'production') {
-      const errorParts: string[] = []
-      if (axiosError.response?.status) errorParts.push(`Status: ${axiosError.response.status}`)
-      if (axiosError.response?.data) {
-        const dataStr = typeof axiosError.response.data === 'object'
-          ? JSON.stringify(axiosError.response.data)
-          : String(axiosError.response.data)
-        errorParts.push(`Data: ${dataStr}`)
-      }
-      if (axiosError.message) errorParts.push(`Message: ${axiosError.message}`)
-      if (errorParts.length > 0) {
-        console.error('🚨 Erreur register:', errorParts.join(' | '))
-      }
-
+    // Logging détaillé en développement (sauf pour les erreurs silencieuses)
+    if (process.env.NODE_ENV !== 'production' && !isSilentError(error)) {
+      const status = getErrorStatus(error)
+      
       // Aide spécifique pour les erreurs de validation
-      if (axiosError.response?.status === 422 && axiosError.response?.data?.errors) {
-        console.error('📋 Erreurs de validation par champ:', axiosError.response.data.errors)
+      if (status === 422) {
+        const axiosError = error as AxiosError<{ errors?: ValidationErrors }>
+        if (axiosError?.response?.data?.errors) {
+          console.error('📋 Erreurs de validation par champ:', axiosError.response.data.errors)
+        }
+      } else {
+        console.error('🚨 Erreur register:', error)
       }
     }
 
-    // Re-throw l'erreur pour que le contexte puisse la gérer
     throw error
   }
 }
@@ -193,27 +220,14 @@ export async function logout(): Promise<void> {
     // L'intercepteur axios récupère automatiquement le cookie CSRF
     await api.post('/api/logout')
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<{ message?: string }>
-
     // Les erreurs 401 pendant la déconnexion sont normales, ne pas les logger
-    if (axiosError.response?.status === 401) {
-      // Ignorer silencieusement
+    if (isUnauthorizedError(error) || isSilentError(error)) {
       return
     }
 
+    // Logger uniquement les vraies erreurs (500, réseau)
     if (process.env.NODE_ENV !== 'production') {
-      const errorParts: string[] = []
-      if (axiosError.response?.status) errorParts.push(`Status: ${axiosError.response.status}`)
-      if (axiosError.response?.data) {
-        const dataStr = typeof axiosError.response.data === 'object'
-          ? JSON.stringify(axiosError.response.data)
-          : String(axiosError.response.data)
-        errorParts.push(`Data: ${dataStr}`)
-      }
-      if (axiosError.message) errorParts.push(`Message: ${axiosError.message}`)
-      if (errorParts.length > 0) {
-        console.error('🚨 Erreur logout:', errorParts.join(' | '))
-      }
+      console.error('🚨 Erreur logout:', error)
     }
 
     // Même en cas d'erreur, on considère la déconnexion comme réussie
@@ -229,55 +243,58 @@ export async function logout(): Promise<void> {
  * Récupère l'utilisateur connecté
  * 
  * @returns L'utilisateur connecté, ou null si non authentifié (401)
- * @throws Erreur pour les autres types d'erreurs (réseau, serveur, etc.)
+ * 
+ * IMPORTANT: Cette fonction ne throw PAS d'erreur pour les 401.
+ * Un 401 signifie simplement "non authentifié" = retourne null.
+ * 
+ * @throws Erreur uniquement pour les vraies erreurs (réseau, serveur 500, etc.)
  */
 export async function getUser(): Promise<User | null> {
   try {
     const response = await api.get<User>('/api/user')
     return response.data
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<{ message?: string }>
-
-    // Si c'est une erreur 401 (non authentifié), retourner null (pas d'erreur)
-    if (axiosError.response?.status === 401) {
+    // ================================================================
+    // CAS 1: Erreur 401 (non authentifié)
+    // C'est un état NORMAL, pas une erreur à logger
+    // ================================================================
+    if (isUnauthorizedError(error)) {
+      // Retourner null silencieusement - l'utilisateur n'est simplement pas connecté
       return null
     }
 
-    // Pour les autres erreurs, logger et throw
+    // ================================================================
+    // CAS 2: Erreur silencieuse (redirection en cours, déconnexion, etc.)
+    // Ne pas logger, retourner null
+    // ================================================================
+    if (isSilentError(error)) {
+      return null
+    }
+
+    // ================================================================
+    // CAS 3: Vraie erreur (réseau, serveur 500, etc.)
+    // Logger et throw
+    // ================================================================
     if (process.env.NODE_ENV !== 'production') {
-      const errorParts: string[] = []
-      if (axiosError.response?.status) errorParts.push(`Status: ${axiosError.response.status}`)
-      if (axiosError.response?.data) {
-        const dataStr = typeof axiosError.response.data === 'object'
-          ? JSON.stringify(axiosError.response.data)
-          : String(axiosError.response.data)
-        errorParts.push(`Data: ${dataStr}`)
-      }
-      if (axiosError.message) errorParts.push(`Message: ${axiosError.message}`)
-      if (axiosError.code) errorParts.push(`Code: ${axiosError.code}`)
-      if (errorParts.length > 0) {
-        console.error('🚨 Erreur getUser:', errorParts.join(' | '))
+      if (isNetworkError(error)) {
+        console.warn('⚠️ getUser: Erreur réseau - Le serveur est peut-être inaccessible')
       } else {
-        console.error('🚨 Erreur getUser: Erreur inconnue', error)
-      }
-
-      // Aide supplémentaire pour les erreurs réseau
-      if (axiosError.code === 'ERR_NETWORK' || !axiosError.response) {
-        const fullUrl = axiosError.config?.baseURL && axiosError.config?.url
-          ? `${axiosError.config.baseURL}${axiosError.config.url}`
-          : 'URL non disponible'
-
-        console.error('💡 Problème réseau détecté:', {
-          code: axiosError.code || 'INCONNU',
-          message: axiosError.message || 'Pas de message',
-          url: fullUrl,
-          suggestion: 'Vérifiez que le serveur Laravel est démarré et que CORS est configuré',
-        })
+        const status = getErrorStatus(error)
+        if (status && status >= 500) {
+          console.error('🚨 getUser: Erreur serveur', status)
+        } else {
+          console.error('🚨 getUser: Erreur inattendue', error)
+        }
       }
     }
 
-    // Pour les erreurs autres que 401, throw l'erreur
+    // Pour les erreurs réseau, ne pas throw (on ne sait pas si on est connecté ou non)
+    // Retourner null pour éviter de bloquer l'UI
+    if (isNetworkError(error)) {
+      return null
+    }
+
+    // Pour les vraies erreurs serveur, throw
     throw error
   }
 }
-

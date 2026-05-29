@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { OnboardingGuard } from "@/components/onboarding/onboarding-guard"
+import { ConnectionIndicator } from "@/components/connection-indicator"
 import {
   SidebarInset,
   SidebarProvider,
@@ -34,6 +35,8 @@ export default function DashboardLayout({
               </div>
             </div>
           </SidebarInset>
+          {/* Indicateur de connexion au serveur */}
+          <ConnectionIndicator />
         </SidebarProvider>
       </OnboardingGuard>
     </ProtectedRoute>

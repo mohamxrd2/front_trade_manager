@@ -1,6 +1,6 @@
-import api from '../api'
+import api, { isApiError, ApiErrorType } from '../api'
 import type { AxiosError } from 'axios'
-import { isSilentError } from '../utils/error-handler'
+import { isSilentError, isAuthError } from '../utils/error-handler'
 import type { ApiTransaction } from './transactions'
 
 /**
@@ -31,23 +31,29 @@ export async function getUserStats(): Promise<UserStats> {
       personal_income: data.personal_income ?? data.wallet ?? 0,
     }
   } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>
-    
-    // Vérifier si c'est une erreur silencieuse de déconnexion
+    // Erreurs silencieuses (déconnexion, redirection) → re-throw silencieusement
     if (isSilentError(error)) {
       throw error
     }
     
-    if (axiosError.response?.status === 401) {
+    // Erreurs 401/403 (non authentifié) → throw sans log
+    if (isAuthError(error)) {
       throw new Error('Non authentifié')
     }
 
-    if (axiosError.response?.status === 500) {
-      console.error('Erreur serveur lors de la récupération des statistiques:', axiosError.response.data)
+    // Erreurs serveur (500) → log + throw
+    const axiosError = error as AxiosError<{ message?: string }>
+    if (axiosError.response?.status && axiosError.response.status >= 500) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('🚨 Erreur serveur statistiques:', axiosError.response.status)
+      }
       throw new Error('Erreur serveur lors du chargement des statistiques')
     }
 
-    console.error('Erreur lors de la récupération des statistiques:', error)
+    // Autres erreurs → log + throw
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('🚨 Erreur statistiques:', error)
+    }
     throw new Error('Erreur lors du chargement des statistiques')
   }
 }
@@ -71,23 +77,29 @@ export async function getTransactionsForStats(): Promise<ApiTransaction[]> {
 
     return transactions
   } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>
-    
-    // Vérifier si c'est une erreur silencieuse de déconnexion
+    // Erreurs silencieuses (déconnexion, redirection) → re-throw silencieusement
     if (isSilentError(error)) {
       throw error
     }
     
-    if (axiosError.response?.status === 401) {
+    // Erreurs 401/403 (non authentifié) → throw sans log
+    if (isAuthError(error)) {
       throw new Error('Non authentifié')
     }
 
-    if (axiosError.response?.status === 500) {
-      console.error('Erreur serveur lors de la récupération des transactions:', axiosError.response.data)
+    // Erreurs serveur (500) → log + throw
+    const axiosError = error as AxiosError<{ message?: string }>
+    if (axiosError.response?.status && axiosError.response.status >= 500) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('🚨 Erreur serveur transactions:', axiosError.response.status)
+      }
       throw new Error('Erreur serveur lors du chargement des transactions')
     }
 
-    console.error('Erreur lors de la récupération des transactions:', error)
+    // Autres erreurs → log + throw
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('🚨 Erreur transactions:', error)
+    }
     throw new Error('Erreur lors du chargement des transactions')
   }
 }

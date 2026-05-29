@@ -2,6 +2,10 @@ import api from '@/lib/api'
 import type { AxiosError } from 'axios'
 import { isSilentError } from '../utils/error-handler'
 
+// ============================================================================
+// TYPES
+// ============================================================================
+
 export interface Notification {
   id: string
   type: 'info' | 'success' | 'warning' | 'error'
@@ -33,8 +37,31 @@ export interface NotificationsResponse {
   }
 }
 
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Vérifie si c'est une erreur réseau (serveur down)
+ */
+function isNetworkError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const err = error as { message?: string; code?: string; response?: unknown }
+  return (
+    err.message === 'Network Error' ||
+    err.code === 'ECONNABORTED' ||
+    err.code === 'ERR_NETWORK' ||
+    !err.response
+  )
+}
+
+// ============================================================================
+// API FUNCTIONS
+// ============================================================================
+
 /**
  * Récupère les notifications de l'utilisateur
+ * ✅ Gère les erreurs réseau silencieusement
  */
 export async function getNotifications(
   page: number = 1,
@@ -48,61 +75,102 @@ export async function getNotifications(
         per_page: perPage,
         unread_only: unreadOnly,
       },
+      timeout: 10000, // 10 secondes max
     })
     return response.data
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<{ message?: string }>
+    // ✅ Erreur réseau - retourner une réponse vide silencieusement
+    if (isNetworkError(error)) {
+      return {
+        success: false,
+        message: 'network_error',
+        data: {
+          notifications: [],
+          pagination: { current_page: 1, per_page: perPage, total: 0, last_page: 1 },
+          unread_count: 0,
+        },
+      }
+    }
     
     // Vérifier si c'est une erreur silencieuse de déconnexion
     if (isSilentError(error)) {
       throw error
     }
     
+    const axiosError = error as AxiosError<{ message?: string }>
+    
+    // ✅ Erreur 401 - silencieux (géré par le hook)
     if (axiosError.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+      return {
+        success: false,
+        message: 'unauthorized',
+        data: {
+          notifications: [],
+          pagination: { current_page: 1, per_page: perPage, total: 0, last_page: 1 },
+          unread_count: 0,
+        },
       }
-      throw new Error('Non authentifié. Redirection vers la page de connexion.')
     }
 
+    // ✅ Erreur 500 - log uniquement en dev
     if (axiosError.response?.status === 500) {
-      const errorMessage = axiosError.response?.data?.message || 'Erreur serveur'
       if (process.env.NODE_ENV !== 'production') {
-        console.error('🚨 Erreur 500 lors de la récupération des notifications:', errorMessage)
+        console.error('[Notifications] Erreur serveur:', axiosError.response?.data?.message)
       }
-      throw new Error(`Erreur serveur: ${errorMessage}`)
+      return {
+        success: false,
+        message: 'server_error',
+        data: {
+          notifications: [],
+          pagination: { current_page: 1, per_page: perPage, total: 0, last_page: 1 },
+          unread_count: 0,
+        },
+      }
     }
 
-    console.error('Erreur lors de la récupération des notifications:', error)
-    throw new Error('Erreur lors du chargement des notifications')
+    // Autres erreurs - retourner une réponse vide
+    return {
+      success: false,
+      message: 'unknown_error',
+      data: {
+        notifications: [],
+        pagination: { current_page: 1, per_page: perPage, total: 0, last_page: 1 },
+        unread_count: 0,
+      },
+    }
   }
 }
 
 /**
  * Récupère le nombre de notifications non lues
+ * ✅ Gère les erreurs réseau silencieusement
  */
 export async function getUnreadCount(): Promise<number> {
   try {
     const response = await api.get<{ success: boolean; data: { unread_count: number } }>(
-      '/api/notifications/unread-count'
+      '/api/notifications/unread-count',
+      { timeout: 10000 }
     )
     return response.data.data.unread_count
   } catch (error: unknown) {
+    // ✅ Erreur réseau - retourner 0 silencieusement
+    if (isNetworkError(error)) {
+      return 0
+    }
+    
+    // Vérifier si c'est une erreur silencieuse
+    if (isSilentError(error)) {
+      return 0
+    }
+    
     const axiosError = error as AxiosError<{ message?: string }>
     
-    // Vérifier si c'est une erreur silencieuse de déconnexion
-    if (isSilentError(error)) {
-      throw error
-    }
-    
+    // ✅ Erreur 401 - silencieux
     if (axiosError.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login'
-      }
-      throw new Error('Non authentifié')
+      return 0
     }
 
-    console.error('Erreur lors de la récupération du nombre de notifications non lues:', error)
+    // ✅ Autres erreurs - retourner 0 sans log
     return 0
   }
 }
@@ -114,12 +182,11 @@ export async function markAsRead(notificationId: string): Promise<void> {
   try {
     await api.put(`/api/notifications/${notificationId}/read`)
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<{ message?: string }>
-    
-    // Vérifier si c'est une erreur silencieuse de déconnexion
-    if (isSilentError(error)) {
-      throw error
+    if (isSilentError(error) || isNetworkError(error)) {
+      return // Silencieux
     }
+    
+    const axiosError = error as AxiosError<{ message?: string }>
     
     if (axiosError.response?.status === 401) {
       if (typeof window !== 'undefined') {
@@ -132,7 +199,6 @@ export async function markAsRead(notificationId: string): Promise<void> {
       throw new Error('Notification non trouvée')
     }
 
-    console.error('Erreur lors du marquage de la notification comme lue:', error)
     throw new Error('Erreur lors du marquage de la notification comme lue')
   }
 }
@@ -144,12 +210,11 @@ export async function markAllAsRead(): Promise<void> {
   try {
     await api.put('/api/notifications/read-all')
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<{ message?: string }>
-    
-    // Vérifier si c'est une erreur silencieuse de déconnexion
-    if (isSilentError(error)) {
-      throw error
+    if (isSilentError(error) || isNetworkError(error)) {
+      return // Silencieux
     }
+    
+    const axiosError = error as AxiosError<{ message?: string }>
     
     if (axiosError.response?.status === 401) {
       if (typeof window !== 'undefined') {
@@ -158,7 +223,6 @@ export async function markAllAsRead(): Promise<void> {
       throw new Error('Non authentifié')
     }
 
-    console.error('Erreur lors du marquage de toutes les notifications comme lues:', error)
     throw new Error('Erreur lors du marquage de toutes les notifications comme lues')
   }
 }
@@ -170,12 +234,11 @@ export async function deleteNotification(notificationId: string): Promise<void> 
   try {
     await api.delete(`/api/notifications/${notificationId}`)
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<{ message?: string }>
-    
-    // Vérifier si c'est une erreur silencieuse de déconnexion
-    if (isSilentError(error)) {
-      throw error
+    if (isSilentError(error) || isNetworkError(error)) {
+      return // Silencieux
     }
+    
+    const axiosError = error as AxiosError<{ message?: string }>
     
     if (axiosError.response?.status === 401) {
       if (typeof window !== 'undefined') {
@@ -188,8 +251,6 @@ export async function deleteNotification(notificationId: string): Promise<void> 
       throw new Error('Notification non trouvée')
     }
 
-    console.error('Erreur lors de la suppression de la notification:', error)
     throw new Error('Erreur lors de la suppression de la notification')
   }
 }
-
