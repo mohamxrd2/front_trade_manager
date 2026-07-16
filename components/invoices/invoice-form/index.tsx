@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Loader2, User, Package, Calculator, MapPin, Palette, Check } from 'lucide-react'
 import { toast } from 'sonner'
@@ -39,6 +39,11 @@ function InvoiceFormInner() {
   const { t } = useTranslation()
   const { formData, currentStep, setCurrentStep, canProceed, isLastStep } = useInvoiceForm()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Garde synchrone contre le double-submit : `isSubmitting` (state React) ne
+  // suffit pas seul, car un second clic/Entrée peut arriver avant que React
+  // n'ait committé le re-render qui désactive le bouton — un ref est lu/écrit
+  // immédiatement, sans attendre un cycle de rendu.
+  const isSubmittingRef = useRef(false)
 
   const progress = (currentStep / steps.length) * 100
 
@@ -55,22 +60,28 @@ function InvoiceFormInner() {
   }
 
   const handleSubmit = async () => {
-    // Validation: client requis
-    if (!formData.client) {
-      toast.error(t('invoices.clientRequired'))
-      return
-    }
-
-    // Validation: au moins un article valide
-    const validItems = formData.items.filter((item) => item.article !== null && item.quantity > 0)
-    if (validItems.length === 0) {
-      toast.error(t('invoices.noItemsError'))
-      return
-    }
-
-    setIsSubmitting(true)
+    // Un seul appel POST /api/invoices en vol à la fois, même si handleSubmit
+    // est ré-invoqué plusieurs fois avant le premier re-render (double clic,
+    // double-tap mobile, Entrée maintenue sur le bouton focus).
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
 
     try {
+      // Validation: client requis
+      if (!formData.client) {
+        toast.error(t('invoices.clientRequired'))
+        return
+      }
+
+      // Validation: au moins un article valide
+      const validItems = formData.items.filter((item) => item.article !== null && item.quantity > 0)
+      if (validItems.length === 0) {
+        toast.error(t('invoices.noItemsError'))
+        return
+      }
+
+      setIsSubmitting(true)
+
       const payload: CreateInvoicePayload = {
         client_id: formData.client.id,
         items: validItems.map((item) => ({
@@ -99,9 +110,13 @@ function InvoiceFormInner() {
       const invoice = await createInvoice(payload)
       toast.success(t('invoices.invoiceCreated'))
       router.push(`/invoices/${invoice.id}`)
-    } catch (error: any) {
-      const status = error.response?.status
-      const data = error.response?.data
+    } catch (error: unknown) {
+      const axiosError = error as {
+        response?: { status?: number; data?: Record<string, unknown> }
+        message?: string
+      }
+      const status = axiosError.response?.status
+      const data = axiosError.response?.data
 
       // Debug logs
       if (process.env.NODE_ENV !== 'production') {
@@ -113,7 +128,7 @@ function InvoiceFormInner() {
       if (status === 422) {
         // Erreurs de stock (tableau de strings)
         if (Array.isArray(data?.errors)) {
-          data.errors.forEach((err: string) => {
+          (data.errors as string[]).forEach((err: string) => {
             toast.error(err)
           })
           return
@@ -121,14 +136,14 @@ function InvoiceFormInner() {
 
         // Erreurs de validation (objet { field: [messages] })
         if (data?.errors && typeof data.errors === 'object') {
-          const firstError = Object.values(data.errors)[0]
+          const firstError = Object.values(data.errors as Record<string, unknown>)[0]
           toast.error(Array.isArray(firstError) ? (firstError as string[])[0] : String(firstError))
           return
         }
 
         // Message générique de validation
         if (data?.message) {
-          toast.error(data.message)
+          toast.error(data.message as string)
           return
         }
 
@@ -143,13 +158,13 @@ function InvoiceFormInner() {
           router.push('/company/onboarding')
           return
         }
-        toast.error(data?.message || t('invoices.accessDenied'))
+        toast.error((data?.message as string) || t('invoices.accessDenied'))
         return
       }
 
       // ❌ Erreur 404 - Client ou article non trouvé
       if (status === 404) {
-        toast.error(data?.message || t('invoices.notFound'))
+        toast.error((data?.message as string) || t('invoices.notFound'))
         return
       }
 
@@ -161,18 +176,19 @@ function InvoiceFormInner() {
       }
 
       // ❌ Erreur 500+ - Erreur serveur
-      if (status >= 500) {
+      if (status && status >= 500) {
         console.error('[Invoice] Server error:', data)
         toast.error(t('invoices.serverError'))
         return
       }
 
       // ❌ Autres erreurs
-      const message = data?.message || data?.error || error.message || t('invoices.createError')
+      const message = (data?.message as string) || (data?.error as string) || axiosError.message || t('invoices.createError')
       toast.error(message)
       console.error('[Invoice] Create error:', error)
     } finally {
       setIsSubmitting(false)
+      isSubmittingRef.current = false
     }
   }
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Eye, MoreHorizontal, Trash2, FileText } from 'lucide-react'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
+import 'dayjs/locale/en'
 
 import {
   Table,
@@ -38,8 +39,6 @@ import { useCurrency } from '@/lib/utils/currency'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { toast } from 'sonner'
 
-dayjs.locale('fr')
-
 interface InvoiceTableProps {
   invoices: Invoice[]
   isLoading: boolean
@@ -71,7 +70,11 @@ function InvoiceTableSkeleton() {
 export function InvoiceTable({ invoices, isLoading, onRefresh }: InvoiceTableProps) {
   const router = useRouter()
   const { currency } = useCurrency()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+
+  // Les dates suivent la langue active (dayjs.locale mute l'instance globale)
+  dayjs.locale(language)
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -88,9 +91,21 @@ export function InvoiceTable({ invoices, isLoading, onRefresh }: InvoiceTablePro
 
     setIsDeleting(true)
     try {
-      await deleteInvoice(invoiceToDelete.id)
-      toast.success(t('invoices.invoiceDeleted'))
-      onRefresh()
+      // deleteInvoice() ne rejette jamais — elle retourne toujours
+      // { success, message }, y compris sur échec (facture payée, 404...).
+      // Il faut donc vérifier `result.success` explicitement : un simple
+      // `await` + toast de succès inconditionnel (comme avant) affichait un
+      // succès et rafraîchissait la liste même quand la suppression avait
+      // réellement échoué côté serveur — la facture restait donc affichée,
+      // ce qui donnait l'impression que le bouton ne faisait rien.
+      const result = await deleteInvoice(invoiceToDelete.id)
+
+      if (result.success) {
+        toast.success(t('invoices.invoiceDeleted'))
+        onRefresh()
+      } else {
+        toast.error(result.message || t('invoices.deleteError'))
+      }
     } catch (error) {
       const err = error as Error
       toast.error(err.message || t('invoices.deleteError'))
@@ -129,7 +144,7 @@ export function InvoiceTable({ invoices, isLoading, onRefresh }: InvoiceTablePro
               <TableHead>{t('invoices.number')}</TableHead>
               <TableHead>{t('invoices.client')}</TableHead>
               <TableHead>{t('invoices.date')}</TableHead>
-              <TableHead>{t('invoices.status')}</TableHead>
+              <TableHead>{t('invoices.pdf.status')}</TableHead>
               <TableHead className="text-right">{t('invoices.total')}</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -165,17 +180,21 @@ export function InvoiceTable({ invoices, isLoading, onRefresh }: InvoiceTablePro
                         <Eye className="mr-2 h-4 w-4" />
                         {t('common.view')}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setInvoiceToDelete(invoice)
-                          setDeleteDialogOpen(true)
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        {t('common.delete')}
-                      </DropdownMenuItem>
+                      {/* Masqué pour les factures payées : le backend refuse
+                          leur suppression (403 INVOICE_PAID, raisons comptables). */}
+                      {invoice.status !== 'paid' && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setInvoiceToDelete(invoice)
+                            setDeleteDialogOpen(true)
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {t('common.delete')}
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

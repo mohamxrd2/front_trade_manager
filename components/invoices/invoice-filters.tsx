@@ -76,11 +76,11 @@ export function InvoiceFilters({ clients, onFilterChange }: InvoiceFiltersProps)
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('common.all')}</SelectItem>
-            <SelectItem value="draft">{t('invoices.status.draft')}</SelectItem>
+            <SelectItem value="draft">{t('invoices.pdf.status_draft')}</SelectItem>
             <SelectItem value="pending">{t('invoices.status.pending')}</SelectItem>
-            <SelectItem value="paid">{t('invoices.status.paid')}</SelectItem>
-            <SelectItem value="overdue">{t('invoices.status.overdue')}</SelectItem>
-            <SelectItem value="cancelled">{t('invoices.status.cancelled')}</SelectItem>
+            <SelectItem value="paid">{t('invoices.pdf.status_paid')}</SelectItem>
+            <SelectItem value="overdue">{t('invoices.pdf.status_overdue')}</SelectItem>
+            <SelectItem value="cancelled">{t('invoices.pdf.status_cancelled')}</SelectItem>
           </SelectContent>
         </Select>
 

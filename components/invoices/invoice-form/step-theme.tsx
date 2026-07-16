@@ -14,6 +14,12 @@ interface ThemeOption {
   preview: React.ReactNode
 }
 
+/**
+ * Miniatures d'aperçu des 4 thèmes de facture. Les couleurs (hex) reproduisent
+ * fidèlement celles utilisées par le backend pour générer les PDF réels — ce
+ * ne sont pas des placeholders génériques, donc ne pas les faire dériver du
+ * thème vert de l'appli.
+ */
 export function StepTheme() {
   const { t } = useTranslation()
   const { formData, updateFormData } = useInvoiceForm()
@@ -23,21 +29,27 @@ export function StepTheme() {
       id: 'classic',
       name: t('invoices.themes.classic'),
       description: t('invoices.themes.classicDescription'),
+      // Blanc, bordure noire épaisse, serif, titre centré espacé, en-tête de
+      // tableau gris clair, zone de signature — look papier / comptable.
       preview: (
-        <div className="w-full aspect-[3/4] bg-white border rounded overflow-hidden p-3">
-          <div className="h-8 bg-gray-800 rounded-sm mb-2" />
-          <div className="space-y-1">
-            <div className="h-2 bg-gray-200 rounded w-2/3" />
-            <div className="h-2 bg-gray-200 rounded w-1/2" />
+        <div className="w-full aspect-[3/4] bg-white border-[3px] border-[#1a1a1a] overflow-hidden p-3 font-serif flex flex-col">
+          <div className="text-center mb-3">
+            <div className="text-[7px] font-bold tracking-[0.3em] text-[#1a1a1a]">FACTURE</div>
           </div>
-          <div className="mt-3 border rounded p-2">
-            <div className="h-2 bg-gray-300 rounded mb-2" />
+          <div className="flex justify-between mb-2">
+            <div className="h-1.5 bg-gray-300 w-1/3" />
+            <div className="h-1.5 bg-gray-300 w-1/4" />
+          </div>
+          <div className="border border-[#1a1a1a]">
+            <div className="bg-[#f0f0f0] h-2 border-b border-[#1a1a1a]" />
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-1.5 bg-gray-100 rounded mb-1" />
+              <div key={i} className="h-1.5 border-b border-gray-200 last:border-0" />
             ))}
           </div>
-          <div className="mt-auto pt-3 border-t mt-3">
-            <div className="h-3 bg-gray-800 rounded w-1/3 ml-auto" />
+          <div className="mt-auto pt-3 flex justify-end">
+            <div className="w-10 border-t border-[#1a1a1a] pt-1">
+              <div className="h-1 w-8 bg-gray-300" />
+            </div>
           </div>
         </div>
       ),
@@ -46,29 +58,34 @@ export function StepTheme() {
       id: 'modern',
       name: t('invoices.themes.modern'),
       description: t('invoices.themes.modernDescription'),
+      // Bandeau plein bleu vif + liseré bleu clair, zébrage bleu très clair,
+      // badge de statut arrondi, sans-serif — look startup / SaaS.
       preview: (
-        <div className="w-full aspect-[3/4] bg-gradient-to-br from-green-50 to-white border rounded overflow-hidden p-3">
-          <div className="flex justify-between items-start mb-3">
-            <div className="h-8 w-8 bg-green-500 rounded-lg" />
-            <div className="text-right">
-              <div className="h-2 bg-green-500 rounded w-12 mb-1" />
-              <div className="h-1.5 bg-gray-200 rounded w-16" />
-            </div>
+        <div className="w-full aspect-[3/4] bg-white border rounded-lg overflow-hidden flex flex-col">
+          <div className="bg-[#1d4ed8] px-2.5 py-2 flex justify-between items-center border-b-4 border-[#93c5fd]">
+            <div className="h-1.5 w-8 bg-white/90 rounded-sm" />
+            <div className="text-[6px] font-bold text-white tracking-wider">FACTURE</div>
           </div>
-          <div className="space-y-2">
-            <div className="h-2 bg-gray-200 rounded w-3/4" />
-            <div className="h-2 bg-gray-200 rounded w-1/2" />
-          </div>
-          <div className="mt-3 bg-white rounded-lg p-2 shadow-sm">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex justify-between mb-1">
-                <div className="h-1.5 bg-gray-100 rounded w-1/2" />
-                <div className="h-1.5 bg-green-100 rounded w-1/4" />
+          <div className="p-2.5 flex-1 flex flex-col">
+            <div className="flex justify-end mb-2">
+              <div className="px-1.5 py-0.5 rounded-full bg-[#dbeafe] text-[5px] text-[#1d4ed8] font-semibold">
+                PAYÉE
               </div>
-            ))}
-          </div>
-          <div className="mt-auto pt-3 mt-3">
-            <div className="h-4 bg-green-500 rounded-lg w-1/2 ml-auto" />
+            </div>
+            <div className="space-y-1">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className={cn('flex justify-between px-1 py-1 rounded', i % 2 === 0 && 'bg-[#eff6ff]')}
+                >
+                  <div className="h-1.5 bg-gray-200 rounded w-1/2" />
+                  <div className="h-1.5 bg-gray-300 rounded w-1/5" />
+                </div>
+              ))}
+            </div>
+            <div className="mt-auto pt-2 flex justify-end">
+              <div className="h-3 bg-[#1d4ed8] rounded w-1/3" />
+            </div>
           </div>
         </div>
       ),
@@ -77,29 +94,64 @@ export function StepTheme() {
       id: 'minimal',
       name: t('invoices.themes.minimal'),
       description: t('invoices.themes.minimalDescription'),
+      // Quasi tout blanc, aucune couleur vive, libellés gris clair, fines
+      // séparations, typographie petite et espacée — look épuré scandinave.
       preview: (
-        <div className="w-full aspect-[3/4] bg-white border rounded overflow-hidden p-3">
-          <div className="text-center mb-4">
-            <div className="h-6 w-6 bg-gray-900 rounded-full mx-auto mb-2" />
-            <div className="h-2 bg-gray-200 rounded w-1/3 mx-auto" />
+        <div className="w-full aspect-[3/4] bg-[#fcfcfc] border border-[#e0e0e0] overflow-hidden p-3 flex flex-col">
+          <div className="mb-5">
+            <div className="text-[6px] tracking-[0.25em] text-[#8c8c8c]">FACTURE</div>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5 flex-1">
             <div className="flex justify-between">
-              <div className="h-1.5 bg-gray-100 rounded w-1/3" />
-              <div className="h-1.5 bg-gray-300 rounded w-1/4" />
+              <div className="h-1 bg-[#e0e0e0] w-1/4" />
+              <div className="h-1 bg-[#8c8c8c] w-1/5" />
             </div>
-            <div className="h-px bg-gray-100" />
-            {[1, 2].map((i) => (
-              <div key={i} className="flex justify-between">
-                <div className="h-1.5 bg-gray-100 rounded w-1/2" />
-                <div className="h-1.5 bg-gray-200 rounded w-1/5" />
-              </div>
-            ))}
-          </div>
-          <div className="mt-auto pt-4 mt-4 border-t">
+            <div className="h-px bg-[#e0e0e0]" />
             <div className="flex justify-between">
-              <div className="h-2 bg-gray-300 rounded w-1/4" />
-              <div className="h-2 bg-gray-900 rounded w-1/4" />
+              <div className="h-1 bg-[#e0e0e0] w-1/3" />
+              <div className="h-1 bg-[#8c8c8c] w-1/6" />
+            </div>
+            <div className="h-px bg-[#e0e0e0]" />
+          </div>
+          <div className="mt-auto pt-4 flex justify-between items-baseline">
+            <div className="h-1 bg-[#e0e0e0] w-1/5" />
+            <div className="h-2 bg-[#8c8c8c] w-1/4" />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'professional',
+      name: t('invoices.themes.professional'),
+      description: t('invoices.themes.professionalDescription'),
+      // Bandeau sombre marine/anthracite + liseré doré, encarts sur fond gris
+      // clair avec titre souligné doré, serif, zones de signature formelles.
+      preview: (
+        <div className="w-full aspect-[3/4] bg-white border overflow-hidden flex flex-col font-serif">
+          <div className="bg-[#1c2431] px-2.5 py-2 border-b-2 border-[#c9a96e]">
+            <div className="text-[6px] tracking-[0.2em] text-[#c9a96e] font-semibold">FACTURE</div>
+            <div className="h-1 w-1/2 bg-white/70 mt-1" />
+          </div>
+          <div className="p-2.5 flex-1 flex flex-col">
+            <div className="bg-[#f5f5f4] p-1.5 mb-2">
+              <div className="h-0.5 w-1/3 bg-[#c9a96e] mb-1" />
+              <div className="h-1.5 bg-gray-300 rounded w-2/3" />
+            </div>
+            <div className="space-y-1.5">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex justify-between">
+                  <div className="h-1.5 bg-gray-200 rounded w-1/2" />
+                  <div className="h-1.5 bg-gray-300 rounded w-1/5" />
+                </div>
+              ))}
+            </div>
+            <div className="mt-auto pt-3 flex justify-between">
+              <div className="w-9 border-t border-gray-400 pt-1">
+                <div className="h-1 w-7 bg-gray-300" />
+              </div>
+              <div className="w-9 border-t border-gray-400 pt-1">
+                <div className="h-1 w-7 bg-gray-300" />
+              </div>
             </div>
           </div>
         </div>
@@ -117,20 +169,22 @@ export function StepTheme() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
             {themes.map((theme) => {
               const isSelected = formData.theme === theme.id
 
               return (
-                <div
+                <button
                   key={theme.id}
+                  type="button"
                   className={cn(
-                    'relative cursor-pointer rounded-xl border-2 p-4 transition-all hover:shadow-md',
+                    'relative text-left cursor-pointer rounded-xl border-2 p-3 sm:p-4 transition-all hover:shadow-md',
                     isSelected
-                      ? 'border-green-500 bg-green-50 dark:bg-green-950/20'
+                      ? 'border-green-500 bg-green-50 dark:bg-green-950/20 shadow-lg'
                       : 'border-muted hover:border-muted-foreground/50'
                   )}
                   onClick={() => updateFormData({ theme: theme.id })}
+                  aria-pressed={isSelected}
                 >
                   {/* Checkmark */}
                   {isSelected && (
@@ -140,14 +194,14 @@ export function StepTheme() {
                   )}
 
                   {/* Preview */}
-                  <div className="mb-4">{theme.preview}</div>
+                  <div className="mb-3 sm:mb-4 rounded-lg overflow-hidden shadow-sm">{theme.preview}</div>
 
                   {/* Info */}
                   <div className="text-center">
-                    <h3 className="font-semibold">{theme.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{theme.description}</p>
+                    <h3 className="font-semibold text-sm">{theme.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">{theme.description}</p>
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
@@ -161,4 +215,3 @@ export function StepTheme() {
     </div>
   )
 }
-

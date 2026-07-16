@@ -1,4 +1,4 @@
-import api, { setLoggingOut, isApiError, ApiErrorType, type ApiError } from './api'
+import api, { setLoggingOut, isApiError, ApiErrorType, type ApiError, type NoRetryRequestConfig } from './api'
 import type { AxiosError } from 'axios'
 
 /**
@@ -56,6 +56,24 @@ export interface RegisterData {
  */
 export interface ValidationErrors {
   [field: string]: string[]
+}
+
+/**
+ * Inscription en attente de vérification : le compte n'existe pas encore,
+ * seul un code à 5 chiffres a été envoyé par email (POST /api/register ou
+ * /api/register/resend-code).
+ */
+export interface PendingRegistration {
+  email: string
+  expiresIn: number // secondes avant expiration du code (10 min côté backend)
+}
+
+/**
+ * Payload pour vérifier le code reçu par email et finaliser l'inscription
+ */
+export interface VerifyRegistrationPayload {
+  email: string
+  code: string
 }
 
 // ============================================================================
@@ -152,6 +170,19 @@ export async function login(credentials: LoginCredentials): Promise<User> {
       throw error
     }
 
+    // Email non vérifié (403) : cas géré spécifiquement par AuthContext
+    // (redirection vers l'écran de vérification par code), pas une vraie
+    // erreur de connexion. On laisse l'erreur remonter telle quelle, avec
+    // ses champs code/data intacts, sans la logger comme un bug.
+    if (isApiError(error) && error.code === 'EMAIL_NOT_VERIFIED') {
+      // TEMP DEBUG — à retirer une fois le flow validé en prod
+      console.log('🔍 [lib/auth.ts] login(): EMAIL_NOT_VERIFIED détecté, passthrough sans transformation', {
+        code: error.code,
+        data: error.data,
+      })
+      throw error
+    }
+
     // Gestion spécifique de l'erreur 419 (CSRF token mismatch)
     const status = getErrorStatus(error)
     if (status === 419) {
@@ -176,22 +207,32 @@ export async function login(credentials: LoginCredentials): Promise<User> {
 }
 
 /**
- * Inscription d'un utilisateur
- * 
+ * Étape 1/2 de l'inscription : envoie les infos du compte et déclenche
+ * l'envoi d'un code de vérification à 5 chiffres par email. Le compte
+ * n'est PAS créé à ce stade — il faut appeler verifyRegistrationCode()
+ * avec le code reçu pour finaliser l'inscription.
+ *
+ * skipRetry: true — un retry automatique sur 5xx/419 renverrait un second
+ * email de vérification à l'insu de l'utilisateur.
+ *
  * @param data - Données d'inscription
- * @returns L'utilisateur créé
- * @throws Erreur si l'inscription échoue
+ * @returns L'email en attente de vérification + la durée de validité du code (secondes)
+ * @throws Erreur si l'envoi échoue (422 validation, 502 échec d'envoi d'email, etc.)
  */
-export async function register(data: RegisterData): Promise<User> {
+export async function register(data: RegisterData): Promise<PendingRegistration> {
   try {
-    // L'intercepteur axios récupère automatiquement le cookie CSRF
-    const response = await api.post<User>('/api/register', data)
-    return response.data
+    const config: NoRetryRequestConfig = { skipRetry: true }
+    const response = await api.post<{ success: boolean; message: string; data: { email: string; expires_in: number } }>(
+      '/api/register',
+      data,
+      config
+    )
+    return { email: response.data.data.email, expiresIn: response.data.data.expires_in }
   } catch (error: unknown) {
     // Logging détaillé en développement (sauf pour les erreurs silencieuses)
     if (process.env.NODE_ENV !== 'production' && !isSilentError(error)) {
       const status = getErrorStatus(error)
-      
+
       // Aide spécifique pour les erreurs de validation
       if (status === 422) {
         const axiosError = error as AxiosError<{ errors?: ValidationErrors }>
@@ -201,6 +242,56 @@ export async function register(data: RegisterData): Promise<User> {
       } else {
         console.error('🚨 Erreur register:', error)
       }
+    }
+
+    throw error
+  }
+}
+
+/**
+ * Étape 2/2 de l'inscription : vérifie le code à 5 chiffres reçu par email
+ * et finalise la création du compte. En cas de succès, l'utilisateur est
+ * déjà connecté via cookie de session (comme login()).
+ *
+ * skipRetry: true — un code de vérification est sensible au nombre de
+ * tentatives (5 max côté backend) ; un retry automatique sur erreur
+ * réseau/5xx/419 CSRF pourrait consommer une tentative pour rien.
+ *
+ * @throws Erreur si le code est incorrect (422), inconnu (404), expiré (410)
+ * ou si trop de tentatives ont échoué (429)
+ */
+export async function verifyRegistrationCode(payload: VerifyRegistrationPayload): Promise<User> {
+  try {
+    const config: NoRetryRequestConfig = { skipRetry: true }
+    const response = await api.post<User>('/api/register/verify', payload, config)
+    return response.data
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV !== 'production' && !isSilentError(error)) {
+      console.error('🚨 Erreur verifyRegistrationCode:', error)
+    }
+
+    throw error
+  }
+}
+
+/**
+ * Régénère un nouveau code de vérification pour une inscription en attente
+ * (réinitialise aussi le compteur de tentatives côté backend).
+ *
+ * @throws Erreur si aucune inscription en attente n'existe pour cet email (404)
+ */
+export async function resendRegistrationCode(email: string): Promise<PendingRegistration> {
+  try {
+    const config: NoRetryRequestConfig = { skipRetry: true }
+    const response = await api.post<{ success: boolean; message: string; data: { email: string; expires_in: number } }>(
+      '/api/register/resend-code',
+      { email },
+      config
+    )
+    return { email: response.data.data.email, expiresIn: response.data.data.expires_in }
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV !== 'production' && !isSilentError(error)) {
+      console.error('🚨 Erreur resendRegistrationCode:', error)
     }
 
     throw error

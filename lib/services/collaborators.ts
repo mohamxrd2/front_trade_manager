@@ -1,4 +1,5 @@
 import api from '@/lib/api'
+import type { AxiosError } from 'axios'
 import { isSilentError } from '@/lib/utils/error-handler'
 
 /**
@@ -52,35 +53,68 @@ export interface ValidationErrors {
 }
 
 /**
+ * Gestion centralisée des erreurs des endpoints collaborateurs
+ */
+function handleCollaboratorError(error: unknown, context: string): never {
+  if (isSilentError(error)) {
+    throw error
+  }
+
+  const axiosError = error as AxiosError<{ message?: string; errors?: ValidationErrors }>
+  const status = axiosError.response?.status
+
+  if (status === 401) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
+    throw new Error('Non authentifié')
+  }
+
+  if (status === 404) {
+    throw new Error('Collaborateur non trouvé')
+  }
+
+  if (status === 403) {
+    throw new Error(axiosError.response?.data?.message || 'Collaborateur non autorisé')
+  }
+
+  if (status === 422) {
+    const validationErrors: ValidationErrors = axiosError.response?.data?.errors || {}
+    throw { validationErrors, message: 'Erreur de validation' }
+  }
+
+  if (status && status >= 500) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`🚨 Erreur serveur ${context}:`, axiosError.response?.data)
+    }
+    throw new Error('Erreur serveur')
+  }
+
+  if (axiosError.response?.data?.message) {
+    throw new Error(axiosError.response.data.message)
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(`🚨 Erreur ${context}:`, error)
+  }
+
+  throw error
+}
+
+/**
  * Récupérer la liste des collaborateurs
  */
 export async function getCollaborators(): Promise<Collaborator[]> {
   try {
     const response = await api.get<ApiResponse<Collaborator[]>>('/api/collaborators')
-    
+
     if (response.data.success && Array.isArray(response.data.data)) {
       return response.data.data
     }
-    
+
     return []
   } catch (error: unknown) {
-    // Vérifier si c'est une erreur silencieuse de déconnexion
-    if (isSilentError(error)) {
-      throw error
-    }
-    
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { response?: { status?: number } }
-      
-      if (axiosError.response?.status === 401) {
-        // Rediriger vers la page de connexion
-        window.location.href = '/login'
-        throw new Error('Non authentifié')
-      }
-    }
-    
-    console.error('Erreur lors de la récupération des collaborateurs:', error)
-    throw error
+    handleCollaboratorError(error, 'getCollaborators')
   }
 }
 
@@ -90,32 +124,14 @@ export async function getCollaborators(): Promise<Collaborator[]> {
 export async function getCollaboratorById(id: string): Promise<Collaborator> {
   try {
     const response = await api.get<ApiResponse<Collaborator>>(`/api/collaborators/${id}`)
-    
+
     if (response.data.success && response.data.data) {
       return response.data.data
     }
-    
+
     throw new Error('Collaborateur non trouvé')
   } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { response?: { status?: number; data?: { message?: string } } }
-      
-      if (axiosError.response?.status === 401) {
-        window.location.href = '/login'
-        throw new Error('Non authentifié')
-      }
-      
-      if (axiosError.response?.status === 404) {
-        throw new Error('Collaborateur non trouvé')
-      }
-      
-      if (axiosError.response?.data?.message) {
-        throw new Error(axiosError.response.data.message)
-      }
-    }
-    
-    console.error('Erreur lors de la récupération du collaborateur:', error)
-    throw error
+    handleCollaboratorError(error, 'getCollaboratorById')
   }
 }
 
@@ -127,45 +143,14 @@ export async function createCollaborator(
 ): Promise<Collaborator> {
   try {
     const response = await api.post<ApiResponse<Collaborator>>('/api/collaborators', payload)
-    
+
     if (response.data.success && response.data.data) {
       return response.data.data
     }
-    
+
     throw new Error('Erreur lors de la création du collaborateur')
   } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { 
-        response?: { 
-          status?: number
-          data?: { 
-            message?: string
-            errors?: ValidationErrors
-          }
-        }
-      }
-      
-      if (axiosError.response?.status === 401) {
-        window.location.href = '/login'
-        throw new Error('Non authentifié')
-      }
-      
-      if (axiosError.response?.status === 422) {
-        const validationErrors: ValidationErrors = axiosError.response.data?.errors || {}
-        throw { validationErrors, message: 'Erreur de validation' }
-      }
-      
-      if (axiosError.response?.status === 400) {
-        throw new Error(axiosError.response.data?.message || 'Erreur lors de la création')
-      }
-      
-      if (axiosError.response?.data?.message) {
-        throw new Error(axiosError.response.data.message)
-      }
-    }
-    
-    console.error('Erreur lors de la création du collaborateur:', error)
-    throw error
+    handleCollaboratorError(error, 'createCollaborator')
   }
 }
 
@@ -178,49 +163,14 @@ export async function updateCollaborator(
 ): Promise<Collaborator> {
   try {
     const response = await api.put<ApiResponse<Collaborator>>(`/api/collaborators/${id}`, payload)
-    
+
     if (response.data.success && response.data.data) {
       return response.data.data
     }
-    
+
     throw new Error('Erreur lors de la modification du collaborateur')
   } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { 
-        response?: { 
-          status?: number
-          data?: { 
-            message?: string
-            errors?: ValidationErrors
-          }
-        }
-      }
-      
-      if (axiosError.response?.status === 401) {
-        window.location.href = '/login'
-        throw new Error('Non authentifié')
-      }
-      
-      if (axiosError.response?.status === 404) {
-        throw new Error('Collaborateur non trouvé')
-      }
-      
-      if (axiosError.response?.status === 403) {
-        throw new Error('Collaborateur non autorisé')
-      }
-      
-      if (axiosError.response?.status === 422) {
-        const validationErrors: ValidationErrors = axiosError.response.data?.errors || {}
-        throw { validationErrors, message: 'Erreur de validation' }
-      }
-      
-      if (axiosError.response?.data?.message) {
-        throw new Error(axiosError.response.data.message)
-      }
-    }
-    
-    console.error('Erreur lors de la modification du collaborateur:', error)
-    throw error
+    handleCollaboratorError(error, 'updateCollaborator')
   }
 }
 
@@ -230,41 +180,13 @@ export async function updateCollaborator(
 export async function deleteCollaborator(id: string): Promise<{ returned_part: number }> {
   try {
     const response = await api.delete<ApiResponse<{ returned_part: number }>>(`/api/collaborators/${id}`)
-    
+
     if (response.data.success && response.data.data) {
       return response.data.data
     }
-    
+
     throw new Error('Erreur lors de la suppression du collaborateur')
   } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { 
-        response?: { 
-          status?: number
-          data?: { message?: string }
-        }
-      }
-      
-      if (axiosError.response?.status === 401) {
-        window.location.href = '/login'
-        throw new Error('Non authentifié')
-      }
-      
-      if (axiosError.response?.status === 404) {
-        throw new Error('Collaborateur non trouvé')
-      }
-      
-      if (axiosError.response?.status === 403) {
-        throw new Error('Collaborateur non autorisé')
-      }
-      
-      if (axiosError.response?.data?.message) {
-        throw new Error(axiosError.response.data.message)
-      }
-    }
-    
-    console.error('Erreur lors de la suppression du collaborateur:', error)
-    throw error
+    handleCollaboratorError(error, 'deleteCollaborator')
   }
 }
-

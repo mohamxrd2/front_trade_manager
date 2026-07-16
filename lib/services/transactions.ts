@@ -137,11 +137,15 @@ export async function getWalletStats(): Promise<WalletStats> {
     }
 
     if (axiosError.response?.status === 500) {
-      console.error('Erreur serveur lors de la récupération des statistiques:', axiosError.response.data)
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Erreur serveur lors de la récupération des statistiques:', axiosError.response.data)
+      }
       throw new Error('Erreur serveur lors du chargement des statistiques')
     }
 
-    console.error('Erreur lors de la récupération des statistiques:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Erreur lors de la récupération des statistiques:', error)
+    }
     throw new Error('Erreur lors du chargement des statistiques')
   }
 }
@@ -157,7 +161,9 @@ export async function getTransactions(): Promise<Transaction[]> {
     const transactions = response.data.data || (Array.isArray(response.data) ? response.data : [])
     
     if (!Array.isArray(transactions)) {
-      console.warn('Réponse API transactions non valide:', transactions)
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('Réponse API transactions non valide:', transactions)
+      }
       return []
     }
 
@@ -184,11 +190,15 @@ export async function getTransactions(): Promise<Transaction[]> {
     }
 
     if (axiosError.response?.status === 500) {
-      console.error('Erreur serveur lors de la récupération des transactions:', axiosError.response.data)
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Erreur serveur lors de la récupération des transactions:', axiosError.response.data)
+      }
       throw new Error('Erreur serveur lors du chargement des transactions')
     }
 
-    console.error('Erreur lors de la récupération des transactions:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Erreur lors de la récupération des transactions:', error)
+    }
     throw new Error('Erreur lors du chargement des transactions')
   }
 }
@@ -210,29 +220,16 @@ export async function updateTransaction(
       ...(payload.amount !== undefined && { amount: Number(payload.amount) }),
     };
     
-    console.log('📤 Envoi PUT /api/transactions/' + id, {
-      originalPayload: payload,
-      formattedPayload,
-      payloadType: typeof formattedPayload,
-      payloadKeys: Object.keys(formattedPayload),
-      payloadStringified: JSON.stringify(formattedPayload),
-      payloadValues: Object.entries(formattedPayload).map(([key, value]) => ({
-        key,
-        value,
-        type: typeof value,
-        isNaN: typeof value === 'number' ? isNaN(value) : 'N/A'
-      })),
-    });
-    
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('📤 Envoi PUT /api/transactions/' + id, formattedPayload)
+    }
+
     const response = await api.put<ApiResponse<ApiTransaction>>(`/api/transactions/${id}`, formattedPayload)
-    
-    console.log('📥 Réponse API:', {
-      status: response.status,
-      data: response.data,
-      dataType: typeof response.data,
-      dataStringified: JSON.stringify(response.data),
-    });
-    
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('📥 Réponse API:', response.data)
+    }
+
     if (!response.data.data) {
       throw new Error('Réponse API invalide')
     }
@@ -246,55 +243,37 @@ export async function updateTransaction(
     }
 
     if (axiosError.response?.status === 400) {
-      console.error('❌ Erreur 400 - Bad Request:', axiosError.response.data);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('❌ Erreur 400 - Bad Request:', axiosError.response.data)
+      }
       const message = (axiosError.response.data as { message?: string })?.message || 'Erreur lors de la modification'
       throw new Error(message)
     }
 
     if (axiosError.response?.status === 422) {
-      const responseData = axiosError.response.data as any;
-      
-      console.error('❌ Erreur 422 - Validation complète:', {
-        fullResponse: axiosError.response,
-        data: responseData,
-        dataType: typeof responseData,
-        dataKeys: responseData ? Object.keys(responseData) : [],
-        dataStringified: JSON.stringify(responseData),
-        status: axiosError.response.status,
-        statusText: axiosError.response.statusText,
-        headers: axiosError.response.headers,
-        config: {
-          url: axiosError.config?.url,
-          method: axiosError.config?.method,
-          data: axiosError.config?.data,
-        }
-      });
-      
-      // Essayer différents formats d'erreurs possibles
-      let errors = responseData?.errors || responseData?.error || responseData?.message || responseData;
-      
-      // Si responseData est un objet vide {}, essayer de récupérer les erreurs depuis les headers
-      if (!responseData || (typeof responseData === 'object' && Object.keys(responseData).length === 0)) {
-        console.warn('⚠️ Réponse 422 avec objet vide, vérification des headers...');
-        // Laravel peut parfois mettre les erreurs dans les headers
-        const contentType = axiosError.response.headers['content-type'];
-        console.log('Content-Type:', contentType);
+      const responseData = axiosError.response.data as Record<string, unknown> | undefined;
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('❌ Erreur 422 - Validation:', responseData)
       }
-      
+
+      // Essayer différents formats d'erreurs possibles
+      const errors = responseData?.errors || responseData?.error || responseData?.message || responseData;
+
       // Si errors est un objet avec des clés, c'est le format attendu
       if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
+        const errorsObj = errors as Record<string, unknown>
         // Vérifier si c'est un objet d'erreurs Laravel (clé: [messages])
-        const hasLaravelFormat = Object.keys(errors).some(key => Array.isArray(errors[key]));
+        const hasLaravelFormat = Object.keys(errorsObj).some(key => Array.isArray(errorsObj[key]));
         if (hasLaravelFormat) {
-          console.log('✅ Format Laravel détecté:', errors);
-          throw { validationErrors: errors }
+          throw { validationErrors: errorsObj }
         }
-        
+
         // Si errors a des clés mais pas de format Laravel, essayer de les convertir
-        if (Object.keys(errors).length > 0) {
+        if (Object.keys(errorsObj).length > 0) {
           const convertedErrors: Record<string, string[]> = {};
-          Object.keys(errors).forEach(key => {
-            const value = errors[key];
+          Object.keys(errorsObj).forEach(key => {
+            const value = errorsObj[key];
             if (Array.isArray(value)) {
               convertedErrors[key] = value;
             } else if (typeof value === 'string') {
@@ -303,30 +282,25 @@ export async function updateTransaction(
               convertedErrors[key] = [String(value)];
             }
           });
-          console.log('✅ Erreurs converties:', convertedErrors);
           throw { validationErrors: convertedErrors }
         }
       }
-      
+
       // Si errors est un message string, le convertir en format d'erreur
       if (typeof errors === 'string') {
         throw { validationErrors: { _general: [errors] } }
       }
-      
+
       // Si responseData.message existe, l'utiliser
       if (responseData?.message) {
         throw { validationErrors: { _general: [responseData.message] } }
       }
-      
-      // Dernier recours : erreur générique avec indication de débogage
-      console.error('❌ Impossible de parser les erreurs de validation');
-      throw { 
-        validationErrors: { 
-          _general: [
-            'Erreur de validation. Veuillez vérifier les données saisies.',
-            'Détails: Vérifiez la console pour plus d\'informations.'
-          ] 
-        } 
+
+      // Dernier recours : erreur générique
+      throw {
+        validationErrors: {
+          _general: ['Erreur de validation. Veuillez vérifier les données saisies.']
+        }
       }
     }
 
@@ -335,11 +309,15 @@ export async function updateTransaction(
     }
 
     if (axiosError.response?.status === 500) {
-      console.error('Erreur serveur lors de la modification:', axiosError.response.data)
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Erreur serveur lors de la modification:', axiosError.response.data)
+      }
       throw new Error('Erreur serveur lors de la modification')
     }
 
-    console.error('Erreur lors de la modification de la transaction:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Erreur lors de la modification de la transaction:', error)
+    }
     throw new Error('Erreur lors de la modification de la transaction')
   }
 }
@@ -362,11 +340,15 @@ export async function deleteTransaction(id: string): Promise<void> {
     }
 
     if (axiosError.response?.status === 500) {
-      console.error('Erreur serveur lors de la suppression:', axiosError.response.data)
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Erreur serveur lors de la suppression:', axiosError.response.data)
+      }
       throw new Error('Erreur serveur lors de la suppression')
     }
 
-    console.error('Erreur lors de la suppression de la transaction:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Erreur lors de la suppression de la transaction:', error)
+    }
     throw new Error('Erreur lors de la suppression de la transaction')
   }
 }

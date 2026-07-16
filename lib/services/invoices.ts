@@ -1,4 +1,4 @@
-import api from '../api'
+import api, { API_BASE_URL, type NoRetryRequestConfig } from '../api'
 import type { AxiosError } from 'axios'
 import { isSilentError, isAuthError } from '../utils/error-handler'
 
@@ -246,7 +246,9 @@ export async function checkCompanyProfile(): Promise<{ isComplete: boolean; comp
   } catch (error) {
     // En cas d'erreur, on considère le profil comme complet pour ne pas bloquer
     // Le backend vérifiera de toute façon lors de la création de facture
-    console.error('checkCompanyProfile error:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('checkCompanyProfile error:', error)
+    }
     return { isComplete: true, company: null }
   }
 }
@@ -275,12 +277,15 @@ export async function getClients(): Promise<Client[]> {
     const response = await api.get('/api/clients')
     const data = response.data
 
-    // Debug log
-    console.log('📦 API /api/clients response:', data)
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('📦 API /api/clients response:', data)
+    }
 
     // Format API: { success: true, data: { clients: [...], pagination: {...} } }
     if (data?.success && data?.data?.clients) {
-      console.log('✅ Clients loaded:', data.data.clients.length)
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('✅ Clients loaded:', data.data.clients.length)
+      }
       return data.data.clients
     }
 
@@ -297,10 +302,14 @@ export async function getClients(): Promise<Client[]> {
       return data.clients
     }
 
-    console.warn('⚠️ getClients: unexpected format', data)
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('⚠️ getClients: unexpected format', data)
+    }
     return []
   } catch (error) {
-    console.error('❌ getClients error:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('❌ getClients error:', error)
+    }
     return []
   }
 }
@@ -330,7 +339,9 @@ export async function createClient(data: CreateClientPayload): Promise<Client> {
     const response = await api.post('/api/clients', data)
     const responseData = response.data
 
-    console.log('📦 createClient response:', responseData)
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('📦 createClient response:', responseData)
+    }
 
     // Format API: { success: true, data: { client: {...} } } ou { success: true, data: {...} }
     if (responseData?.success && responseData?.data) {
@@ -369,7 +380,9 @@ export async function updateClient(id: string, data: CreateClientPayload): Promi
     const response = await api.put(`/api/clients/${id}`, data)
     const responseData = response.data
 
-    console.log('📦 updateClient response:', responseData)
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('📦 updateClient response:', responseData)
+    }
 
     // Format API: { success: true, data: { client: {...} } } ou { success: true, data: {...} }
     if (responseData?.success && responseData?.data) {
@@ -426,15 +439,23 @@ export async function getInvoiceDashboard(): Promise<InvoiceDashboardStats> {
       console.debug('getInvoiceDashboard response:', data)
     }
 
-    // Handle different response formats
-    if (data && typeof data === 'object') {
-      // Format: { data: {...} }
-      if (data.data) {
-        return data.data
-      }
-      // Format: direct stats object
-      if (typeof data.unpaid_count !== 'undefined') {
-        return data
+    // Le payload utile est dans `data.data`, mais on reste tolérant si
+    // jamais l'API renvoie un jour l'objet stats directement à la racine.
+    const raw = data?.data && typeof data.data === 'object' ? data.data : data
+
+    if (raw && typeof raw === 'object') {
+      // Le backend (InvoiceController::dashboard) renvoie des noms de champs
+      // différents de ceux attendus ici (unpaid_invoices_count au lieu de
+      // unpaid_count, unpaid_amount_total au lieu de unpaid_amount,
+      // paid_amount_total au lieu de total_collected, last_invoices au lieu
+      // de recent_invoices) : sans cette normalisation, les 3 cartes
+      // affichaient toujours 0 quel que soit le contenu réel des factures.
+      return {
+        unpaid_count: raw.unpaid_invoices_count ?? raw.unpaid_count ?? 0,
+        unpaid_amount: raw.unpaid_amount_total ?? raw.unpaid_amount ?? 0,
+        total_invoices: raw.total_invoices ?? 0,
+        total_collected: raw.paid_amount_total ?? raw.total_collected ?? 0,
+        recent_invoices: raw.last_invoices ?? raw.recent_invoices ?? [],
       }
     }
 
@@ -448,7 +469,9 @@ export async function getInvoiceDashboard(): Promise<InvoiceDashboardStats> {
     }
   } catch (error) {
     // Return empty stats on error instead of throwing
-    console.error('getInvoiceDashboard error:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('getInvoiceDashboard error:', error)
+    }
     return {
       unpaid_count: 0,
       unpaid_amount: 0,
@@ -527,7 +550,9 @@ export async function getInvoices(params?: {
 
     return { invoices, total, pages }
   } catch (error) {
-    console.error('❌ getInvoices error:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('❌ getInvoices error:', error)
+    }
     return { invoices: [], total: 0, pages: 1 }
   }
 }
@@ -538,7 +563,9 @@ export async function getInvoices(params?: {
 export async function getInvoiceById(id: string): Promise<Invoice | null> {
   // Ne pas fetch si pas d'ID
   if (!id) {
-    console.warn('⚠️ getInvoiceById: no id provided')
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('⚠️ getInvoiceById: no id provided')
+    }
     return null
   }
 
@@ -564,10 +591,14 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
       return data as Invoice
     }
 
-    console.warn('⚠️ getInvoiceById: invoice not found in response', data)
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('⚠️ getInvoiceById: invoice not found in response', data)
+    }
     return null
   } catch (error) {
-    console.error('❌ getInvoiceById error:', error)
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('❌ getInvoiceById error:', error)
+    }
     throw error
   }
 }
@@ -577,7 +608,13 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
  */
 export async function createInvoice(data: CreateInvoicePayload): Promise<Invoice> {
   try {
-    const response = await api.post<{ success: boolean; data: Invoice }>('/api/invoices', data)
+    // skipRetry: true — POST /api/invoices n'est pas idempotent. Un retry
+    // automatique sur 419 CSRF/5xx/réseau (comportement par défaut de
+    // l'instance axios) rejouerait la même requête et créerait une seconde
+    // facture si la première a en fait été créée côté serveur avant l'échec
+    // apparent (timeout, coupure juste après la réponse, etc.).
+    const config: NoRetryRequestConfig = { skipRetry: true }
+    const response = await api.post<{ success: boolean; data: Invoice }>('/api/invoices', data, config)
     return response.data.data
   } catch (error) {
     handleApiError(error, 'createInvoice')
@@ -605,7 +642,9 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Pr
 
     throw new Error('Invalid response format')
   } catch (error) {
-    console.error('❌ updateInvoiceStatus error:', error)
+    // Pas de console.error ici : le caller (handleStatusChange) affiche déjà
+    // un toast avec le détail de l'erreur — logguer en plus déclenche
+    // l'overlay "Console Error" de Next.js en dev pour une erreur déjà gérée.
     throw error
   }
 }
@@ -656,5 +695,57 @@ export async function deleteInvoice(invoiceId: string): Promise<{ success: boole
       message: data?.message || 'Erreur lors de la suppression'
     }
   }
+}
+
+// ============================================================================
+// API - PDF (aperçu / téléchargement, générés côté backend)
+// ============================================================================
+
+export type InvoicePdfMode = 'preview' | 'download'
+
+/**
+ * Récupère le PDF d'une facture (Blob), généré par le backend :
+ * - preview  → GET /api/invoices/{id}/preview  (Content-Disposition: inline)
+ * - download → GET /api/invoices/{id}/download (Content-Disposition: attachment)
+ *
+ * Utilise fetch (pas l'instance axios) car on a besoin d'accéder au Blob et
+ * au Content-Type bruts de la réponse. Ces routes ne sont PAS publiques —
+ * elles nécessitent le cookie de session Sanctum — donc pas question de les
+ * mettre directement dans un <a href>/<iframe src> : credentials: 'include'
+ * est indispensable pour que le navigateur envoie le cookie.
+ *
+ * Si le backend échoue (facture introuvable/pas la vôtre → 404, erreur
+ * serveur → 500), il répond en JSON au lieu du PDF : on vérifie le
+ * Content-Type avant de traiter la réponse comme un PDF, et on extrait le
+ * message d'erreur JSON le cas échéant plutôt que de tenter d'afficher du
+ * JSON dans un viewer PDF.
+ */
+export async function getInvoicePdfBlob(id: string, mode: InvoicePdfMode): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}/api/invoices/${id}/${mode}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/pdf' },
+  })
+
+  const contentType = response.headers.get('content-type') || ''
+
+  if (!response.ok || !contentType.includes('application/pdf')) {
+    let message = mode === 'preview'
+      ? 'Erreur lors de la génération de l\'aperçu'
+      : 'Erreur lors de la génération du PDF'
+
+    if (contentType.includes('application/json')) {
+      try {
+        const body = await response.json()
+        message = body?.message || message
+      } catch {
+        // Corps illisible : on garde le message par défaut
+      }
+    }
+
+    throw new Error(message)
+  }
+
+  return response.blob()
 }
 

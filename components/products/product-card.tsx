@@ -81,7 +81,7 @@ export function ProductCard({ product }: ProductCardProps) {
         color: 'red'
       }
     }
-    if (article!.low_stock) {
+    if (article?.low_stock) {
       return { 
         label: t('products.stockStatus.lowStock'), 
         variant: 'secondary' as const,

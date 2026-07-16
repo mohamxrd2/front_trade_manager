@@ -26,18 +26,20 @@ interface DeleteInvoiceButtonProps {
   onDeleted?: () => void
 }
 
-export function DeleteInvoiceButton({ 
-  invoiceId, 
-  invoiceNumber, 
-  status, 
-  onDeleted 
+export function DeleteInvoiceButton({
+  invoiceId,
+  invoiceNumber,
+  status,
+  onDeleted
 }: DeleteInvoiceButtonProps) {
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const { t } = useTranslation()
 
-  // ⚠️ Ne pas afficher le bouton si la facture est payée
+  // Le backend refuse la suppression d'une facture payée (403 INVOICE_PAID,
+  // raisons comptables — règle volontairement conservée) : autant ne pas
+  // proposer une action vouée à l'échec.
   if (status === 'paid') {
     return null
   }

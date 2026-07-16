@@ -1,6 +1,7 @@
 import axios, {
   type AxiosInstance,
   type AxiosError,
+  type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
   type AxiosResponse,
 } from 'axios'
@@ -35,6 +36,12 @@ export interface ApiError extends Error {
   silent?: boolean
   isRetryable?: boolean
   originalError?: AxiosError
+  /** Code métier optionnel renvoyé par le backend (ex: "EMAIL_NOT_VERIFIED") */
+  code?: string
+  /** Données additionnelles optionnelles renvoyées par le backend en cas d'erreur */
+  data?: unknown
+  /** Détail des erreurs renvoyé par le backend (ex: tableau de messages de stock insuffisant par article, ou objet de validation par champ) */
+  errors?: unknown
 }
 
 /**
@@ -46,12 +53,25 @@ interface RetryConfig {
   retryableStatuses: number[]
 }
 
+/**
+ * Config de requête avec option pour désactiver le retry automatique
+ * (réseau/timeout ET CSRF 419) : à utiliser pour tout endpoint dont le body
+ * n'est pas rejouable sans effet de bord, typiquement un code OAuth à usage
+ * unique (retenter renverrait le même code, invalide côté provider après le
+ * premier échange).
+ */
+export interface NoRetryRequestConfig extends AxiosRequestConfig {
+  skipRetry?: boolean
+}
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  baseURL: API_BASE_URL,
   timeout: 30000, // 30 secondes
   withCredentials: true,
   headers: {
@@ -204,6 +224,9 @@ function createApiError(
     silent?: boolean
     isRetryable?: boolean
     originalError?: AxiosError
+    code?: string
+    data?: unknown
+    errors?: unknown
   } = {}
 ): ApiError {
   const error = new Error(message) as ApiError
@@ -213,6 +236,9 @@ function createApiError(
   error.silent = options.silent ?? false
   error.isRetryable = options.isRetryable ?? false
   error.originalError = options.originalError
+  error.code = options.code
+  error.data = options.data
+  error.errors = options.errors
   return error
 }
 
@@ -424,6 +450,7 @@ api.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean
       _retryCount?: number
+      skipRetry?: boolean
     }
 
     const status = error.response?.status
@@ -452,12 +479,33 @@ api.interceptors.response.use(
     const errorType = getErrorType(error)
     const errorMessage = getErrorMessage(error, errorType)
 
+    // Code métier / données additionnelles éventuels du body (ex: EMAIL_NOT_VERIFIED)
+    const responseBody = error.response?.data as
+      | { code?: string; data?: unknown; errors?: unknown }
+      | undefined
+    const errorCode = responseBody?.code
+    const errorData = responseBody?.data
+    // Détail d'erreur par article/champ (ex: 422 stock insuffisant : tableau
+    // de messages ; 422 validation : objet { champ: [messages] })
+    const errorDetails = responseBody?.errors
+
+    // TEMP DEBUG — à retirer une fois le flow EMAIL_NOT_VERIFIED validé en prod
+    if (errorCode) {
+      console.log('🔍 [lib/api.ts] code métier détecté dans le body de réponse:', {
+        status,
+        errorCode,
+        errorData,
+        rawBody: responseBody,
+      })
+    }
+
     // ========================================================================
     // RETRY AUTOMATIQUE POUR LES ERREURS RÉSEAU/TIMEOUT
     // ========================================================================
     if (
       isRetryable(error) &&
       originalRequest &&
+      !originalRequest.skipRetry &&
       (originalRequest._retryCount ?? 0) < RETRY_CONFIG.maxRetries
     ) {
       originalRequest._retryCount = (originalRequest._retryCount ?? 0) + 1
@@ -474,7 +522,7 @@ api.interceptors.response.use(
     // ========================================================================
     // GESTION ERREUR 419 (CSRF)
     // ========================================================================
-    if (status === 419 && originalRequest && !originalRequest._retry) {
+    if (status === 419 && originalRequest && !originalRequest._retry && !originalRequest.skipRetry) {
       logger.warn('⚠️ Erreur 419 - Récupération d\'un nouveau token CSRF')
 
       originalRequest._retry = true
@@ -570,6 +618,9 @@ api.interceptors.response.use(
           status: 403,
           url,
           originalError: error,
+          code: errorCode,
+          data: errorData,
+          errors: errorDetails,
         })
       )
     }
@@ -585,6 +636,9 @@ api.interceptors.response.use(
           url,
           isRetryable: true,
           originalError: error,
+          code: errorCode,
+          data: errorData,
+          errors: errorDetails,
         })
       )
     }
@@ -598,6 +652,9 @@ api.interceptors.response.use(
         url,
         isRetryable: isRetryable(error),
         originalError: error,
+        code: errorCode,
+        data: errorData,
+        errors: errorDetails,
       })
     )
   }

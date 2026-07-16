@@ -1,24 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
+import 'dayjs/locale/en'
 import {
   ArrowLeft,
   Download,
+  Eye,
   Printer,
   FileText,
   Building2,
   User,
   Calendar,
   CheckCircle,
-  XCircle,
   Clock,
   Loader2,
   AlertTriangle,
-  MoreVertical,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -34,12 +34,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -49,14 +43,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { InvoiceStatusBadge } from '@/components/invoices'
 import { DeleteInvoiceButton } from '@/components/invoices/delete-invoice-button'
-import api from '@/lib/api'
-import type { Invoice, InvoiceStatus } from '@/lib/services/invoices'
+import { getInvoiceById, updateInvoiceStatus, getInvoicePdfBlob, type Invoice, type InvoiceStatus } from '@/lib/services/invoices'
 import { useCurrency } from '@/lib/utils/currency'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
-
-dayjs.locale('fr')
 
 // ============================================================================
 // PAGE COMPONENT
@@ -65,8 +62,13 @@ dayjs.locale('fr')
 export default function InvoiceDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const { currency } = useCurrency()
+
+  // Les dates (dayjs.locale mute l'instance globale) suivent la langue active
+  // au lieu d'être figées en français, sinon les mois/jours restent en FR
+  // même quand l'écran est affiché en anglais.
+  dayjs.locale(language)
 
   const invoiceId = params.id as string
 
@@ -77,6 +79,16 @@ export default function InvoiceDetailPage() {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<InvoiceStatus | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  // Aperçu PDF (généré côté backend)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  // Fallback si le logo entreprise ne charge pas (fichier manquant, URL cassée...)
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false)
 
   // Format currency from string
   const formatAmount = (value: string | number) => {
@@ -87,54 +99,46 @@ export default function InvoiceDetailPage() {
     }).format(num)
   }
 
-  // ✅ SOLUTION: useEffect simple avec UNIQUEMENT [invoiceId] comme dépendance
+  const fetchInvoice = useCallback(async (isMounted: () => boolean = () => true) => {
+    if (!invoiceId) {
+      setIsLoading(false)
+      setError(t('invoices.missingId'))
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const data = await getInvoiceById(invoiceId)
+
+      if (!isMounted()) return
+
+      if (data) {
+        setInvoice(data)
+      } else {
+        setError(t('invoices.notFound'))
+      }
+    } catch (err: unknown) {
+      if (!isMounted()) return
+      const error = err as { response?: { data?: { message?: string } }; message?: string }
+      setError(error.response?.data?.message || error.message || t('invoices.loadError'))
+    } finally {
+      if (isMounted()) setIsLoading(false)
+    }
+    // `t` volontairement absent des deps : useTranslation() ne le mémoïse pas,
+    // l'ajouter recréerait fetchInvoice à chaque render et boucleraît le fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId])
+
   useEffect(() => {
-    let isMounted = true // Flag pour éviter les updates sur composant unmount
+    let mounted = true
+    fetchInvoice(() => mounted)
 
-    const fetchInvoice = async () => {
-      if (!invoiceId) {
-        setIsLoading(false)
-        setError('ID de facture manquant')
-        return
-      }
-
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        console.debug('[InvoiceDetail] Fetching invoice:', invoiceId)
-
-        const response = await api.get(`/api/invoices/${invoiceId}`)
-
-        // Ne pas setter si le composant est unmount
-        if (!isMounted) return
-
-        if (response.data?.success && response.data?.data) {
-          console.debug('[InvoiceDetail] Invoice loaded:', response.data.data.invoice_number)
-          setInvoice(response.data.data)
-        } else if (response.data?.id) {
-          // Format alternatif
-          setInvoice(response.data)
-        } else {
-          setError('Facture non trouvée')
-        }
-      } catch (err: unknown) {
-        if (!isMounted) return
-        console.error('[InvoiceDetail] Error:', err)
-        const error = err as { response?: { data?: { message?: string } }; message?: string }
-        setError(error.response?.data?.message || error.message || 'Erreur lors du chargement')
-      } finally {
-        if (isMounted) setIsLoading(false)
-      }
-    }
-
-    fetchInvoice()
-
-    // Cleanup function
     return () => {
-      isMounted = false
+      mounted = false
     }
-  }, [invoiceId]) // ⚠️ UNIQUEMENT invoiceId - pas de fonction callback !
+  }, [fetchInvoice])
 
   // Changement de statut
   const handleStatusChange = async (newStatus: InvoiceStatus) => {
@@ -142,18 +146,27 @@ export default function InvoiceDetailPage() {
 
     setIsUpdating(true)
     try {
-      const response = await api.patch(`/api/invoices/${invoice.id}/status`, { status: newStatus })
-
-      if (response.data?.success && response.data?.data) {
-        setInvoice(response.data.data)
-        toast.success(t('invoices.statusUpdated'))
-      } else if (response.data?.id) {
-        setInvoice(response.data)
-        toast.success(t('invoices.statusUpdated'))
-      }
+      const updated = await updateInvoiceStatus(invoice.id, newStatus)
+      setInvoice(updated)
+      toast.success(t('invoices.statusUpdated'))
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } }; message?: string }
-      toast.error(error.response?.data?.message || t('invoices.statusUpdateError'))
+      // updateInvoiceStatus() rethrow l'erreur telle que produite par
+      // l'intercepteur de réponse de lib/api.ts, qui la remplace toujours
+      // par un ApiError "à plat" (status/code/data/errors) — cet objet n'a
+      // PAS de propriété `.response` (ce n'est plus l'AxiosError d'origine).
+      const error = err as { status?: number; errors?: unknown; message?: string }
+
+      // Passage à "payée" : le backend vérifie le stock disponible pour
+      // chaque article de la facture AVANT de créer les transactions de
+      // vente (voir InvoiceController::createSaleTransactionsForInvoice) et
+      // renvoie un 422 avec un détail par article dans `errors` (ex: "Stock
+      // insuffisant pour "Produit X". Disponible: 3, Demandé: 5") — plus
+      // précis que le message générique, donc prioritaire s'il est présent.
+      if (error.status === 422 && Array.isArray(error.errors) && error.errors.length > 0) {
+        error.errors.forEach((message) => toast.error(String(message)))
+      } else {
+        toast.error(error.message || t('invoices.statusUpdateError'))
+      }
     } finally {
       setIsUpdating(false)
       setStatusDialogOpen(false)
@@ -166,178 +179,100 @@ export default function InvoiceDetailPage() {
     setStatusDialogOpen(true)
   }
 
-  // Refetch manuel
+  // Refetch manuel (sans recharger toute la page)
   const handleRefresh = () => {
-    window.location.reload()
+    fetchInvoice()
   }
 
-  // Générer le HTML de la facture avec couleurs HEX pures (pas d'héritage CSS)
-  const generateInvoiceHTML = () => {
-    if (!invoice) return ''
-    
-    const formatPrice = (value: string | number) => {
-      const num = typeof value === 'string' ? parseFloat(value) : value
-      return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num)
+  // Ouvre la modale d'aperçu et charge le PDF (généré côté backend) en Blob
+  const handlePreview = async () => {
+    if (!invoice) return
+
+    setIsPreviewOpen(true)
+    setIsPreviewLoading(true)
+    setPreviewError(null)
+
+    try {
+      const blob = await getInvoicePdfBlob(invoice.id, 'preview')
+      setPreviewUrl(URL.createObjectURL(blob))
+    } catch (err: unknown) {
+      setPreviewError(err instanceof Error ? err.message : 'Erreur lors de la génération de l\'aperçu')
+    } finally {
+      setIsPreviewLoading(false)
     }
-    
-    const formatDate = (date: string) => dayjs(date).format('DD/MM/YYYY')
-    
-    const statusLabels: Record<string, { bg: string; color: string; label: string }> = {
-      paid: { bg: '#dcfce7', color: '#166534', label: 'PAYÉE' },
-      cancelled: { bg: '#fee2e2', color: '#991b1b', label: 'ANNULÉE' },
-      overdue: { bg: '#fee2e2', color: '#991b1b', label: 'EN RETARD' },
-      unpaid: { bg: '#fef3c7', color: '#92400e', label: 'NON PAYÉE' },
-      draft: { bg: '#f3f4f6', color: '#374151', label: 'BROUILLON' },
-    }
-    
-    const status = statusLabels[invoice.status] || statusLabels.unpaid
-    
-    return `
-      <div style="font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.5; color: #1f2937; background: #ffffff; padding: 40px; max-width: 800px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
-          <div>
-            ${invoice.company?.logo_url ? `<img src="${invoice.company.logo_url}" alt="" style="height: 60px; margin-bottom: 10px; object-fit: contain;" crossorigin="anonymous" />` : ''}
-            <h2 style="margin: 0 0 5px 0; font-size: 18px; font-weight: bold; color: #1f2937;">${invoice.company?.name || ''}</h2>
-            <p style="margin: 0; color: #6b7280;">${invoice.company?.email || ''}</p>
-          </div>
-          <div style="text-align: right;">
-            <h1 style="margin: 0 0 10px 0; font-size: 28px; color: #16a34a;">FACTURE</h1>
-            <p style="margin: 0; font-size: 16px; font-weight: bold; color: #1f2937;">${invoice.invoice_number}</p>
-            <p style="margin: 5px 0 0 0; color: #6b7280;">Date: ${formatDate(invoice.issued_at)}</p>
-            <p style="margin: 5px 0 0 0; color: #6b7280;">Échéance: ${formatDate(invoice.due_date)}</p>
-          </div>
-        </div>
-        
-        <div style="margin-bottom: 30px;">
-          <span style="display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; background-color: ${status.bg}; color: ${status.color};">${status.label}</span>
-        </div>
-        
-        <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-          <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">Facturé à:</h3>
-          <p style="margin: 0; font-size: 16px; font-weight: bold; color: #1f2937;">${invoice.client?.name || ''}</p>
-          ${invoice.client?.email ? `<p style="margin: 5px 0 0 0; color: #6b7280;">${invoice.client.email}</p>` : ''}
-          ${invoice.client?.phone ? `<p style="margin: 5px 0 0 0; color: #6b7280;">${invoice.client.phone}</p>` : ''}
-          ${invoice.billing_address ? `<p style="margin: 10px 0 0 0; color: #6b7280; white-space: pre-line;">${invoice.billing_address}</p>` : ''}
-        </div>
-        
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-          <thead>
-            <tr style="background-color: #f3f4f6;">
-              <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb; font-weight: bold; color: #1f2937;">Article</th>
-              <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e5e7eb; font-weight: bold; color: #1f2937;">Prix unitaire</th>
-              <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e5e7eb; font-weight: bold; color: #1f2937;">Qté</th>
-              <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e5e7eb; font-weight: bold; color: #1f2937;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${invoice.items?.map((item, i) => `
-              <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
-                <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #1f2937;">${item.name_snapshot}</td>
-                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #1f2937;">${formatPrice(item.unit_price)} ${currency}</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb; color: #1f2937;">${item.quantity}</td>
-                <td style="padding: 12px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: bold; color: #1f2937;">${formatPrice(item.total_line)} ${currency}</td>
-              </tr>
-            `).join('') || ''}
-          </tbody>
-        </table>
-        
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 30px;">
-          <div style="width: 300px;">
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
-              <span style="color: #6b7280;">Sous-total</span>
-              <span style="color: #1f2937;">${formatPrice(invoice.subtotal)} ${currency}</span>
-            </div>
-            ${parseFloat(invoice.discount_amount) > 0 ? `
-              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #16a34a;">
-                <span>Remise (${invoice.discount_percent}%)</span>
-                <span>-${formatPrice(invoice.discount_amount)} ${currency}</span>
-              </div>
-            ` : ''}
-            ${parseFloat(invoice.tax_amount) > 0 ? `
-              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
-                <span style="color: #6b7280;">TVA (${invoice.tax_percent}%)</span>
-                <span style="color: #1f2937;">+${formatPrice(invoice.tax_amount)} ${currency}</span>
-              </div>
-            ` : ''}
-            ${parseFloat(invoice.shipping_fee) > 0 ? `
-              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
-                <span style="color: #6b7280;">Frais de livraison</span>
-                <span style="color: #1f2937;">+${formatPrice(invoice.shipping_fee)} ${currency}</span>
-              </div>
-            ` : ''}
-            <div style="display: flex; justify-content: space-between; padding: 16px 0; font-size: 18px; font-weight: bold;">
-              <span style="color: #1f2937;">Total</span>
-              <span style="color: #16a34a;">${invoice.formatted_total || `${formatPrice(invoice.total)} ${currency}`}</span>
-            </div>
-          </div>
-        </div>
-        
-        ${invoice.notes ? `
-          <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">Notes:</h3>
-            <p style="margin: 0; white-space: pre-line; color: #1f2937;">${invoice.notes}</p>
-          </div>
-        ` : ''}
-        
-        ${invoice.terms ? `
-          <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">Conditions:</h3>
-            <p style="margin: 0; white-space: pre-line; color: #1f2937;">${invoice.terms}</p>
-          </div>
-        ` : ''}
-        
-        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 11px;">
-          <p style="margin: 0;">Merci pour votre confiance !</p>
-          <p style="margin: 5px 0 0 0;">${invoice.company?.name || ''} - ${invoice.company?.email || ''}</p>
-        </div>
-      </div>
-    `
   }
 
-  // Télécharger le PDF avec html2pdf - Version HTML string (évite les couleurs oklch/lab)
-  const handleDownloadPdf = async () => {
+  // Ferme la modale d'aperçu et révoque l'URL locale (évite les fuites mémoire)
+  const handlePreviewOpenChange = (open: boolean) => {
+    setIsPreviewOpen(open)
+
+    if (!open) {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+        setPreviewUrl(null)
+      }
+      setPreviewError(null)
+    }
+  }
+
+  // Télécharge le PDF (généré côté backend) via un lien <a> temporaire
+  const handleDownload = async () => {
     if (!invoice) return
 
     setIsDownloading(true)
     try {
-      const html2pdf = (await import('html2pdf.js')).default
+      const blob = await getInvoicePdfBlob(invoice.id, 'download')
+      const url = URL.createObjectURL(blob)
 
-      // ✅ Créer un élément avec HTML string pur (pas d'héritage CSS)
-      const element = document.createElement('div')
-      element.innerHTML = generateInvoiceHTML()
-      element.style.cssText = 'position: absolute; left: -9999px; top: -9999px;'
-      document.body.appendChild(element)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `facture-${invoice.invoice_number}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
 
-      const options = {
-        margin: [10, 10, 10, 10],
-        filename: `${invoice.invoice_number}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait' 
-        },
-        pagebreak: { 
-          mode: ['avoid-all', 'css', 'legacy'],
-          avoid: ['tr', 'td', 'div', 'table']
-        },
-      }
-
-      await html2pdf().set(options).from(element.firstChild).save()
-      
-      document.body.removeChild(element)
       toast.success('PDF téléchargé avec succès')
     } catch (err: unknown) {
-      console.error('[PDF Download] Error:', err)
-      toast.error('Erreur lors de la génération du PDF')
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du téléchargement du PDF')
     } finally {
       setIsDownloading(false)
+    }
+  }
+
+  // Imprime le même PDF (généré côté backend, avec le thème choisi) que
+  // l'aperçu/le téléchargement — pas window.print() sur la page HTML, qui
+  // affichait une mise en page générique sans rapport avec le thème.
+  const handlePrint = async () => {
+    if (!invoice) return
+
+    setIsPrinting(true)
+    try {
+      const blob = await getInvoicePdfBlob(invoice.id, 'preview')
+      const url = URL.createObjectURL(blob)
+
+      const iframe = document.createElement('iframe')
+      iframe.style.cssText = 'position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0;'
+      iframe.src = url
+
+      iframe.onload = () => {
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.print()
+      }
+
+      document.body.appendChild(iframe)
+
+      // Impossible de détecter fermeture/annulation du dialog d'impression
+      // de façon fiable dans tous les navigateurs : nettoyage différé plutôt
+      // que de retirer l'iframe immédiatement (ce qui annulerait l'impression).
+      setTimeout(() => {
+        document.body.removeChild(iframe)
+        URL.revokeObjectURL(url)
+      }, 60_000)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la génération de l'impression")
+    } finally {
+      setIsPrinting(false)
     }
   }
 
@@ -347,7 +282,7 @@ export default function InvoiceDetailPage() {
       <div className="flex items-center justify-center h-96">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Chargement de la facture...</p>
+          <p className="text-sm text-muted-foreground">{t('invoices.loadingInvoice')}</p>
         </div>
       </div>
     )
@@ -369,7 +304,7 @@ export default function InvoiceDetailPage() {
             {t('common.goBack')}
           </Link>
           <Button variant="outline" size="sm" onClick={handleRefresh}>
-            Réessayer
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -404,7 +339,7 @@ export default function InvoiceDetailPage() {
               <InvoiceStatusBadge status={invoice.status} />
             </div>
             <p className="text-muted-foreground">
-              Émise le {dayjs(invoice.issued_at).format('DD MMMM YYYY')}
+              {t('invoices.issuedOn')} {dayjs(invoice.issued_at).format('DD MMMM YYYY')}
             </p>
           </div>
         </div>
@@ -423,32 +358,39 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
 
-          {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
-            <Button
-              variant="outline"
-              className="text-destructive border-destructive hover:bg-destructive hover:text-white"
-              onClick={() => openStatusDialog('cancelled')}
-              disabled={isUpdating}
-            >
-              <XCircle className="mr-2 h-4 w-4" />
-              {t('invoices.cancel')}
-            </Button>
-          )}
-
           {/* Primary action buttons */}
           <Button
             variant="outline"
-            onClick={() => window.print()}
+            onClick={handlePrint}
+            disabled={isPrinting}
           >
-            <Printer className="mr-2 h-4 w-4" />
+            {isPrinting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-2 h-4 w-4" />
+            )}
             {t('invoices.print')}
           </Button>
 
           <Button
             variant="outline"
-            onClick={handleDownloadPdf}
+            onClick={handlePreview}
+            disabled={isPreviewLoading}
+            title={t('invoices.previewInvoice')}
+          >
+            {isPreviewLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Eye className="mr-2 h-4 w-4" />
+            )}
+            {t('invoices.preview')}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={handleDownload}
             disabled={isDownloading}
-            title="Télécharger la facture en PDF"
+            title={t('invoices.downloadPdf')}
           >
             {isDownloading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -458,33 +400,12 @@ export default function InvoiceDetailPage() {
             {t('invoices.downloadPdf')}
           </Button>
 
-          {/* Bouton de suppression (pas pour les factures payées) */}
-          <DeleteInvoiceButton 
+          {/* Bouton de suppression (masqué pour les factures payées) */}
+          <DeleteInvoiceButton
             invoiceId={invoice.id}
             invoiceNumber={invoice.invoice_number}
             status={invoice.status}
           />
-
-          {/* More actions */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" disabled={isUpdating}>
-                {isUpdating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <MoreVertical className="h-4 w-4" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {invoice.status === 'paid' && (
-                <DropdownMenuItem onClick={() => handleStatusChange('unpaid')}>
-                  <XCircle className="mr-2 h-4 w-4 text-orange-600" />
-                  Marquer non payée
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 
@@ -500,16 +421,23 @@ export default function InvoiceDetailPage() {
                   {t('invoices.from')}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                {invoice.company?.logo_url && (
-                  <img
-                    src={invoice.company.logo_url}
-                    alt={invoice.company.name}
-                    className="h-12 mb-2 object-contain"
-                  />
-                )}
-                <p className="font-medium">{invoice.company?.name}</p>
-                <p className="text-sm text-muted-foreground">{invoice.company?.email}</p>
+              <CardContent className="flex items-center gap-3">
+                <div className="h-12 w-12 shrink-0 rounded-lg border bg-muted flex items-center justify-center overflow-hidden">
+                  {invoice.company?.logo_url && !logoLoadFailed ? (
+                    <img
+                      src={invoice.company.logo_url}
+                      alt={invoice.company.name || ''}
+                      className="h-full w-full object-contain"
+                      onError={() => setLogoLoadFailed(true)}
+                    />
+                  ) : (
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{invoice.company?.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">{invoice.company?.email}</p>
+                </div>
               </CardContent>
             </Card>
 
@@ -517,20 +445,25 @@ export default function InvoiceDetailPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <User className="h-4 w-4" />
-                  {t('invoices.to')}
+                  {t('invoices.pdf.billed_to')}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="font-medium">{invoice.client?.name}</p>
-                {invoice.client?.email && (
-                  <p className="text-sm text-muted-foreground">{invoice.client.email}</p>
-                )}
-                {invoice.client?.phone && (
-                  <p className="text-sm text-muted-foreground">{invoice.client.phone}</p>
-                )}
-                {invoice.billing_address && (
-                  <p className="text-sm text-muted-foreground mt-1">{invoice.billing_address}</p>
-                )}
+              <CardContent className="flex items-start gap-3">
+                <div className="h-12 w-12 shrink-0 rounded-lg border bg-muted flex items-center justify-center">
+                  <User className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{invoice.client?.name}</p>
+                  {invoice.client?.email && (
+                    <p className="text-sm text-muted-foreground truncate">{invoice.client.email}</p>
+                  )}
+                  {invoice.client?.phone && (
+                    <p className="text-sm text-muted-foreground truncate">{invoice.client.phone}</p>
+                  )}
+                  {invoice.billing_address && (
+                    <p className="text-sm text-muted-foreground mt-1">{invoice.billing_address}</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -694,7 +627,7 @@ export default function InvoiceDetailPage() {
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Date d&apos;émission</p>
+                  <p className="text-sm text-muted-foreground">{t('invoices.pdf.issued_date')}</p>
                   <p className="font-medium">{dayjs(invoice.issued_at).format('DD MMM YYYY')}</p>
                 </div>
               </div>
@@ -706,14 +639,14 @@ export default function InvoiceDetailPage() {
                   <Clock className={`h-5 w-5 ${invoice.is_overdue ? 'text-red-600' : ''}`} />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Date d&apos;échéance</p>
+                  <p className="text-sm text-muted-foreground">{t('invoices.pdf.due_date')}</p>
                   <p className={`font-medium ${invoice.is_overdue ? 'text-red-600' : ''}`}>
                     {dayjs(invoice.due_date).format('DD MMM YYYY')}
-                    {invoice.is_overdue && ' (En retard)'}
+                    {invoice.is_overdue && ` (${t('invoices.pdf.status_overdue')})`}
                   </p>
                   {invoice.days_until_due !== null && !invoice.is_overdue && invoice.days_until_due > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      {invoice.days_until_due} jours restants
+                      {t('invoices.daysRemaining', { count: invoice.days_until_due })}
                     </p>
                   )}
                 </div>
@@ -737,31 +670,19 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      {/* Status Change Dialog */}
+      {/* Confirmation "Marquer comme payée" — seul statut encore déclenché via ce dialog */}
       <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {pendingStatus === 'paid'
-                ? t('invoices.confirmPaid')
-                : t('invoices.confirmCancel')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingStatus === 'paid'
-                ? t('invoices.confirmPaidDescription')
-                : t('invoices.confirmCancelDescription')}
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t('invoices.confirmPaid')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('invoices.confirmPaidDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isUpdating}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => pendingStatus && handleStatusChange(pendingStatus)}
               disabled={isUpdating}
-              className={
-                pendingStatus === 'paid'
-                  ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              }
+              className="bg-green-600 hover:bg-green-700"
             >
               {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('common.confirm')}
@@ -769,6 +690,42 @@ export default function InvoiceDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Aperçu PDF */}
+      <Dialog open={isPreviewOpen} onOpenChange={handlePreviewOpenChange}>
+        <DialogContent className="sm:max-w-4xl w-[calc(100%-2rem)] h-[85vh] flex flex-col p-4">
+          <DialogHeader>
+            <DialogTitle>{t('invoices.previewOf', { number: invoice.invoice_number })}</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 rounded-md border bg-muted/30">
+            {isPreviewLoading && (
+              <div className="flex h-full flex-col items-center justify-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">{t('invoices.generatingPreview')}</p>
+              </div>
+            )}
+
+            {!isPreviewLoading && previewError && (
+              <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                <AlertTriangle className="h-8 w-8 text-red-600" />
+                <p className="text-sm text-red-600 dark:text-red-400">{previewError}</p>
+                <Button variant="outline" size="sm" onClick={handlePreview}>
+                  {t('common.retry')}
+                </Button>
+              </div>
+            )}
+
+            {!isPreviewLoading && !previewError && previewUrl && (
+              <iframe
+                src={previewUrl}
+                title={t('invoices.previewOf', { number: invoice.invoice_number })}
+                className="h-full w-full rounded-md"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   )
