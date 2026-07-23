@@ -76,8 +76,8 @@ export function EditCollaboratorDialog({
       if (error && typeof error === 'object' && 'validationErrors' in error) {
         const validationError = error as { validationErrors: Record<string, string[]> }
         Object.keys(validationError.validationErrors).forEach(key => {
-          form.setError(key as any, { 
-            message: validationError.validationErrors[key][0] 
+          form.setError(key as 'name' | 'phone', {
+            message: validationError.validationErrors[key][0]
           })
         })
       } else if (error instanceof Error) {

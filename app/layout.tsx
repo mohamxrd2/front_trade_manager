@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -53,7 +54,9 @@ export default function RootLayout({
               <LanguageProvider>
                 <SWRProvider>
                   <QueryProvider>
-                    <NavigationProgressBar />
+                    <Suspense fallback={null}>
+                      <NavigationProgressBar />
+                    </Suspense>
                     {children}
                     <Toaster position="bottom-right" richColors />
                   </QueryProvider>

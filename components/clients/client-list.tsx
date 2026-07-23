@@ -176,7 +176,7 @@ export function ClientList({ clients, isLoading, onEdit, onRefresh }: ClientList
           <AlertDialogHeader>
             <AlertDialogTitle>{t('clients.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('clients.deleteConfirmDescription', { name: clientToDelete?.name })}
+              {t('clients.deleteConfirmDescription', { name: clientToDelete?.name ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button"
 import { type Transaction } from './transaction-card'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { updateTransaction } from '@/lib/services/transactions'
 import { useAnalyticsRefresh } from '@/lib/hooks/use-analytics-refresh'
 import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
 import { isSilentError } from '@/lib/utils/error-handler'
@@ -31,14 +30,14 @@ const saleSchema = z.object({
     .string()
     .optional()
     .transform((val) => val === '' || val === undefined ? undefined : parseInt(val, 10))
-    .refine((val) => val === undefined || (!isNaN(val as any) && (val as any) >= 1), {
+    .refine((val) => val === undefined || (!isNaN(val) && val >= 1), {
       message: "La quantité doit être au moins 1",
     }),
   sale_price: z
     .string()
     .optional()
     .transform((val) => val === '' || val === undefined ? undefined : parseFloat(val))
-    .refine((val) => val === undefined || (!isNaN(val as any) && (val as any) >= 0), {
+    .refine((val) => val === undefined || (!isNaN(val) && val >= 0), {
       message: "Le prix de vente doit être positif",
     }),
 }).refine(
@@ -56,7 +55,7 @@ const expenseSchema = z.object({
     .string()
     .optional()
     .transform((val) => val === '' || val === undefined ? undefined : parseFloat(val))
-    .refine((val) => val === undefined || (!isNaN(val as any) && (val as any) >= 0), {
+    .refine((val) => val === undefined || (!isNaN(val) && val >= 0), {
       message: "Le montant doit être positif",
     }),
 })
@@ -98,7 +97,7 @@ export function EditTransactionDialog({
   const isSale = transaction?.type === 'sale'
 
   // Formulaire pour une vente
-  const saleForm = useForm<SaleFormData>({
+  const saleForm = useForm<z.input<typeof saleSchema>, unknown, SaleFormData>({
     resolver: zodResolver(saleSchema),
     defaultValues: {
       quantity: '',
@@ -107,7 +106,7 @@ export function EditTransactionDialog({
   })
 
   // Formulaire pour une dépense
-  const expenseForm = useForm<ExpenseFormData>({
+  const expenseForm = useForm<z.input<typeof expenseSchema>, unknown, ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       name: '',
@@ -154,14 +153,6 @@ export function EditTransactionDialog({
     return currentQuantity !== transaction.quantity
   }, [isSale, transaction, watchedQuantity])
 
-  // Détecter si le prix a changé
-  const salePriceChanged = useMemo(() => {
-    if (!isSale || !transaction) return false
-    const currentPrice = watchedSalePrice ? parseFloat(watchedSalePrice) : (transaction.sale_price || transaction.unit_price)
-    const originalPrice = transaction.sale_price || transaction.unit_price || 0
-    return currentPrice !== originalPrice
-  }, [isSale, transaction, watchedSalePrice])
-
   // Gérer la soumission d'une vente
   const onSaleSubmit = async (data: SaleFormData) => {
     if (!transaction) return
@@ -205,16 +196,18 @@ export function EditTransactionDialog({
       
       saleForm.reset()
       onOpenChange(false)
-    } catch (error: any) {
+    } catch (err: unknown) {
       // Vérifier si c'est une erreur silencieuse (401, redirection, etc.)
-      if (isSilentError(error)) {
+      if (isSilentError(err)) {
         return
       }
-      
+
       if (process.env.NODE_ENV !== 'production') {
-        console.error('❌ Erreur dans onSaleSubmit:', error)
+        console.error('❌ Erreur dans onSaleSubmit:', err)
       }
-      
+
+      const error = err as { validationErrors?: Record<string, string[] | string>; message?: string }
+
       // Gérer les erreurs de validation
       if (error.validationErrors) {
         const validationErrors = error.validationErrors;
@@ -235,7 +228,6 @@ export function EditTransactionDialog({
           const fieldMap: Record<string, keyof SaleFormData> = {
             quantity: 'quantity',
             sale_price: 'sale_price',
-            'sale_price': 'sale_price',
           }
           
           const field = fieldMap[key] || key as keyof SaleFormData;
@@ -289,16 +281,18 @@ export function EditTransactionDialog({
       
       expenseForm.reset()
       onOpenChange(false)
-    } catch (error: any) {
+    } catch (err: unknown) {
       // Vérifier si c'est une erreur silencieuse (401, redirection, etc.)
-      if (isSilentError(error)) {
+      if (isSilentError(err)) {
         return
       }
-      
+
       if (process.env.NODE_ENV !== 'production') {
-        console.error('❌ Erreur dans onExpenseSubmit:', error)
+        console.error('❌ Erreur dans onExpenseSubmit:', err)
       }
-      
+
+      const error = err as { validationErrors?: Record<string, string[] | string>; message?: string }
+
       // Gérer les erreurs de validation
       if (error.validationErrors) {
         const validationErrors = error.validationErrors;

@@ -5,7 +5,8 @@ import frTranslations from '../translations/fr.json'
 import enTranslations from '../translations/en.json'
 
 type TranslationKey = string
-type TranslationObject = Record<string, any>
+type TranslationValue = string | { [key: string]: TranslationValue }
+type TranslationObject = Record<string, TranslationValue>
 
 const translations: Record<'fr' | 'en', TranslationObject> = {
   fr: frTranslations,
@@ -17,7 +18,7 @@ export function useTranslation() {
 
   const t = (key: TranslationKey, params?: Record<string, string | number>): string => {
     const keys = key.split('.')
-    let value: any = translations[language]
+    let value: TranslationValue = translations[language]
 
     // Naviguer dans l'objet de traduction
     for (const k of keys) {

@@ -158,12 +158,12 @@ export function InvoiceTable({ invoices, isLoading, onRefresh }: InvoiceTablePro
               >
                 <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
                 <TableCell>{invoice.client?.name || '-'}</TableCell>
-                <TableCell>{dayjs(invoice.created_at).format('DD MMM YYYY')}</TableCell>
+                <TableCell>{dayjs(invoice.issued_at).format('DD MMM YYYY')}</TableCell>
                 <TableCell>
                   <InvoiceStatusBadge status={invoice.status} />
                 </TableCell>
                 <TableCell className="text-right font-semibold">
-                  {formatCurrency(invoice.total)} {currency}
+                  {formatCurrency(Number(invoice.total))} {currency}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -209,7 +209,7 @@ export function InvoiceTable({ invoices, isLoading, onRefresh }: InvoiceTablePro
           <AlertDialogHeader>
             <AlertDialogTitle>{t('invoices.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('invoices.deleteConfirmDescription', { number: invoiceToDelete?.invoice_number })}
+              {t('invoices.deleteConfirmDescription', { number: invoiceToDelete?.invoice_number ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

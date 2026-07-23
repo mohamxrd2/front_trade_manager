@@ -6,10 +6,14 @@ import { getUnreadCount, type Notification } from '@/lib/services/notifications'
 /**
  * Joue un son de notification
  */
+interface WindowWithWebkitAudio extends Window {
+  webkitAudioContext?: typeof AudioContext
+}
+
 function playNotificationSound() {
   try {
     // Créer un contexte audio
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const audioContext = new (window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext)()
     
     // Créer un oscillateur pour générer le son
     const oscillator = audioContext.createOscillator()
@@ -68,7 +72,10 @@ export function usePushNotifications() {
     }
 
     // Options de notification selon le type
-    const notificationOptions: NotificationOptions = {
+    // `vibrate` et `timestamp` font partie de la spec Notification API mais
+    // ne sont pas déclarés dans le lib.dom.d.ts de TypeScript — extension du
+    // type nécessaire, aucun changement de comportement runtime.
+    const notificationOptions: NotificationOptions & { vibrate?: number[]; timestamp?: number } = {
       body: notification.message,
       icon: '/icon-192x192.png', // Icône de l'application
       badge: '/badge-72x72.png', // Badge de l'application

@@ -9,9 +9,9 @@ export default function ContentSection() {
                 <div className="relative">
                     <div className="relative z-10 space-y-4 md:w-1/2">
                         <p>
-                            Trade Manager vous offre <span className="font-medium">des outils d'analyse puissants</span> pour comprendre et optimiser vos performances commerciales.
+                            Trade Manager vous offre <span className="font-medium">des outils d&apos;analyse puissants</span> pour comprendre et optimiser vos performances commerciales.
                         </p>
-                        <p>Visualisez l'évolution de vos ventes et dépenses, analysez vos tendances, identifiez vos meilleurs produits et recevez des prédictions intelligentes pour optimiser vos réapprovisionnements.</p>
+                        <p>Visualisez l&apos;évolution de vos ventes et dépenses, analysez vos tendances, identifiez vos meilleurs produits et recevez des prédictions intelligentes pour optimiser vos réapprovisionnements.</p>
 
                         <div className="grid grid-cols-2 gap-3 pt-6 sm:gap-4">
                             <div className="space-y-3">

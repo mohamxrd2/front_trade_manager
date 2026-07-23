@@ -28,8 +28,7 @@ import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 const addStockSchema = z.object({
   quantity: z
     .number({
-      required_error: 'La quantité est requise',
-      invalid_type_error: 'La quantité doit être un nombre',
+      error: (issue) => issue.input === undefined ? 'La quantité est requise' : 'La quantité doit être un nombre',
     })
     .int('La quantité doit être un nombre entier')
     .min(1, 'La quantité doit être au moins 1'),

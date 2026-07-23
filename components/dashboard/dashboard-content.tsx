@@ -95,7 +95,7 @@ export function DashboardContent() {
     formState: { errors, isSubmitting },
     reset,
     control,
-  } = useForm<ProductFormData>({
+  } = useForm<z.input<typeof productSchema>, unknown, ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: '',

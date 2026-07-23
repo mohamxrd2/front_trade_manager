@@ -14,13 +14,10 @@ import { createCollaborator } from '@/lib/services/collaborators'
 const collaboratorSchema = z.object({
   name: z.string().min(1, "Le nom est requis").max(255, "Le nom ne peut pas dépasser 255 caractères"),
   phone: z.string().min(1, "Le téléphone est requis").max(20, "Le téléphone ne peut pas dépasser 20 caractères"),
-  part: z.string().transform((val) => {
+  part: z.string().refine((val) => {
     const num = parseFloat(val)
-    if (isNaN(num) || num < 0.01 || num > 99.99) {
-      throw new Error("La part doit être entre 0.01% et 99.99%")
-    }
-    return num
-  }),
+    return !isNaN(num) && num >= 0.01 && num <= 99.99
+  }, "La part doit être entre 0.01% et 99.99%"),
 })
 
 interface AddCollaboratorDialogProps {
@@ -92,8 +89,8 @@ export function AddCollaboratorDialog({
       if (error && typeof error === 'object' && 'validationErrors' in error) {
         const validationError = error as { validationErrors: Record<string, string[]> }
         Object.keys(validationError.validationErrors).forEach(key => {
-          form.setError(key as any, { 
-            message: validationError.validationErrors[key][0] 
+          form.setError(key as 'name' | 'phone' | 'part', {
+            message: validationError.validationErrors[key][0]
           })
         })
       } else if (error instanceof Error) {

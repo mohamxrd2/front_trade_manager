@@ -19,6 +19,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Charger la langue depuis les settings ou localStorage au montage
   useEffect(() => {
+    // Garde anti-hydratation SSR : `mounted` doit rester `false` au premier
+    // rendu client (identique au rendu serveur) puis passer à `true` juste
+    // après, uniquement côté client. Un état initial calculé (`typeof
+    // window`) casserait ce contrat et réintroduirait le mismatch
+    // d'hydratation que ce flag existe pour éviter.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
     if (settings?.language) {
       // Priorité aux settings de l'API

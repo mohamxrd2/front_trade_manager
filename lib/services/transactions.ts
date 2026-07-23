@@ -43,6 +43,7 @@ export interface Transaction {
   name: string
   quantity?: number | null
   unit_price?: number | null
+  sale_price?: number | null
   amount?: number
   date: string // Format: YYYY-MM-DD
 }
@@ -211,13 +212,19 @@ export async function updateTransaction(
   payload: UpdateSalePayload | UpdateExpensePayload
 ): Promise<Transaction> {
   try {
+    // Union non discriminée : quantity/sale_price n'existent que sur
+    // UpdateSalePayload, amount seulement sur UpdateExpensePayload — accès
+    // sûr via un type élargi, sans changer le comportement runtime (accès
+    // à un champ absent reste `undefined`, comme avant).
+    const payloadFields = payload as Partial<UpdateSalePayload & UpdateExpensePayload>
+
     // S'assurer que le payload est bien formaté
     const formattedPayload = {
       ...payload,
       // S'assurer que les nombres sont bien des nombres et non des strings
-      ...(payload.quantity !== undefined && { quantity: Number(payload.quantity) }),
-      ...(payload.sale_price !== undefined && { sale_price: Number(payload.sale_price) }),
-      ...(payload.amount !== undefined && { amount: Number(payload.amount) }),
+      ...(payloadFields.quantity !== undefined && { quantity: Number(payloadFields.quantity) }),
+      ...(payloadFields.sale_price !== undefined && { sale_price: Number(payloadFields.sale_price) }),
+      ...(payloadFields.amount !== undefined && { amount: Number(payloadFields.amount) }),
     };
     
     if (process.env.NODE_ENV !== 'production') {

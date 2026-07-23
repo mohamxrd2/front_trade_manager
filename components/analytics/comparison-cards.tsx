@@ -22,7 +22,16 @@ interface ComparisonCardsProps {
 
 export function ComparisonCards({ data, isLoading }: ComparisonCardsProps) {
   const { currency } = useCurrency()
-  
+
+  // Logger les données pour déboguer
+  // Doit rester avant tout `return` anticipé : les Hooks React doivent être
+  // appelés dans le même ordre à chaque rendu (Rules of Hooks).
+  useEffect(() => {
+    if (data) {
+      console.log('📊 Données de comparaisons reçues dans ComparisonCards:', data)
+    }
+  }, [data])
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -68,13 +77,6 @@ export function ComparisonCards({ data, isLoading }: ComparisonCardsProps) {
       bgColor: 'bg-blue-50 dark:bg-blue-950',
     },
   ]
-
-  // Logger les données pour déboguer
-  useEffect(() => {
-    if (data) {
-      console.log('📊 Données de comparaisons reçues dans ComparisonCards:', data)
-    }
-  }, [data])
 
   // Fonction helper pour formater les pourcentages de changement
   const formatPercentage = (value: number | null | undefined): string => {

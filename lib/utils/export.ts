@@ -1,11 +1,12 @@
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
-import api from '@/lib/api'
+import type { ApiTransaction } from '@/lib/services/transactions'
+import type { Article } from '@/lib/services/articles'
 
 /**
  * Exporte des données en CSV
  */
-export function exportToCSV(data: any[], filename: string) {
+export function exportToCSV(data: Record<string, unknown>[], filename: string) {
   if (!data || data.length === 0) {
     throw new Error('Aucune donnée à exporter')
   }
@@ -45,7 +46,7 @@ export function exportToCSV(data: any[], filename: string) {
 /**
  * Exporte des données en Excel
  */
-export function exportToExcel(data: any[], filename: string, sheetName: string = 'Sheet1') {
+export function exportToExcel(data: Record<string, unknown>[], filename: string, sheetName: string = 'Sheet1') {
   if (!data || data.length === 0) {
     throw new Error('Aucune donnée à exporter')
   }
@@ -96,7 +97,7 @@ function formatCurrency(amount: number | string, currency: string): string {
 /**
  * Formate les transactions pour l'export
  */
-export function formatTransactionsForExport(transactions: any[], currency: string = 'FCFA'): any[] {
+export function formatTransactionsForExport(transactions: ApiTransaction[], currency: string = 'FCFA'): Record<string, unknown>[] {
   return transactions.map(transaction => ({
     'ID': transaction.id,
     'Type': transaction.type === 'sale' ? 'Vente' : 'Dépense',
@@ -120,7 +121,7 @@ export function formatTransactionsForExport(transactions: any[], currency: strin
 /**
  * Formate les produits pour l'export
  */
-export function formatProductsForExport(products: any[], currency: string = 'FCFA'): any[] {
+export function formatProductsForExport(products: Article[], currency: string = 'FCFA'): Record<string, unknown>[] {
   return products.map(product => ({
     'ID': product.id,
     'Nom': product.name,

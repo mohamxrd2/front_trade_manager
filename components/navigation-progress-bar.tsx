@@ -72,23 +72,9 @@ function useProgressBar() {
     }
   }, [])
 
-  // Démarrer la barre de progression
-  const startProgress = useCallback(() => {
-    if (isProgressVisibleRef.current) return
-
-    isProgressVisibleRef.current = true
-    startTimeRef.current = Date.now()
-
-    // Démarrer NProgress
-    NProgress.start()
-
-    // Timer de sécurité pour éviter une barre bloquée
-    maxDurationTimeoutRef.current = setTimeout(() => {
-      stopProgress()
-    }, CONFIG.maxDuration)
-  }, [])
-
   // Arrêter la barre de progression
+  // Déclaré avant `startProgress` car ce dernier y fait référence dans son
+  // propre callback (ordre requis, `startProgress` en dépend).
   const stopProgress = useCallback(() => {
     if (!isProgressVisibleRef.current) {
       clearAllTimers()
@@ -110,6 +96,22 @@ function useProgressBar() {
       clearAllTimers()
     }
   }, [clearAllTimers])
+
+  // Démarrer la barre de progression
+  const startProgress = useCallback(() => {
+    if (isProgressVisibleRef.current) return
+
+    isProgressVisibleRef.current = true
+    startTimeRef.current = Date.now()
+
+    // Démarrer NProgress
+    NProgress.start()
+
+    // Timer de sécurité pour éviter une barre bloquée
+    maxDurationTimeoutRef.current = setTimeout(() => {
+      stopProgress()
+    }, CONFIG.maxDuration)
+  }, [stopProgress])
 
   // Logique principale : surveiller les changements de fetching
   useEffect(() => {

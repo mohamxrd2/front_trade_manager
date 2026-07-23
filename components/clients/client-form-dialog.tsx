@@ -135,7 +135,12 @@ export function ClientFormDialog({ open, onClose, onSuccess, client }: ClientFor
       
       // Puis appeler onSuccess pour rafraîchir la liste
       onSuccess(result)
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as {
+        response?: { status?: number; data?: { message?: string; error?: string; errors?: Record<string, unknown> } }
+        message?: string
+      }
+
       // Afficher le message du backend
       const message =
         error.response?.data?.message ||
