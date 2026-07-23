@@ -13,7 +13,7 @@ import type { NextRequest } from 'next/server'
  * via AuthContext qui appelle /api/user. Ce middleware est une couche
  * supplémentaire pour éviter les accès directs aux routes protégées.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   // Routes publiques (exclues du middleware)
