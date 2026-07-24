@@ -53,8 +53,20 @@ export function useSocialAuthCallback(provider: SocialAuthProvider) {
       try {
         await exchangeSocialAuthCode(provider, code)
 
-        // Synchronise le contexte d'authentification global (état user/isAuthenticated)
-        await checkAuth()
+        // Synchronise le contexte d'authentification global (état user/isAuthenticated).
+        // exchangeSocialAuthCode() n'ayant pas throw ne garantit PAS que la
+        // session est reconnue sur l'appel suivant (GET /api/user) — getUser()
+        // convertit un 401 en `null` silencieux (pas d'exception), donc sans
+        // vérifier le résultat ici on redirigeait vers /dashboard même non
+        // authentifié, qui rebondissait ensuite silencieusement vers /login.
+        const isNowAuthenticated = await checkAuth()
+
+        if (!isNowAuthenticated) {
+          console.error('🚨 [useSocialAuthCallback] Échange OAuth réussi mais session non reconnue par /api/user')
+          router.replace('/login?error=social_auth_failed')
+          return
+        }
+
         router.replace('/dashboard')
       } catch (error) {
         // TEMPORAIRE — ce catch masquait totalement l'erreur réelle avant.

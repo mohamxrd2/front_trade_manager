@@ -78,7 +78,7 @@ export interface AuthContextType {
   verifyRegistration: (payload: VerifyRegistrationPayload) => Promise<VerifyRegistrationResult>
   resendRegistrationCode: (email: string) => Promise<ResendRegistrationResult>
   logout: () => Promise<void>
-  checkAuth: () => Promise<void>
+  checkAuth: () => Promise<boolean>
 }
 
 // Créer le contexte d'authentification
@@ -128,9 +128,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
    * - getUser() retourne User si authentifié
    * - getUser() peut throw uniquement pour les vraies erreurs (500, etc.)
    */
-  const checkAuth = useCallback(async (): Promise<void> => {
+  const checkAuth = useCallback(async (): Promise<boolean> => {
     if (typeof window === 'undefined') {
-      return
+      return false
     }
 
     try {
@@ -141,15 +141,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // ✅ Utilisateur authentifié
         setUser(userData)
         setIsAuthenticated(true)
-        
+
         // Vérifier l'onboarding si l'utilisateur est connecté
         const currentPath = window.location.pathname
         const skipOnboardingCheck = ['/onboarding', '/login', '/register', '/'].includes(currentPath)
-        
+
         if (!skipOnboardingCheck) {
           try {
             const onboardingStatus = await checkOnboardingService()
-            
+
             if (!onboardingStatus.is_complete) {
               router.push('/onboarding')
             }
@@ -162,12 +162,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             // Pour les autres erreurs, continuer silencieusement
           }
         }
+
+        return true
       } else {
         // ✅ Non authentifié (getUser a retourné null)
         // C'est un état NORMAL après déconnexion ou première visite
         // Pas de log d'erreur ici
         setUser(null)
         setIsAuthenticated(false)
+        return false
       }
     } catch (error: unknown) {
       // ⚠️ Vraie erreur (500, etc.) - getUser a throw
@@ -175,10 +178,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('checkAuth: Erreur inattendue', error)
       }
-      
+
       // En cas d'erreur, considérer comme non authentifié
       setUser(null)
       setIsAuthenticated(false)
+      return false
     }
   }, [router])
 
