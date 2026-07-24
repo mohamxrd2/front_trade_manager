@@ -50,6 +50,19 @@ export async function exchangeSocialAuthCode(provider: SocialAuthProvider, code:
   } catch (error) {
     const axiosError = error as AxiosError<{ success?: boolean; message?: string }>
     const message = axiosError.response?.data?.message
+
+    // TEMPORAIRE — diagnostic du social_auth_failed en production. Log
+    // volontairement non filtré par NODE_ENV (bug de prod à reproduire en
+    // prod) : distingue un vrai 422 du backend (avec message) d'un échec
+    // réseau/CORS (pas de `response` du tout). À retirer une fois la cause
+    // identifiée.
+    console.error('🚨 [exchangeSocialAuthCode] Échec réel de l\'échange OAuth:', {
+      provider,
+      status: axiosError.response?.status,
+      responseData: axiosError.response?.data,
+      axiosMessage: axiosError.message,
+    })
+
     throw new Error(message || 'Échec de la connexion')
   }
 }

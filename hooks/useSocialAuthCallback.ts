@@ -56,7 +56,10 @@ export function useSocialAuthCallback(provider: SocialAuthProvider) {
         // Synchronise le contexte d'authentification global (état user/isAuthenticated)
         await checkAuth()
         router.replace('/dashboard')
-      } catch {
+      } catch (error) {
+        // TEMPORAIRE — ce catch masquait totalement l'erreur réelle avant.
+        // À retirer une fois le social_auth_failed en prod diagnostiqué.
+        console.error('🚨 [useSocialAuthCallback] Échec de la finalisation OAuth:', error)
         router.replace('/login?error=social_auth_failed')
       }
     }
