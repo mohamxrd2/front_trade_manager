@@ -290,6 +290,13 @@ export function AddTransactionDialog({
 
   // Gérer la soumission d'une vente
   const onSaleSubmit = async (data: z.infer<typeof saleSchema>) => {
+    // Générée une seule fois par soumission (ce clic), conservée pour tous
+    // les retries automatiques axios de CETTE tentative (même objet de
+    // config rejoué) : permet au backend de reconnaître un rejeu de la même
+    // soumission plutôt que de créer une transaction en double, sans fusionner
+    // deux ventes réellement distinctes qui se ressemblent.
+    const idempotencyKey = crypto.randomUUID()
+
     try {
       setLoading(true)
 
@@ -356,7 +363,9 @@ export function AddTransactionDialog({
           type: 'sale' | 'expense'
           created_at: string
         }
-      }>('/api/transactions', payload)
+      }>('/api/transactions', payload, {
+        headers: { 'Idempotency-Key': idempotencyKey },
+      })
 
       console.log('📥 Réponse API:', response.data)
 
@@ -428,6 +437,9 @@ export function AddTransactionDialog({
 
   // Gérer la soumission d'une dépense
   const onExpenseSubmit = async (data: z.infer<typeof expenseSchema>) => {
+    // Voir le commentaire équivalent dans onSaleSubmit.
+    const idempotencyKey = crypto.randomUUID()
+
     try {
       setLoading(true)
 
@@ -451,7 +463,9 @@ export function AddTransactionDialog({
           type: 'sale' | 'expense'
           created_at: string
         }
-      }>('/api/transactions', payload)
+      }>('/api/transactions', payload, {
+        headers: { 'Idempotency-Key': idempotencyKey },
+      })
 
       console.log('📥 Réponse API:', response.data)
 
