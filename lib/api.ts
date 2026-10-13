@@ -195,6 +195,14 @@ function isTimeoutError(error: AxiosError): boolean {
 }
 
 /**
+ * Méthodes HTTP sûres/idempotentes : rejouer la requête telle quelle ne
+ * risque pas de dupliquer un effet de bord (contrairement à POST/PUT/
+ * PATCH/DELETE, qui peuvent créer/modifier/supprimer une ressource à
+ * chaque appel).
+ */
+const SAFE_RETRY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+/**
  * Vérifie si la requête peut être retentée
  */
 function isRetryable(error: AxiosError): boolean {
@@ -206,6 +214,17 @@ function isRetryable(error: AxiosError): boolean {
 
   // Some HTTP status codes are retryable
   if (error.response?.status) {
+    // Une réponse 5xx/429/408 signifie que la requête A ATTEINT le
+    // serveur : pour une méthode non idempotente (POST/PUT/PATCH/DELETE),
+    // la rejouer automatiquement risque de dupliquer l'effet de bord côté
+    // serveur (ex: créer plusieurs fois la même transaction). On ne rejoue
+    // donc ces statuts que pour les méthodes sûres ; l'appelant reçoit
+    // l'erreur et décide (retry manuel, message à l'utilisateur, etc.).
+    const method = error.config?.method?.toUpperCase()
+    if (!method || !SAFE_RETRY_METHODS.has(method)) {
+      return false
+    }
+
     return RETRY_CONFIG.retryableStatuses.includes(error.response.status)
   }
 
