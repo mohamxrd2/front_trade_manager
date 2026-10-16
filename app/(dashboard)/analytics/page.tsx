@@ -1027,6 +1027,55 @@ export default function AnalyticsPage() {
         </Card>
 
         <Card>
+          <CardTitle>Comparaison avec la période précédente</CardTitle>
+          <div className="mt-3.5 flex flex-col gap-3.5">
+            {compareRows.map((row) => {
+              const maxVal = Math.max(row.now, row.prev, 1)
+              const delta = kpiDeltaPct(row.change, row.good)
+              return (
+                <div key={row.label} className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-semibold text-ink">{row.label}</span>
+                    <span className="font-bold" style={{ color: delta?.positive ? KPI_COLOR.positive : KPI_COLOR.negative }}>
+                      {delta?.text}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="block h-2 rounded bg-surface-soft">
+                      <span className="block h-full rounded bg-brand-500" style={{ width: `${Math.min(100, (row.now / maxVal) * 100)}%` }} />
+                    </span>
+                    <span className="block h-2 rounded bg-surface-soft">
+                      <span className="block h-full rounded bg-brand-200" style={{ width: `${Math.min(100, (row.prev / maxVal) * 100)}%` }} />
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="mt-3.5 flex gap-4 text-xs text-ink-3">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-500" />Période actuelle</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-200" />Période précédente</span>
+          </div>
+        </Card>
+
+        <Card>
+          <CardTitle>Meilleurs articles</CardTitle>
+          <div className="mt-2.5 flex flex-col gap-2.5">
+            {bestArticles.length === 0 ? (
+              <p className="text-sm text-subtle">Aucune vente sur cette période.</p>
+            ) : (
+              bestArticles.map((a, i) => (
+                <div key={a.id} className="flex items-center gap-3 text-sm">
+                  <span className="w-7 font-extrabold text-brand-500">{i + 1}</span>
+                  <span className="flex-1 font-semibold text-ink">{a.name}</span>
+                  <span className="text-ink-3">{a.total_quantity} vente{a.total_quantity > 1 ? 's' : ''}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+
+        <Card>
           <div className="flex items-center justify-between gap-2.5">
             <CardTitle>Transactions de la période</CardTitle>
             <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-bold text-brand-700">
