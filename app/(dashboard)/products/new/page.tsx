@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -83,7 +83,6 @@ export default function NewArticlePage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const {
-    register,
     handleSubmit,
     watch,
     setValue,
@@ -315,11 +314,17 @@ export default function NewArticlePage() {
           <label htmlFor="m-article-name" className="text-[13px] font-semibold text-ink">
             Nom de l&apos;article
           </label>
-          <input
-            id="m-article-name"
-            placeholder="Ex. Robe wax"
-            {...register('name')}
-            className="h-[52px] rounded-field border border-line-strong px-4 text-base text-ink"
+          <Controller
+            control={control}
+            name="name"
+            render={({ field }) => (
+              <input
+                id="m-article-name"
+                placeholder="Ex. Robe wax"
+                {...field}
+                className="h-[52px] rounded-field border border-line-strong px-4 text-base text-ink"
+              />
+            )}
           />
           {errors.name ? <p className="text-xs text-danger-strong">{errors.name.message}</p> : null}
         </div>
@@ -328,11 +333,17 @@ export default function NewArticlePage() {
           <label htmlFor="m-article-price" className="text-[13px] font-semibold text-ink">
             Prix de vente ({currency})
           </label>
-          <input
-            id="m-article-price"
-            inputMode="numeric"
-            {...register('sale_price')}
-            className="h-[52px] rounded-field border border-line-strong px-3.5 text-base text-ink"
+          <Controller
+            control={control}
+            name="sale_price"
+            render={({ field }) => (
+              <input
+                id="m-article-price"
+                inputMode="numeric"
+                {...field}
+                className="h-[52px] rounded-field border border-line-strong px-3.5 text-base text-ink"
+              />
+            )}
           />
           {errors.sale_price ? <p className="text-xs text-danger-strong">{errors.sale_price.message}</p> : null}
         </div>
@@ -367,13 +378,19 @@ export default function NewArticlePage() {
               >
                 <Minus className="size-4" />
               </button>
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                aria-label="Quantité en stock"
-                {...register('quantity')}
-                className="w-10 rounded-lg border border-line-strong bg-surface text-center text-lg font-extrabold text-ink outline-none focus:border-brand-500"
+              <Controller
+                control={control}
+                name="quantity"
+                render={({ field }) => (
+                  <input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    aria-label="Quantité en stock"
+                    {...field}
+                    className="w-10 rounded-lg border border-line-strong bg-surface text-center text-lg font-extrabold text-ink outline-none focus:border-brand-500"
+                  />
+                )}
               />
               <button
                 type="button"
@@ -408,11 +425,17 @@ export default function NewArticlePage() {
                   >
                     <Plus className="size-[18px]" strokeWidth={1.9} />
                   </button>
-                  <input
-                    aria-label="Nom de la variation"
-                    placeholder="Ex. Taille M"
-                    {...register(`variations.${index}.name`)}
-                    className="h-11 min-w-0 flex-1 rounded-[12px] border border-line-strong px-2.5 text-[15px] text-ink"
+                  <Controller
+                    control={control}
+                    name={`variations.${index}.name`}
+                    render={({ field }) => (
+                      <input
+                        aria-label="Nom de la variation"
+                        placeholder="Ex. Taille M"
+                        {...field}
+                        className="h-11 min-w-0 flex-1 rounded-[12px] border border-line-strong px-2.5 text-[15px] text-ink"
+                      />
+                    )}
                   />
                   <span className="flex items-center">
                     <button
@@ -423,13 +446,19 @@ export default function NewArticlePage() {
                     >
                       −
                     </button>
-                    <input
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      aria-label="Quantité de la variation"
-                      {...register(`variations.${index}.quantity`)}
-                      className="h-9 w-10 rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
+                    <Controller
+                      control={control}
+                      name={`variations.${index}.quantity`}
+                      render={({ field }) => (
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          aria-label="Quantité de la variation"
+                          {...field}
+                          className="h-9 w-10 rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
+                        />
+                      )}
                     />
                     <button
                       type="button"
@@ -521,10 +550,16 @@ export default function NewArticlePage() {
                     <label htmlFor="article-name" className="text-[13px] font-semibold text-ink">
                       Nom de l&apos;article
                     </label>
-                    <input
-                      id="article-name"
-                      {...register('name')}
-                      className="h-[50px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+                    <Controller
+                      control={control}
+                      name="name"
+                      render={({ field }) => (
+                        <input
+                          id="article-name"
+                          {...field}
+                          className="h-[50px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+                        />
+                      )}
                     />
                     {errors.name ? <p className="text-xs text-danger-strong">{errors.name.message}</p> : null}
                   </div>
@@ -532,11 +567,17 @@ export default function NewArticlePage() {
                     <label htmlFor="article-price" className="text-[13px] font-semibold text-ink">
                       Prix de vente ({currency})
                     </label>
-                    <input
-                      id="article-price"
-                      inputMode="numeric"
-                      {...register('sale_price')}
-                      className="h-[50px] max-w-[260px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+                    <Controller
+                      control={control}
+                      name="sale_price"
+                      render={({ field }) => (
+                        <input
+                          id="article-price"
+                          inputMode="numeric"
+                          {...field}
+                          className="h-[50px] max-w-[260px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+                        />
+                      )}
                     />
                     {errors.sale_price ? (
                       <p className="text-xs text-danger-strong">{errors.sale_price.message}</p>
@@ -576,13 +617,19 @@ export default function NewArticlePage() {
                     >
                       <Minus className="size-4" />
                     </button>
-                    <input
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      aria-label="Quantité initiale"
-                      {...register('quantity')}
-                      className="w-12 rounded-lg border border-line-strong bg-surface text-center text-lg font-extrabold text-ink outline-none focus:border-brand-500"
+                    <Controller
+                      control={control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          aria-label="Quantité initiale"
+                          {...field}
+                          className="w-12 rounded-lg border border-line-strong bg-surface text-center text-lg font-extrabold text-ink outline-none focus:border-brand-500"
+                        />
+                      )}
                     />
                     <button
                       type="button"
@@ -624,11 +671,17 @@ export default function NewArticlePage() {
                                 </button>
                               </td>
                               <td className="px-3 py-2.5">
-                                <input
-                                  aria-label="Nom de la variation"
-                                  placeholder="Ex. Taille M"
-                                  {...register(`variations.${index}.name`)}
-                                  className="h-[42px] w-full min-w-[140px] rounded-[12px] border border-line-strong px-3 text-sm text-ink"
+                                <Controller
+                                  control={control}
+                                  name={`variations.${index}.name`}
+                                  render={({ field }) => (
+                                    <input
+                                      aria-label="Nom de la variation"
+                                      placeholder="Ex. Taille M"
+                                      {...field}
+                                      className="h-[42px] w-full min-w-[140px] rounded-[12px] border border-line-strong px-3 text-sm text-ink"
+                                    />
+                                  )}
                                 />
                                 {errors.variations?.[index]?.name ? (
                                   <p className="mt-1 text-xs text-danger-strong">
@@ -648,13 +701,19 @@ export default function NewArticlePage() {
                                   >
                                     −
                                   </button>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    inputMode="numeric"
-                                    aria-label="Quantité de la variation"
-                                    {...register(`variations.${index}.quantity`)}
-                                    className="w-[46px] rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
+                                  <Controller
+                                    control={control}
+                                    name={`variations.${index}.quantity`}
+                                    render={({ field }) => (
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        inputMode="numeric"
+                                        aria-label="Quantité de la variation"
+                                        {...field}
+                                        className="w-[46px] rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
+                                      />
+                                    )}
                                   />
                                   <button
                                     type="button"
