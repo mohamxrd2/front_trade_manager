@@ -3,7 +3,7 @@
 import { useEffect, ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { Loader2 } from 'lucide-react'
+import { FullPageSpinner } from '@/components/ui/full-page-spinner'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -65,26 +65,12 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // Afficher un loader pendant la vérification de l'authentification
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-          <p className="text-sm text-muted-foreground">Vérification de l&apos;authentification...</p>
-        </div>
-      </div>
-    )
+    return <FullPageSpinner />
   }
 
   // Si l'utilisateur n'est pas authentifié, ne rien afficher (redirection en cours)
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-          <p className="text-sm text-muted-foreground">Redirection vers la page de connexion...</p>
-        </div>
-      </div>
-    )
+    return <FullPageSpinner />
   }
 
   // Si l'utilisateur est authentifié, afficher le contenu

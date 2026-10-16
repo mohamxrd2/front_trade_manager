@@ -1,68 +1,103 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import * as React from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
-import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, User, Mail, Phone, CreditCard, MapPin } from 'lucide-react'
+import { z } from 'zod'
 import { toast } from 'sonner'
+import { ArrowLeft, X } from 'lucide-react'
 
+import { Dialog } from '@/components/ui/dialog'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { createClient, updateClient, type Client, type CreateClientPayload } from '@/lib/services/invoices'
-import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
-
-// ============================================================================
-// VALIDATION SCHEMA
-// ============================================================================
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { createClient, updateClient, deleteClient, type Client, type CreateClientPayload } from '@/lib/services/invoices'
+import { invalidateClients } from '@/lib/invalidate'
+import { Button, FilterChips } from '@/components/waelly'
 
 const clientSchema = z.object({
-  name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
-  email: z.string().email('Email invalide').nullable().optional().or(z.literal('')),
-  phone: z.string().nullable().optional().or(z.literal('')),
-  payment_method: z.enum(['cash', 'bank_transfer', 'mobile_money', 'card', 'other']).nullable().optional(),
-  billing_address: z.string().nullable().optional().or(z.literal('')),
-  shipping_address: z.string().nullable().optional().or(z.literal('')),
+  name: z.string().min(1, 'Le nom du client est obligatoire.'),
+  phone: z.string().optional(),
+  email: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "L'adresse email n'est pas valide"),
+  billing_address: z.string().optional(),
+  shipping_address: z.string().optional(),
 })
 
-type ClientFormData = z.infer<typeof clientSchema>
+type ClientFormValues = z.infer<typeof clientSchema>
 
-// ============================================================================
-// PROPS
-// ============================================================================
+const PAYMENT_CHIPS_DESKTOP = [
+  { value: 'cash', label: 'Espèces' },
+  { value: 'mobile_money', label: 'Mobile Money' },
+  { value: 'bank_transfer', label: 'Virement' },
+  { value: 'cheque', label: 'Chèque' },
+  { value: 'credit_card', label: 'Carte bancaire' },
+]
+const PAYMENT_CHIPS_MOBILE = [
+  { value: 'cash', label: 'Espèces' },
+  { value: 'mobile_money', label: 'Mobile Money' },
+  { value: 'bank_transfer', label: 'Virement' },
+  { value: 'cheque', label: 'Chèque' },
+  { value: 'credit_card', label: 'Carte' },
+]
+
+// Reprend exactement la règle de Vente/mobile/AjoutClient.dc.html :
+// /^(m\.|mme|mlle)$/i — ignore ces mots avant de prendre les initiales.
+function initialsFromName(name: string): string {
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w && !/^(m\.|mme|mlle)$/i.test(w))
+  if (words.length === 0) return '?'
+  return (words[0][0] + (words[1]?.[0] ?? '')).toUpperCase()
+}
 
 interface ClientFormDialogProps {
   open: boolean
+  client?: Client | null
+  /** Nombre de factures liées — pour un message de confirmation précis */
+  invoicesCount?: number
+  /** Masque "Enregistrer et facturer" (ex. quand on est déjà sur /invoices/new) */
+  showInvoiceAction?: boolean
   onClose: () => void
   onSuccess: (client: Client) => void
-  client?: Client | null // Si fourni, mode édition
+  onDeleted?: () => void
 }
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
-
-export function ClientFormDialog({ open, onClose, onSuccess, client }: ClientFormDialogProps) {
-  const { t } = useTranslation()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+/**
+ * Formulaire client (ajout/modification) — design/maquettes/ordinateur/
+ * Web-NouveauClient.dc.html (Dialog ancré en haut sur ordinateur) et
+ * design/maquettes/mobile/AjoutClient.dc.html (écran plein, barre d'actions
+ * en verre en bas).
+ */
+export function ClientFormDialog({
+  open,
+  client,
+  invoicesCount = 0,
+  showInvoiceAction = true,
+  onClose,
+  onSuccess,
+  onDeleted,
+}: ClientFormDialogProps) {
+  const router = useRouter()
   const isEditing = Boolean(client)
+
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [paymentMethod, setPaymentMethod] = React.useState('')
+  const [sameAsBilling, setSameAsBilling] = React.useState(true)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
   const {
     register,
@@ -71,252 +106,384 @@ export function ClientFormDialog({ open, onClose, onSuccess, client }: ClientFor
     setValue,
     watch,
     formState: { errors },
-  } = useForm<ClientFormData>({
+  } = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      phone: '',
-      payment_method: null,
-      billing_address: '',
-      shipping_address: '',
-    },
+    defaultValues: { name: '', phone: '', email: '', billing_address: '', shipping_address: '' },
   })
 
-  // Remplir le formulaire en mode édition
-  useEffect(() => {
-    if (client) {
-      reset({
-        name: client.name,
-        email: client.email || '',
-        phone: client.phone || '',
-        payment_method: client.payment_method,
-        billing_address: client.billing_address || '',
-        shipping_address: client.shipping_address || '',
-      })
-    } else {
-      reset({
-        name: '',
-        email: '',
-        phone: '',
-        payment_method: null,
-        billing_address: '',
-        shipping_address: '',
-      })
-    }
-  }, [client, reset])
+  const name = watch('name')
+  const billingAddress = watch('billing_address')
+  const ini = initialsFromName(name || '')
 
-  const onSubmit = async (data: ClientFormData) => {
+  React.useEffect(() => {
+    if (!open) return
+    reset({
+      name: client?.name ?? '',
+      phone: client?.phone ?? '',
+      email: client?.email ?? '',
+      billing_address: client?.billing_address ?? '',
+      shipping_address: client?.shipping_address ?? '',
+    })
+    setPaymentMethod(client?.payment_method ?? '')
+    setSameAsBilling(
+      !client?.shipping_address || client.shipping_address === client.billing_address
+    )
+  }, [open, client, reset])
+
+  React.useEffect(() => {
+    if (sameAsBilling) setValue('shipping_address', billingAddress ?? '')
+  }, [sameAsBilling, billingAddress, setValue])
+
+  const handleClose = () => {
+    if (!isSubmitting) onClose()
+  }
+
+  const buildPayload = (data: ClientFormValues): CreateClientPayload => ({
+    name: data.name.trim(),
+    phone: data.phone?.trim() || null,
+    email: data.email?.trim() || null,
+    payment_method: (paymentMethod || null) as CreateClientPayload['payment_method'],
+    billing_address: data.billing_address?.trim() || null,
+    shipping_address: (sameAsBilling ? data.billing_address : data.shipping_address)?.trim() || null,
+  })
+
+  const saveClient = async (data: ClientFormValues): Promise<Client> => {
+    const payload = buildPayload(data)
+    const result = isEditing && client ? await updateClient(client.id, payload) : await createClient(payload)
+    invalidateClients()
+    return result
+  }
+
+  const onSubmitSave = async (data: ClientFormValues) => {
     setIsSubmitting(true)
-
     try {
-      const payload: CreateClientPayload = {
-        name: data.name,
-        email: data.email || null,
-        phone: data.phone || null,
-        payment_method: data.payment_method || null,
-        billing_address: data.billing_address || null,
-        shipping_address: data.shipping_address || null,
-      }
-
-      let result: Client
-
-      if (isEditing && client) {
-        result = await updateClient(client.id, payload)
-        toast.success(t('clients.clientUpdated'))
-      } else {
-        result = await createClient(payload)
-        toast.success(t('clients.clientCreated'))
-      }
-
-      // Fermer le dialog d'abord
-      reset()
-      onClose()
-      
-      // Puis appeler onSuccess pour rafraîchir la liste
+      const result = await saveClient(data)
+      toast.success(isEditing ? 'Client mis à jour' : 'Client ajouté')
       onSuccess(result)
     } catch (err: unknown) {
-      const error = err as {
-        response?: { status?: number; data?: { message?: string; error?: string; errors?: Record<string, unknown> } }
-        message?: string
-      }
-
-      // Afficher le message du backend
-      const message =
-        error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.message ||
-        t('clients.saveError')
-
-      // Gérer les erreurs de validation 422
-      if (error.response?.status === 422 && error.response?.data?.errors) {
-        const errors = error.response.data.errors
-        const firstError = Object.values(errors)[0]
-        toast.error(Array.isArray(firstError) ? firstError[0] : message)
+      const error = err as Error & { errors?: Record<string, string[]> }
+      if (error.errors) {
+        const first = Object.values(error.errors)[0]
+        toast.error(Array.isArray(first) ? first[0] : error.message)
       } else {
-        toast.error(message)
+        toast.error(error.message || "Échec de l'enregistrement")
       }
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleClose = () => {
-    if (!isSubmitting) {
-      reset()
-      onClose()
+  const onSubmitAndInvoice = async (data: ClientFormValues) => {
+    setIsSubmitting(true)
+    try {
+      const result = await saveClient(data)
+      toast.success('Client ajouté')
+      onSuccess(result)
+      router.push(`/invoices/new?client=${result.id}`)
+    } catch (err: unknown) {
+      const error = err as Error & { errors?: Record<string, string[]> }
+      if (error.errors) {
+        const first = Object.values(error.errors)[0]
+        toast.error(Array.isArray(first) ? first[0] : error.message)
+      } else {
+        toast.error(error.message || "Échec de l'enregistrement")
+      }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const paymentMethod = watch('payment_method')
+  const handleDelete = async () => {
+    if (!client) return
+    setIsDeleting(true)
+    try {
+      await deleteClient(client.id)
+      invalidateClients()
+      toast.success('Client supprimé')
+      setDeleteDialogOpen(false)
+      onDeleted?.()
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Échec de la suppression')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const inputErrorClass = (hasError?: boolean) =>
+    hasError ? 'border-[2px] border-danger' : 'border border-line-strong'
+
+  const offerInvoiceAction = showInvoiceAction && !isEditing
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            {isEditing ? t('clients.editClient') : t('clients.addClient')}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditing ? t('clients.editClientDescription') : t('clients.addClientDescription')}
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Nom */}
-          <div className="space-y-2">
-            <Label htmlFor="name" className="flex items-center gap-1">
-              <User className="h-4 w-4" />
-              {t('clients.name')} <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="name"
-              placeholder={t('clients.namePlaceholder')}
-              className={errors.name ? 'border-destructive' : ''}
-              {...register('name')}
-              disabled={isSubmitting}
-            />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            )}
-          </div>
-
-          {/* Email & Téléphone */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-1">
-                <Mail className="h-4 w-4" />
-                {t('clients.email')}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t('clients.emailPlaceholder')}
-                className={errors.email ? 'border-destructive' : ''}
-                {...register('email')}
-                disabled={isSubmitting}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-canvas data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 lg:bg-[rgba(14,14,26,0.42)] lg:backdrop-blur-[4px]" />
+          <DialogPrimitive.Content
+            className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-canvas outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 lg:inset-x-0 lg:top-[72px] lg:bottom-auto lg:left-1/2 lg:mx-auto lg:w-full lg:max-w-[620px] lg:-translate-x-1/2 lg:translate-y-0 lg:overflow-visible lg:rounded-[28px] lg:bg-surface lg:p-7 lg:shadow-[0_40px_90px_rgba(10,10,60,0.35)] lg:data-[state=closed]:zoom-out-95 lg:data-[state=open]:zoom-in-95"
+          >
+            {/* --- En-tête mobile --- */}
+            <div className="flex items-center gap-3 px-5 pb-3 pt-[52px] lg:hidden">
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="Retour"
+                className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
+              >
+                <ArrowLeft className="size-[22px]" />
+              </button>
+              <DialogPrimitive.Title className="flex-1 text-[22px] font-bold tracking-[-0.01em] text-ink">
+                {isEditing ? 'Modifier le client' : 'Nouveau client'}
+              </DialogPrimitive.Title>
+              <button type="button" onClick={handleClose} className="py-3 text-sm font-semibold text-ink-3">
+                Annuler
+              </button>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center gap-1">
-                <Phone className="h-4 w-4" />
-                {t('clients.phone')}
-              </Label>
-              <Input
-                id="phone"
-                placeholder={t('clients.phonePlaceholder')}
-                {...register('phone')}
-                disabled={isSubmitting}
-              />
+            {/* --- En-tête ordinateur --- */}
+            <div className="hidden items-start gap-4 lg:flex">
+              <span
+                className="flex size-14 shrink-0 items-center justify-center rounded-[28px] bg-orb text-lg font-extrabold text-white shadow-[0_8px_18px_rgba(75,47,214,0.3)]"
+                aria-hidden
+              >
+                {ini}
+              </span>
+              <div className="flex flex-1 flex-col gap-1">
+                <DialogPrimitive.Title className="text-[22px] font-extrabold tracking-[-0.02em] text-ink">
+                  {isEditing ? `Modifier ${client?.name ?? 'le client'}` : 'Nouveau client'}
+                </DialogPrimitive.Title>
+                <span className="text-sm text-subtle">
+                  {isEditing
+                    ? 'Les modifications apparaîtront dans ses prochaines factures.'
+                    : 'Il sera proposé automatiquement dans vos factures.'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="Fermer"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-canvas text-ink"
+              >
+                <X className="size-[18px]" />
+              </button>
             </div>
-          </div>
+            <DialogPrimitive.Description className="sr-only">
+              Formulaire d&apos;informations client
+            </DialogPrimitive.Description>
 
-          {/* Méthode de paiement */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              <CreditCard className="h-4 w-4" />
-              {t('clients.paymentMethod')}
-            </Label>
-            <Select
-              value={paymentMethod || ''}
-              onValueChange={(value) => setValue('payment_method', value as CreateClientPayload['payment_method'])}
-              disabled={isSubmitting}
+            {/* --- Avatar centré mobile --- */}
+            <div className="flex flex-col items-center gap-2 px-5 pb-1 pt-1.5 lg:hidden">
+              <span
+                className="flex size-[76px] items-center justify-center rounded-full bg-orb text-2xl font-extrabold text-white shadow-[0_10px_24px_rgba(75,47,214,0.35)]"
+                aria-hidden
+              >
+                {ini}
+              </span>
+              <span className="text-[13px] text-subtle">
+                {isEditing ? 'Les modifications seront reprises dans ses factures' : 'Il sera proposé dans vos factures'}
+              </span>
+            </div>
+
+            <form
+              onSubmit={handleSubmit(onSubmitSave)}
+              className="flex flex-1 flex-col gap-3.5 px-5 pb-32 pt-2 lg:flex-none lg:px-0 lg:pb-0 lg:pt-5"
             >
-              <SelectTrigger>
-                <SelectValue placeholder={t('clients.selectPaymentMethod')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">{t('clients.paymentMethods.cash')}</SelectItem>
-                <SelectItem value="bank_transfer">{t('clients.paymentMethods.bankTransfer')}</SelectItem>
-                <SelectItem value="mobile_money">{t('clients.paymentMethods.mobileMoney')}</SelectItem>
-                <SelectItem value="card">{t('clients.paymentMethods.card')}</SelectItem>
-                <SelectItem value="other">{t('clients.paymentMethods.other')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="flex flex-col gap-2">
+                <label htmlFor="client-name" className="text-[13px] font-semibold text-ink">
+                  Nom complet ou raison sociale <span className="text-danger-strong">*</span>
+                </label>
+                <input
+                  id="client-name"
+                  placeholder="Ex. Boutique Le Plateau"
+                  {...register('name')}
+                  disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.name)}
+                  className={`h-[50px] rounded-field px-3.5 text-[15px] text-ink disabled:opacity-60 lg:h-[50px] ${inputErrorClass(Boolean(errors.name))}`}
+                />
+                {errors.name ? (
+                  <span className="text-xs font-semibold text-danger-strong">{errors.name.message}</span>
+                ) : null}
+              </div>
 
-          {/* Adresse de facturation */}
-          <div className="space-y-2">
-            <Label htmlFor="billing_address" className="flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
-              {t('clients.billingAddress')}
-            </Label>
-            <Textarea
-              id="billing_address"
-              placeholder={t('clients.billingAddressPlaceholder')}
-              rows={2}
-              {...register('billing_address')}
-              disabled={isSubmitting}
-            />
-          </div>
+              <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="client-phone" className="text-[13px] font-semibold text-ink">
+                    Téléphone
+                  </label>
+                  <input
+                    id="client-phone"
+                    type="tel"
+                    placeholder="+225 07 00 00 00 00"
+                    {...register('phone')}
+                    disabled={isSubmitting}
+                    className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink disabled:opacity-60 lg:h-12"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="client-email" className="text-[13px] font-semibold text-ink">
+                    E-mail
+                  </label>
+                  <input
+                    id="client-email"
+                    type="email"
+                    placeholder="client@exemple.ci"
+                    {...register('email')}
+                    disabled={isSubmitting}
+                    aria-invalid={Boolean(errors.email)}
+                    className={`h-12 rounded-field px-3.5 text-[15px] text-ink disabled:opacity-60 lg:h-12 ${inputErrorClass(Boolean(errors.email))}`}
+                  />
+                  {errors.email ? (
+                    <span className="text-xs font-semibold text-danger-strong">{errors.email.message}</span>
+                  ) : null}
+                </div>
+              </div>
 
-          {/* Adresse de livraison */}
-          <div className="space-y-2">
-            <Label htmlFor="shipping_address" className="flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
-              {t('clients.shippingAddress')}
-            </Label>
-            <Textarea
-              id="shipping_address"
-              placeholder={t('clients.shippingAddressPlaceholder')}
-              rows={2}
-              {...register('shipping_address')}
-              disabled={isSubmitting}
-            />
-          </div>
+              <div className="flex flex-col gap-2.5">
+                <span className="text-[13px] font-semibold text-ink">Mode de paiement habituel</span>
+                <FilterChips
+                  options={PAYMENT_CHIPS_DESKTOP}
+                  value={paymentMethod}
+                  onChange={setPaymentMethod}
+                  className="hidden lg:flex"
+                />
+                <FilterChips
+                  options={PAYMENT_CHIPS_MOBILE}
+                  value={paymentMethod}
+                  onChange={setPaymentMethod}
+                  className="lg:hidden"
+                />
+              </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={isSubmitting}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('common.saving')}
-                </>
-              ) : (
-                isEditing ? t('common.save') : t('common.add')
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+              <div className="flex flex-col gap-2">
+                <label htmlFor="client-billing" className="text-[13px] font-semibold text-ink">
+                  Adresse de facturation
+                </label>
+                <textarea
+                  id="client-billing"
+                  rows={2}
+                  placeholder="Rue, quartier, ville"
+                  {...register('billing_address')}
+                  disabled={isSubmitting}
+                  className="rounded-field border border-line-strong px-3.5 py-3 text-[15px] text-ink disabled:opacity-60"
+                />
+              </div>
+
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-tile border border-transparent text-sm font-semibold text-ink-2 lg:border-0 lg:bg-transparent lg:p-0">
+                <input
+                  type="checkbox"
+                  checked={sameAsBilling}
+                  onChange={(e) => setSameAsBilling(e.target.checked)}
+                  disabled={isSubmitting}
+                  className="size-5 accent-brand-500"
+                />
+                Adresse de livraison identique
+              </label>
+
+              {!sameAsBilling ? (
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="client-shipping" className="text-[13px] font-semibold text-ink">
+                    Adresse de livraison
+                  </label>
+                  <textarea
+                    id="client-shipping"
+                    rows={2}
+                    placeholder="Rue, quartier, ville"
+                    {...register('shipping_address')}
+                    disabled={isSubmitting}
+                    className="rounded-field border border-line-strong px-3.5 py-3 text-[15px] text-ink disabled:opacity-60"
+                  />
+                </div>
+              ) : null}
+
+              {isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={isSubmitting}
+                  className="self-start text-[13px] font-semibold text-danger-strong lg:hidden"
+                >
+                  Supprimer ce client
+                </button>
+              ) : null}
+
+              {/* --- Pied ordinateur --- */}
+              <div className="hidden items-center justify-between gap-2.5 border-t border-divider pt-4.5 lg:flex">
+                {isEditing ? (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    disabled={isSubmitting}
+                    className="text-[13px] font-semibold text-danger-strong"
+                  >
+                    Supprimer ce client
+                  </button>
+                ) : (
+                  <span />
+                )}
+                <span className="flex flex-wrap gap-2.5">
+                  <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>
+                    Annuler
+                  </Button>
+                  {offerInvoiceAction ? (
+                    <Button
+                      type="button"
+                      variant="black"
+                      disabled={isSubmitting}
+                      onClick={handleSubmit(onSubmitAndInvoice)}
+                    >
+                      Enregistrer et facturer
+                    </Button>
+                  ) : null}
+                  <Button type="submit" variant="primary" disabled={isSubmitting}>
+                    {isSubmitting ? 'Enregistrement…' : 'Enregistrer le client'}
+                  </Button>
+                </span>
+              </div>
+            </form>
+
+            {/* --- Barre d'action fixe mobile --- */}
+            <div className="glass fixed inset-x-3.5 bottom-[22px] z-10 flex gap-2 rounded-[32px] p-2 lg:hidden">
+              {offerInvoiceAction ? (
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleSubmit(onSubmitAndInvoice)}
+                  className="flex h-[52px] flex-1 items-center justify-center rounded-[26px] bg-surface/85 text-sm font-bold text-ink disabled:opacity-60"
+                >
+                  Et facturer
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleSubmit(onSubmitSave)}
+                className="flex h-[52px] flex-[1.4] items-center justify-center rounded-[26px] bg-button text-[15px] font-bold text-white shadow-button disabled:opacity-60"
+              >
+                {isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer {client?.name} ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {invoicesCount > 0
+                ? `Ce client a ${invoicesCount} facture(s) associée(s) : la suppression sera refusée tant qu'elles existent.`
+                : 'Cette action est définitive.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? 'Suppression…' : 'Supprimer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
-

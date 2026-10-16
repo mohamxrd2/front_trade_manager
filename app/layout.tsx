@@ -1,15 +1,12 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
-import { SWRProvider } from "@/lib/providers/swr-provider";
-import { QueryProvider } from "@/lib/providers/query-provider";
 import { LanguageProvider } from "@/lib/i18n/context/LanguageContext";
 import { Toaster } from "sonner";
-import { NavigationProgressBar } from "@/components/navigation-progress-bar";
+import { Providers } from "@/app/providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,15 +18,35 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-jakarta",
+});
+
+const SITE_DESCRIPTION =
+  "Waelly gère votre stock, vos ventes et vos factures depuis une seule application, sur téléphone comme sur ordinateur.";
+
 export const metadata: Metadata = {
-  title: "Trade Manager - Gestion Commerciale et Inventaire en Ligne | Logiciel de Gestion de Stock",
-  description: "Trade Manager est une application web complète de gestion commerciale et d'inventaire. Gérez vos stocks, transactions, ventes et dépenses avec des analytics avancées, prédictions de réapprovisionnement et gestion multi-collaborateurs. Interface moderne et intuitive pour optimiser votre commerce.",
-  keywords: "gestion de stock, gestion d'inventaire, logiciel commerce, gestion commerciale, analytics ventes, prédictions stock, gestion collaborateurs, application commerce, gestion transactions, inventaire en ligne",
+  title: "Waelly — Gérez stock, ventes et factures de votre commerce",
+  description: SITE_DESCRIPTION,
+  keywords: "gestion de stock, gestion commerciale, factures PDF, ventes, dépenses, Afrique francophone, FCFA",
   openGraph: {
-    title: "Trade Manager - Gestion Commerciale et Inventaire",
-    description: "Application web moderne pour gérer votre commerce, vos stocks et vos transactions avec des outils d'analytics avancés.",
+    title: "Waelly — Gérez stock, ventes et factures de votre commerce",
+    description: SITE_DESCRIPTION,
     type: "website",
+    locale: "fr_FR",
+    siteName: "Waelly",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Waelly — Gérez stock, ventes et factures de votre commerce",
+    description: SITE_DESCRIPTION,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#5B3FE6",
 };
 
 export default function RootLayout({
@@ -39,28 +56,29 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <script
+          // Anti-FOUC : rendu une seule fois côté serveur (Server Component,
+          // jamais re-rendu côté client), donc pas de warning React 19 sur
+          // les <script> rencontrés pendant un rendu client.
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('theme')||'system';var r=t==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;var root=document.documentElement;if(r==='dark'){root.classList.add('dark');}root.style.colorScheme=r;}catch(e){}})();",
+          }}
+        />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} antialiased`}
       >
 
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProvider>
           <AuthProvider>
             <SettingsProvider>
               <LanguageProvider>
-                <SWRProvider>
-                  <QueryProvider>
-                    <Suspense fallback={null}>
-                      <NavigationProgressBar />
-                    </Suspense>
-                    {children}
-                    <Toaster position="bottom-right" richColors />
-                  </QueryProvider>
-                </SWRProvider>
+                <Providers>
+                  {children}
+                  <Toaster position="bottom-right" richColors />
+                </Providers>
               </LanguageProvider>
             </SettingsProvider>
           </AuthProvider>

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Paramètres</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), #F1F2F7">
+<div style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="parametres" hint-size="100%,820px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Paramètres</h1>
+        <span style="font-size: 14px; color: #6B6B7B">Profil, entreprise, préférences et sécurité</span>
+      </div>
+      <button type="button" style="height: 48px; padding: 0 22px; border-radius: 24px; border: 0; font-family: inherit; font-weight: 700; font-size: 14px; color: #FFFFFF; cursor: pointer; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.35)">Enregistrer</button>
+    </div>
+
+    <div role="tablist" aria-label="Sections" style="align-self: flex-start; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 26px; background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.44)); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(255,255,255,0.9); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 10px 26px rgba(17,17,80,0.08)">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+        <button type="button" role="tab" aria-selected="{{t.sel}}" onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{isProfil}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section style="flex: 3 1 460px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">Mon profil</h2>
+          <div style="display: flex; align-items: center; gap: 16px"><span style="width: 72px; height: 72px; border-radius: 36px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-weight: 800; font-size: 22px; background: linear-gradient(135deg, #6A4CF0, #2B2BD9)">AK</span><button type="button" style="min-height: 42px; padding: 0 16px; border-radius: 21px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 13px; color: #0E0E1A; cursor: pointer">Changer la photo</button></div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px">
+            <div style="display: flex; flex-direction: column; gap: 8px"><label for="pn" style="font-size: 13px; font-weight: 600">Nom complet</label><input id="pn" value="Awa Koné" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><label for="pe" style="font-size: 13px; font-weight: 600">E-mail</label><input id="pe" type="email" value="awa@awacouture.ci" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+          </div>
+        </section>
+        <section style="flex: 2 1 300px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">Comptes connectés</h2>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F0F0F4"><span style="width: 36px; height: 36px; border-radius: 18px; border: 1px dashed #9A9AAB; display: flex; align-items: center; justify-content: center; font-weight: 700">G</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 14px">Google</span><span style="font-size: 12px; color: #0B6B39">Connecté</span></span><button type="button" style="min-height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 13px; color: #0E0E1A; cursor: pointer">Dissocier</button></div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0"><span style="width: 36px; height: 36px; border-radius: 18px; border: 1px dashed #9A9AAB; display: flex; align-items: center; justify-content: center; font-weight: 700">f</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600; font-size: 14px">Facebook</span><span style="font-size: 12px; color: #6B6B7B">Non connecté</span></span><button type="button" style="min-height: 38px; padding: 0 14px; border-radius: 19px; border: 0; background: #0E0E1A; font-family: inherit; font-weight: 700; font-size: 13px; color: #FFFFFF; cursor: pointer">Connecter</button></div>
+        </section>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isEntreprise}}" hint-placeholder-val="{{ false }}">
+      <section style="background: #FFFFFF; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">Profil de l'entreprise</h2>
+        <div style="display: flex; align-items: center; gap: 16px"><span style="width: 72px; height: 72px; border-radius: 20px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-weight: 800; font-size: 22px; background: radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8)">AC</span><button type="button" style="min-height: 42px; padding: 0 16px; border-radius: 21px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 13px; color: #0E0E1A; cursor: pointer">Changer le logo</button></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 16px">
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="en" style="font-size: 13px; font-weight: 600">Nom de l'entreprise</label><input id="en" value="Awa Couture" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="es" style="font-size: 13px; font-weight: 600">Secteur</label><select id="es" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 15px; color: #0E0E1A; background: #FFFFFF"><option>Mode &amp; textile</option><option>Alimentation</option><option>Cosmétique</option><option>Services</option></select></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="eh" style="font-size: 13px; font-weight: 600">Siège</label><input id="eh" value="Cocody, Abidjan" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="el" style="font-size: 13px; font-weight: 600">Statut légal</label><select id="el" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 15px; color: #0E0E1A; background: #FFFFFF"><option>Entreprise individuelle</option><option>SARL</option><option>SA</option></select></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="ei" style="font-size: 13px; font-weight: 600">IBAN / compte bancaire</label><input id="ei" placeholder="CI00 0000 0000 0000 0000" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{isPrefs}}" hint-placeholder-val="{{ false }}">
+      <section style="background: #FFFFFF; border-radius: 26px; padding: 8px 24px; display: flex; flex-direction: column; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px 0; border-bottom: 1px solid #F0F0F4"><span style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px"><label for="pd" style="font-weight: 700; font-size: 15px">Devise</label><span style="font-size: 13px; color: #6B6B7B">Utilisée pour vos prix, ventes et factures</span></span><select id="pd" style="height: 46px; min-width: 200px; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A; background: #FFFFFF"><option>FCFA (XOF)</option><option>Euro (EUR)</option><option>Dollar (USD)</option></select></div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px 0; border-bottom: 1px solid #F0F0F4"><span style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700; font-size: 15px">Seuil de stock faible</span><span style="font-size: 13px; color: #6B6B7B">Vous êtes alerté quand un article passe sous ce nombre</span></span><span style="display: flex; align-items: center; gap: 6px"><button type="button" onClick="{{dec}}" aria-label="Diminuer le seuil" style="width: 42px; height: 42px; border-radius: 21px; border: 1px solid #E2E2EA; background: #FFFFFF; font-size: 18px; font-weight: 700; color: #0E0E1A; cursor: pointer">−</button><span aria-live="polite" style="width: 40px; text-align: center; font-weight: 800; font-size: 18px">{{seuil}}</span><button type="button" onClick="{{inc}}" aria-label="Augmenter le seuil" style="width: 42px; height: 42px; border-radius: 21px; border: 0; background: #5B3FE6; font-size: 18px; font-weight: 700; color: #FFFFFF; cursor: pointer">+</button></span></div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px 0; border-bottom: 1px solid #F0F0F4"><span style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px"><label for="pl" style="font-weight: 700; font-size: 15px">Langue</label><span style="font-size: 13px; color: #6B6B7B">Langue de l'application</span></span><select id="pl" style="height: 46px; min-width: 200px; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A; background: #FFFFFF"><option>Français</option><option>English</option></select></div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px 0"><span style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700; font-size: 15px">Thème</span><span style="font-size: 13px; color: #6B6B7B">Clair, sombre ou selon votre appareil</span></span><span role="group" aria-label="Thème" style="display: flex; gap: 4px; padding: 4px; border-radius: 22px; background: #F3F3F7"><sc-for list="{{themes}}" as="t" hint-placeholder-count="3"><button type="button" onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="{{t.style}}">{{t.label}}</button></sc-for></span></div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{isSecu}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section style="flex: 3 1 420px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">Changer le mot de passe</h2>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="sa" style="font-size: 13px; font-weight: 600">Mot de passe actuel</label><input id="sa" type="password" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 16px">
+            <div style="display: flex; flex-direction: column; gap: 8px"><label for="sn" style="font-size: 13px; font-weight: 600">Nouveau mot de passe</label><input id="sn" type="password" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+            <div style="display: flex; flex-direction: column; gap: 8px"><label for="sc" style="font-size: 13px; font-weight: 600">Confirmer</label><input id="sc" type="password" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+          </div>
+          <button type="button" style="align-self: flex-start; min-height: 46px; padding: 0 20px; border-radius: 23px; border: 0; background: #0E0E1A; color: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer">Mettre à jour</button>
+        </section>
+        <section style="flex: 2 1 300px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 18px rgba(17,17,80,0.05); border: 1px solid #F3C7CF">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #A3213A">Zone sensible</h2>
+          <a href="Web-Connexion.dc.html" style="min-height: 46px; border-radius: 23px; display: flex; align-items: center; justify-content: center; text-decoration: none; border: 1px solid #E2E2EA; color: #0E0E1A; font-weight: 700; font-size: 14px">Se déconnecter</a>
+          <button type="button" style="min-height: 46px; border-radius: 23px; border: 0; background: #FDE8EC; color: #A3213A; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer">Supprimer mon compte</button>
+          <span style="font-size: 12px; color: #6B6B7B; line-height: 1.5">La suppression efface définitivement vos articles, ventes, factures et clients.</span>
+        </section>
+      </div>
+    </sc-if>
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const tab = s.tab || 'profil';
+const seuil = s.seuil == null ? 5 : s.seuil;
+const theme = s.theme || 'clair';
+const tabOn = 'min-height: 42px; padding: 0 20px; border-radius: 21px; border: 0; background: #0E0E1A; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer';
+const tabOff = 'min-height: 42px; padding: 0 20px; border-radius: 21px; border: 0; background: transparent; color: #3F3F50; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer';
+const segOn = 'min-height: 38px; padding: 0 16px; border-radius: 19px; border: 0; background: #FFFFFF; color: #0E0E1A; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(17,17,80,0.1)';
+const segOff = 'min-height: 38px; padding: 0 16px; border-radius: 19px; border: 0; background: transparent; color: #4B4B5C; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer';
+return {
+tabs: [['profil', 'Profil'], ['entreprise', 'Entreprise'], ['prefs', 'Préférences'], ['secu', 'Sécurité']].map(([id, label]) => ({ label, sel: id === tab ? 'true' : 'false', style: id === tab ? tabOn : tabOff, pick: () => this.setState({ tab: id }) })),
+isProfil: tab === 'profil', isEntreprise: tab === 'entreprise', isPrefs: tab === 'prefs', isSecu: tab === 'secu',
+seuil, inc: () => this.setState({ seuil: seuil + 1 }), dec: () => this.setState({ seuil: Math.max(0, seuil - 1) }),
+themes: [['clair', 'Clair'], ['sombre', 'Sombre'], ['auto', 'Auto']].map(([id, label]) => ({ label, pressed: id === theme ? 'true' : 'false', style: id === theme ? segOn : segOff, pick: () => this.setState({ theme: id }) }))
+};
+}
+}
+</script>
+</body>
+</html>

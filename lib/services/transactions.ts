@@ -14,6 +14,7 @@ export interface ApiTransaction {
   user_id: string
   article_id?: string | null
   variable_id?: string | null
+  invoice_id?: string | null
   name: string
   quantity?: number | null
   amount: number
@@ -46,6 +47,11 @@ export interface Transaction {
   sale_price?: number | null
   amount?: number
   date: string // Format: YYYY-MM-DD
+  article_id?: string | null
+  variable_id?: string | null
+  invoice_id?: string | null
+  article_name?: string | null
+  variation_name?: string | null
 }
 
 /**
@@ -102,9 +108,15 @@ export interface ValidationErrors {
 function mapApiTransactionToTransaction(apiTransaction: ApiTransaction): Transaction {
   // Utiliser created_at pour la date (format ISO)
   const dateString = apiTransaction.created_at || apiTransaction.updated_at || new Date().toISOString()
-  
-  const salePrice = apiTransaction.sale_price ?? null
-  
+
+  // Laravel sérialise les colonnes `decimal` (amount, sale_price) en
+  // chaînes JSON ("25000.00"), pas en nombres, malgré le typage TS côté
+  // API — sans ce Number(), additionner plusieurs montants concatène des
+  // chaînes au lieu de les sommer (NaN dès qu'on agrège plus d'une
+  // transaction, ex. le CA sur 30 jours).
+  const salePrice = apiTransaction.sale_price != null ? Number(apiTransaction.sale_price) : null
+  const amount = Number(apiTransaction.amount)
+
   return {
     id: apiTransaction.id,
     type: apiTransaction.type,
@@ -112,8 +124,13 @@ function mapApiTransactionToTransaction(apiTransaction: ApiTransaction): Transac
     quantity: apiTransaction.quantity ?? null,
     unit_price: salePrice, // Alias pour compatibilité
     sale_price: salePrice, // Prix unitaire pour les ventes
-    amount: apiTransaction.amount,
+    amount: Number.isNaN(amount) ? 0 : amount,
     date: dateString, // Format ISO pour dayjs
+    article_id: apiTransaction.article_id ?? null,
+    variable_id: apiTransaction.variable_id ?? null,
+    invoice_id: apiTransaction.invoice_id ?? null,
+    article_name: apiTransaction.article?.name ?? null,
+    variation_name: apiTransaction.variation?.name ?? null,
   }
 }
 

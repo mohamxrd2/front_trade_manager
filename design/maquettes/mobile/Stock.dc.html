@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Stock</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FE6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F3F7; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; overflow: hidden">
+  <div style="padding: 56px 20px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Stock</h1>
+        <span style="font-size: 13px; color: #6B6B7B">48 articles · valeur 3 420 000 FCFA</span>
+      </div>
+      <a href="AjoutArticle.dc.html" aria-label="Ajouter un article" style="width: 48px; height: 48px; border-radius: 27px; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.3); color: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></a>
+    </div>
+    <div style="position: relative; display: flex">
+      <label for="q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Rechercher un article</label>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B6B7B" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 14px; top: 14px"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+      <input id="q" placeholder="Rechercher un article" style="flex: 1; height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 16px 0 44px; font-size: 15px; font-family: inherit; background: #FFFFFF; color: #0E0E1A">
+    </div>
+    <div style="display: flex; gap: 8px">
+      <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+        <button type="button" onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" style="{{f.style}}">{{f.label}}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: 1; overflow-y: auto; padding: 4px 20px 112px; display: flex; flex-direction: column; gap: 10px">
+    <sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+      <a href="Article.dc.html" style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 18px; padding: 12px; text-decoration: none; color: #0E0E1A">
+        <span style="{{it.thumbStyle}}">{{it.initials}}</span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+          <span style="font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{it.name}}</span>
+          <span style="font-size: 13px; color: #6B6B7B">{{it.meta}}</span>
+        </span>
+        <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px">
+          <span style="font-weight: 700; font-size: 14px">{{it.price}}</span>
+          <span style="{{it.qtyStyle}}">{{it.qty}}</span>
+        </span>
+      </a>
+    </sc-for>
+  </div>
+
+  <nav aria-label="Navigation principale" style="position: absolute; left: 14px; right: 14px; bottom: 22px; height: 72px; border-radius: 36px; padding: 6px; box-sizing: border-box; display: flex; gap: 2px; align-items: stretch; background: linear-gradient(180deg, rgba(255,255,255,0.66), rgba(255,255,255,0.36)); backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); border: 1px solid rgba(255,255,255,0.8); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), inset 0 -1px 1px rgba(255,255,255,0.35), 0 14px 34px rgba(17,17,80,0.18), 0 2px 6px rgba(17,17,80,0.08)">
+    <a href="Main.dc.html" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3F3F50; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Accueil</a>
+    <a href="Stock.dc.html" aria-current="page" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3A20B8; font-weight: 700; background: linear-gradient(180deg, rgba(106,76,240,0.20), rgba(106,76,240,0.08)); box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), inset 0 0 0 1px rgba(106,76,240,0.16)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg>Stock</a>
+    <a href="Portefeuille.dc.html" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3F3F50; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"></rect><path d="M3 10h18M16 15h2"></path></svg>Portefeuille</a>
+    <a href="Factures.dc.html" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3F3F50; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Factures</a>
+    <a href="Analyses.dc.html" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3F3F50; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"></path></svg>Analyses</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const f = (this.state && this.state.filter) || 'all';
+const all = [
+{ name: 'Robe wax', initials: 'RW', tint: '#EEEAFE', ink: '#5B3FE6', meta: 'Variable · 4 tailles', price: '25 000', q: 18, low: false, variable: true },
+{ name: 'Pagne wax 6 yards', initials: 'PW', tint: '#FFF0E0', ink: '#8A4B00', meta: 'Simple', price: '15 000', q: 3, low: true, variable: false },
+{ name: 'Sac en raphia', initials: 'SR', tint: '#FDE8EC', ink: '#D92D20', meta: 'Variable · 3 couleurs', price: '18 000', q: 2, low: true, variable: true },
+{ name: 'Chemise bazin homme', initials: 'CB', tint: '#E6EEFF', ink: '#1F3FB8', meta: 'Variable · 3 tailles', price: '22 000', q: 11, low: false, variable: true },
+{ name: 'Bazin riche (mètre)', initials: 'BR', tint: '#FFF0E0', ink: '#8A4B00', meta: 'Simple', price: '6 500', q: 4, low: true, variable: false },
+{ name: 'Foulard soie', initials: 'FS', tint: '#EEEAFE', ink: '#5B3FE6', meta: 'Simple', price: '7 000', q: 26, low: false, variable: false },
+{ name: 'Boubou brodé', initials: 'BB', tint: '#E6EEFF', ink: '#1F3FB8', meta: 'Variable · 2 tailles', price: '45 000', q: 7, low: false, variable: true }
+];
+const list = all.filter((x) => f === 'all' || (f === 'low' && x.low) || (f === 'var' && x.variable));
+const chips = [['all', 'Tous'], ['low', 'Stock faible · 3'], ['var', 'À variations']];
+const base = 'min-height: 40px; padding: 0 14px; border-radius: 999px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ';
+return {
+filters: chips.map(([id, label]) => ({
+label, pressed: id === f ? 'true' : 'false',
+style: base + (id === f ? 'background: #0E0E1A; color: #FFFFFF; border: 1px solid #0E0E1A' : 'background: #FFFFFF; color: #0E0E1A; border: 1px solid #E2E2EA'),
+pick: () => this.setState({ filter: id })
+})),
+items: list.map((x) => ({
+name: x.name, initials: x.initials, meta: x.meta, price: x.price + ' F',
+qty: x.low ? x.q + ' restants' : x.q + ' en stock',
+thumbStyle: 'width: 52px; height: 52px; flex-shrink: 0; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: \'Plus Jakarta Sans\', sans-serif; font-weight: 700; font-size: 16px; background: ' + x.tint + '; color: ' + x.ink,
+qtyStyle: x.low ? 'font-size: 12px; font-weight: 700; color: #8A4B00; background: #FFF0E0; padding: 3px 8px; border-radius: 999px' : 'font-size: 12px; font-weight: 600; color: #6B6B7B; padding: 3px 0'
+}))
+};
+}
+}
+</script>
+</body>
+</html>

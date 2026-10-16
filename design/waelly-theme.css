@@ -1,0 +1,341 @@
+/* Waelly — thème « Indigo & Liquid Glass »
+ *
+ * Tailwind v4 : importer ce fichier dans app/globals.css, juste après `@import "tailwindcss";`
+ *   @import "./waelly-theme.css";
+ * Tailwind v3 : utiliser tailwind.config.ts ; ce fichier reste utile pour les variables CSS (:root / .dark)
+ *   — dans ce cas, supprimer le bloc @theme et les blocs @utility ci-dessous.
+ *
+ * Police : charger Plus Jakarta Sans avec next/font et l'exposer en variable :
+ *   const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400","500","600","700","800"], variable: "--font-jakarta" });
+ *   <html className={jakarta.variable}>
+ */
+
+@theme {
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", "Helvetica Neue", sans-serif;
+
+  /* Neutres */
+  --color-canvas: #F3F3F7;
+  --color-canvas-desktop: #F1F2F7;
+  --color-surface: #FFFFFF;
+  --color-surface-soft: #F6F5FB;
+  --color-ink: #0E0E1A;
+  --color-ink-2: #3F3F50;
+  --color-ink-3: #4B4B5C;
+  --color-subtle: #6B6B7B; /* texte gris : utiliser text-subtle (ne pas confondre avec --muted de shadcn, qui est un FOND) */
+  --color-line: #ECECF2;
+  --color-line-strong: #E2E2EA;
+  --color-divider: #F0F0F4;
+
+  /* Pilule/bouton "solide" (chip actif, pagination, CTA noir) — toujours
+     fond foncé + texte blanc dans le markup (`bg-active text-white`).
+     Distinct de --color-ink : ink est un texte qui doit s'inverser avec le
+     thème (clair en sombre), alors qu'ici on veut l'inverse — un fond
+     TOUJOURS assez sombre pour rester lisible avec du texte blanc fixe, y
+     compris en mode sombre où --color-ink devient presque blanc. */
+  --color-active: #0E0E1A;
+
+  /* Violet */
+  --color-brand-50: #F4F1FF;
+  --color-brand-100: #EEEAFE;
+  --color-brand-200: #C9BDFB;
+  --color-brand-300: #A58CFF;
+  --color-brand-400: #6A4CF0;
+  --color-brand-500: #5B3FE6;
+  --color-brand-600: #4B2FD6;
+  --color-brand-700: #3A20B8;
+  --color-brand-glow: #8C74FF;
+  --color-brand-deep: #3420B8;
+
+  /* Bleu nuit */
+  --color-navy-400: #3A3AF0;
+  --color-navy-600: #1717A0;
+  --color-navy-800: #0A0A4A;
+  --color-navy-950: #06062A;
+  --color-navy-text: #C8C8F0;
+  --color-navy-text-2: #DCDCF7;
+
+  /* Sémantique */
+  --color-success: #0B8A43;
+  --color-success-strong: #0B6B39;
+  --color-success-bg: #E3F5EA;
+  --color-danger: #D92D20;
+  --color-danger-strong: #A3213A;
+  --color-danger-bg: #FDE8EC;
+  --color-danger-dot: #E5484D;
+  --color-danger-border: #F3C7CF;
+  --color-warning: #8A4B00;
+  --color-warning-bg: #FFF0E0;
+  --color-info: #1F3FB8;
+  --color-info-bg: #E6EEFF;
+  --color-neutral: #3F3F50;
+  --color-neutral-bg: #EDEDF2;
+
+  /* Graphiques */
+  --color-chart-1: #2A1A9E;
+  --color-chart-2: #6A4CF0;
+  --color-chart-3: #A58CFF;
+  --color-chart-4: #DCD4FF;
+  --color-chart-line: #5B3FE6;
+  --color-chart-grid: #ECECF2;
+
+  /* Répartition des parts (barre + légende, Collaborateurs) — cycle de 5, index % 5 */
+  --color-share-1: #FFFFFF;
+  --color-share-2: #A58CFF;
+  --color-share-3: #6A8CFF;
+  --color-share-4: #C9BDFB;
+  --color-share-5: #8CE0B4;
+
+  /* Rayons */
+  --radius-field: 14px;
+  --radius-tile: 18px;
+  --radius-card: 22px;
+  --radius-panel: 26px;
+  --radius-hero: 28px;
+  --radius-nav: 36px;
+
+  /* Ombres */
+  --shadow-card: 0 4px 18px rgba(17,17,80,0.05);
+  --shadow-hero: 0 18px 40px rgba(16,16,120,0.28);
+  --shadow-button: 0 8px 20px rgba(75,47,214,0.35);
+  --shadow-float: 0 14px 34px rgba(17,17,80,0.18), 0 2px 6px rgba(17,17,80,0.08);
+  --shadow-seg: 0 2px 6px rgba(17,17,80,0.1);
+
+  /* Dégradés (bg-hero, bg-button, bg-orb, bg-violet) */
+  --background-image-hero: radial-gradient(120% 90% at 100% 100%, #3A3AF0 0%, #1717A0 35%, #0A0A4A 70%, #06062A 100%);
+  --background-image-button: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%);
+  --background-image-orb: radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8);
+  --background-image-violet: linear-gradient(160deg, #5B3FE6 0%, #7A5CF5 55%, #C8B8FF 100%);
+
+  --spacing-nav-safe: 112px;
+}
+
+/* Verre : barre mobile flottante, onglets, pastilles */
+@utility glass {
+  background: linear-gradient(180deg, var(--glass-from), var(--glass-to));
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 1px var(--glass-shine),
+    inset 0 -1px 1px var(--glass-shine-soft),
+    0 14px 34px var(--glass-shadow-1),
+    0 2px 6px var(--glass-shadow-2);
+}
+
+/* Verre : menu latéral ordinateur, panneaux d'aperçu */
+@utility glass-panel {
+  background: linear-gradient(180deg, var(--glass-panel-from), var(--glass-panel-to));
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-panel-border);
+  box-shadow: inset 0 1px 1px var(--glass-shine), 0 20px 50px var(--glass-panel-shadow);
+}
+
+/* Élément actif posé sur du verre */
+@utility glass-active {
+  color: var(--glass-active-color);
+  font-weight: 700;
+  background: linear-gradient(180deg, var(--glass-active-from), var(--glass-active-to));
+  box-shadow: inset 0 1px 1px var(--glass-shine), inset 0 0 0 1px var(--glass-active-ring);
+}
+
+/* Survol « lentille » de la bulle de la barre d'onglets mobile pendant son
+   glissement (components/navigation/BottomTabBar.tsx) — calque séparé dont
+   on anime seulement l'opacité (jamais le box-shadow lui-même) pour rester
+   100% transform/opacity ; posé par-dessus .glass-active, pas à sa place. */
+@utility glass-active-glow {
+  box-shadow: inset 0 1px 1px var(--glass-shine), 0 6px 18px var(--glass-active-glow-shadow);
+}
+
+/* Fond ordinateur avec halos */
+@utility bg-desktop {
+  background:
+    radial-gradient(700px 480px at 0% 0%, var(--bg-desktop-halo-1), transparent 70%),
+    radial-gradient(800px 560px at 100% 10%, var(--bg-desktop-halo-2), transparent 70%),
+    radial-gradient(600px 500px at 40% 100%, var(--bg-desktop-halo-3), transparent 70%),
+    var(--bg-desktop-base);
+}
+
+/* Variables pour Radix / shadcn et le code hors Tailwind */
+:root {
+  --background: #F3F3F7;
+  --foreground: #0E0E1A;
+  --card: #FFFFFF;
+  --card-foreground: #0E0E1A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0E0E1A;
+  --primary: #5B3FE6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEEAFE;
+  --secondary-foreground: #3A20B8;
+  --muted: #F3F3F7;
+  --muted-foreground: #6B6B7B;
+  --accent: #F4F1FF;
+  --accent-foreground: #3A20B8;
+  --destructive: #D92D20;
+  --border: #ECECF2;
+  --input: #E2E2EA;
+  --ring: #5B3FE6;
+  --radius: 14px;
+
+  /* Barre de progression de navigation (components/navigation-progress-bar.tsx) */
+  --progress-from: #8C74FF;
+  --progress-via: #5B3FE6;
+  --progress-to: #3420B8;
+  --progress-glow: 0 0 10px rgba(91, 63, 230, 0.55), 0 0 4px rgba(140, 116, 255, 0.6);
+
+  /* Utilitaires glass / bg-desktop (@utility ci-dessus) — en variables pour
+     pouvoir être redéfinis par .dark, y compris sous une variante comme
+     `lg:bg-desktop` (le sélecteur généré par Tailwind change, la variable
+     CSS qu'il référence non). */
+  --glass-from: rgba(255, 255, 255, 0.66);
+  --glass-to: rgba(255, 255, 255, 0.36);
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-shine: rgba(255, 255, 255, 0.95);
+  --glass-shine-soft: rgba(255, 255, 255, 0.35);
+  --glass-shadow-1: rgba(17, 17, 80, 0.18);
+  --glass-shadow-2: rgba(17, 17, 80, 0.08);
+
+  --glass-panel-from: rgba(255, 255, 255, 0.72);
+  --glass-panel-to: rgba(255, 255, 255, 0.44);
+  --glass-panel-border: rgba(255, 255, 255, 0.88);
+  --glass-panel-shadow: rgba(17, 17, 80, 0.1);
+
+  --glass-active-color: #3a20b8;
+  --glass-active-from: rgba(106, 76, 240, 0.2);
+  --glass-active-to: rgba(106, 76, 240, 0.08);
+  --glass-active-ring: rgba(106, 76, 240, 0.16);
+  --glass-active-glow-shadow: rgba(106, 76, 240, 0.25);
+
+  --bg-desktop-halo-1: rgba(106, 76, 240, 0.22);
+  --bg-desktop-halo-2: rgba(58, 58, 240, 0.14);
+  --bg-desktop-halo-3: rgba(165, 140, 255, 0.16);
+  --bg-desktop-base: #f1f2f7;
+}
+
+/* Thème sombre — couvre à la fois les variables shadcn/Radix (ci-dessus)
+ * et les vrais tokens Waelly du bloc @theme (ci-dessus), que Tailwind
+ * compile en `var(--color-xxx)` dans chaque utilitaire (.bg-surface,
+ * .text-ink, etc.) — les redéfinir ici suffit à les faire basculer en
+ * sombre, sans toucher au bloc @theme lui-même. Non maquetté (aucune
+ * variante .dc.html sombre) : palette dérivée de l'intention déjà posée
+ * ci-dessous (fond #0B0B16 / carte #15152A / accent #8C74FF).
+ */
+.dark {
+  --background: #0B0B16;
+  --foreground: #F2F2F8;
+  --card: #15152A;
+  --card-foreground: #F2F2F8;
+  --popover: #15152A;
+  --popover-foreground: #F2F2F8;
+  --primary: #8C74FF;
+  --primary-foreground: #0B0B16;
+  --secondary: #24204A;
+  --secondary-foreground: #DCD4FF;
+  --muted: #1B1B33;
+  --muted-foreground: #A3A3B8;
+  --accent: #24204A;
+  --accent-foreground: #DCD4FF;
+  --destructive: #FF6B6B;
+  --border: #26263F;
+  --input: #2E2E4A;
+  --ring: #8C74FF;
+
+  /* Lueur plus forte en sombre pour rester visible sur fond #0B0B16 */
+  --progress-from: #B4A4FF;
+  --progress-via: #8C74FF;
+  --progress-to: #5B3FE6;
+  --progress-glow: 0 0 14px rgba(180, 164, 255, 0.7), 0 0 6px rgba(140, 116, 255, 0.8);
+
+  /* Neutres */
+  --color-canvas: #0B0B16;
+  --color-canvas-desktop: #0B0B16;
+  --color-surface: #15152A;
+  --color-surface-soft: #1B1B33;
+  --color-ink: #F2F2F8;
+  --color-ink-2: #D4D4E2;
+  --color-ink-3: #C4C4D6;
+  --color-subtle: #A3A3B8;
+  --color-line: #26263F;
+  --color-line-strong: #34345A;
+  --color-divider: #202038;
+
+  /* Pilule/bouton "solide" : reste un fond foncé (navy, cohérent avec les
+     cartes héros fixes) pour que le texte blanc fixe du markup reste
+     lisible — ne JAMAIS passer sur une valeur claire ici. */
+  --color-active: #1717A0;
+
+  /* Violet */
+  --color-brand-50: #1F1B3D;
+  --color-brand-100: #24204A;
+  --color-brand-200: #4A3F82;
+  --color-brand-300: #A58CFF;
+  --color-brand-400: #7A5CF5;
+  --color-brand-500: #8C74FF;
+  --color-brand-600: #6A4CF0;
+  --color-brand-700: #5B3FE6;
+  --color-brand-glow: #B4A4FF;
+  --color-brand-deep: #2A1A9E;
+
+  /* Sémantique */
+  --color-success: #3DDC84;
+  --color-success-strong: #2EBD6E;
+  --color-success-bg: #0F2E1E;
+  --color-danger: #FF6B6B;
+  --color-danger-strong: #FF8A9B;
+  --color-danger-bg: #3A1620;
+  --color-danger-dot: #FF6B6B;
+  --color-danger-border: #4A2530;
+  --color-warning: #FFB366;
+  --color-warning-bg: #3A2810;
+  --color-info: #6E8FFF;
+  --color-info-bg: #16203A;
+  --color-neutral: #C4C4D6;
+  --color-neutral-bg: #22223A;
+
+  /* Graphiques */
+  --color-chart-1: #6A4CF0;
+  --color-chart-2: #A58CFF;
+  --color-chart-3: #C9BDFB;
+  --color-chart-4: #2A2458;
+  --color-chart-line: #8C74FF;
+  --color-chart-grid: #26263F;
+
+  /* Répartition des parts (Collaborateurs) — share-1 remplace le blanc de
+     base par la couleur de carte, le reste reste lisible sur fond sombre */
+  --color-share-1: #15152A;
+
+  /* Ombres : plus de noir, moins de teinte indigo (qui ne se voit plus sur
+     fond déjà sombre) */
+  --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-hero: 0 18px 40px rgba(0, 0, 0, 0.55);
+  --shadow-button: 0 8px 24px rgba(140, 116, 255, 0.45);
+  --shadow-float: 0 14px 34px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-seg: 0 2px 6px rgba(0, 0, 0, 0.35);
+
+  /* Verre : le blanc translucide du mode clair ressortirait comme un flash
+     sur fond #0B0B16 — variantes sombres des mêmes variables. */
+  --glass-from: rgba(36, 36, 64, 0.6);
+  --glass-to: rgba(20, 20, 36, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shine: rgba(255, 255, 255, 0.06);
+  --glass-shine-soft: rgba(0, 0, 0, 0.3);
+  --glass-shadow-1: rgba(0, 0, 0, 0.5);
+  --glass-shadow-2: rgba(0, 0, 0, 0.3);
+
+  --glass-panel-from: rgba(28, 28, 50, 0.75);
+  --glass-panel-to: rgba(18, 18, 32, 0.5);
+  --glass-panel-border: rgba(255, 255, 255, 0.1);
+  --glass-panel-shadow: rgba(0, 0, 0, 0.45);
+
+  --glass-active-color: #dcd4ff;
+  --glass-active-from: rgba(140, 116, 255, 0.25);
+  --glass-active-to: rgba(140, 116, 255, 0.1);
+  --glass-active-ring: rgba(140, 116, 255, 0.25);
+  --glass-active-glow-shadow: rgba(140, 116, 255, 0.3);
+
+  --bg-desktop-halo-1: rgba(140, 116, 255, 0.18);
+  --bg-desktop-halo-2: rgba(58, 58, 240, 0.16);
+  --bg-desktop-halo-3: rgba(165, 140, 255, 0.12);
+  --bg-desktop-base: #0b0b16;
+}

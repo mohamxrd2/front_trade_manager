@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Connexion</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FE6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F3F7; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; overflow: hidden">
+  <div style="background: radial-gradient(120% 90% at 100% 100%, #3A3AF0 0%, #1717A0 35%, #0A0A4A 70%, #06062A 100%); color: #FFFFFF; padding: 72px 28px 40px; display: flex; flex-direction: column; gap: 28px; border-radius: 0 0 32px 32px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 40px; height: 40px; border-radius: 12px; background: radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 22px">W</span>
+      <span style="font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 24px">Waelly</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <h1 style="margin: 0; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 32px; line-height: 1.1; letter-spacing: -0.02em">Votre stock, vos ventes, vos factures. Au même endroit.</h1>
+      <p style="margin: 0; font-size: 15px; color: #C8C8F0; line-height: 1.45">Connectez-vous pour retrouver votre activité.</p>
+    </div>
+  </div>
+
+  <form style="flex: 1; padding: 28px 24px 32px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="email" style="font-size: 13px; font-weight: 600">Adresse e-mail</label>
+      <input id="email" type="email" value="awa@awacouture.ci" style="height: 52px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <label for="mdp" style="font-size: 13px; font-weight: 600">Mot de passe</label>
+        <a href="#" style="font-size: 13px; font-weight: 600; text-decoration: none">Oublié ?</a>
+      </div>
+      <div style="position: relative; display: flex">
+        <input id="mdp" type="{{pwType}}" value="motdepasse" style="flex: 1; height: 52px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 52px 0 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A">
+        <button type="button" onClick="{{togglePw}}" aria-label="{{pwLabel}}" style="position: absolute; right: 4px; top: 4px; width: 44px; height: 44px; border: 0; background: transparent; color: #6B6B7B; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+      </div>
+    </div>
+
+    <a href="Main.dc.html" style="height: 54px; border-radius: 27px; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.3); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; text-decoration: none; margin-top: 4px">Se connecter</a>
+
+    <div style="display: flex; align-items: center; gap: 12px; color: #6B6B7B; font-size: 13px">
+      <span style="flex: 1; height: 1px; background: #E2E2EA"></span>ou<span style="flex: 1; height: 1px; background: #E2E2EA"></span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+      <button type="button" style="height: 52px; border-radius: 26px; border: 1px solid #E2E2EA; background: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: inherit; font-size: 15px; font-weight: 600; color: #0E0E1A; cursor: pointer">
+        <span style="width: 24px; height: 24px; border-radius: 12px; border: 1px dashed #9A9AAB; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">G</span>Google
+      </button>
+      <button type="button" style="height: 52px; border-radius: 26px; border: 1px solid #E2E2EA; background: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: inherit; font-size: 15px; font-weight: 600; color: #0E0E1A; cursor: pointer">
+        <span style="width: 24px; height: 24px; border-radius: 12px; border: 1px dashed #9A9AAB; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center">f</span>Facebook
+      </button>
+    </div>
+
+    <div style="flex: 1"></div>
+    <p style="margin: 0; text-align: center; font-size: 14px; color: #6B6B7B">Pas encore de compte ? <a href="Verification.dc.html" style="font-weight: 700; text-decoration: none">Créer un compte</a></p>
+  </form>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const show = !!(this.state && this.state.show);
+return {
+pwType: show ? 'text' : 'password',
+pwLabel: show ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
+togglePw: () => this.setState({ show: !show })
+};
+}
+}
+</script>
+</body>
+</html>

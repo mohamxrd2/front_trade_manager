@@ -1,35 +1,30 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import * as React from 'react'
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { useArticle } from '@/lib/hooks/useArticles'
-import { 
-  ArrowLeft, 
-  Package, 
-  TrendingUp, 
-  DollarSign, 
-  AlertTriangle, 
-  Edit2, 
-  Trash2, 
-  Plus,
-  ShoppingCart,
-  BarChart3,
+import dayjs from 'dayjs'
+import 'dayjs/locale/fr'
+import { toast } from 'sonner'
+import {
+  AlertCircle,
+  ArrowLeft,
+  Image as ImageIcon,
   Layers,
-  Calendar,
-  Tag,
-  ChevronLeft,
-  ChevronRight,
+  Minus,
   Pencil,
-  X
+  Plus,
+  X,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+
+import { useArticle } from '@/lib/hooks/useArticles'
+import { updateArticle, deleteArticle, addStock } from '@/lib/services/articles'
+import { createVariation, getVariations, deleteVariation, type Variation } from '@/lib/services/variations'
+import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
+import { useCurrency } from '@/lib/utils/currency'
+import { useSettings } from '@/contexts/SettingsContext'
+import { getTransactions, type Transaction } from '@/lib/services/transactions'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { AlertCircle } from 'lucide-react'
-import { articleToProduct } from '@/components/products/product-card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,1011 +34,776 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { EditVariationDialog } from '@/components/products/edit-variation-dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Progress } from '@/components/ui/progress'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { toast } from 'sonner'
-import { type ApiTransaction } from '@/lib/services/transactions'
-import { createVariation, getVariations, deleteVariation, type Variation } from '@/lib/services/variations'
-import { deleteArticle, type Article } from '@/lib/services/articles'
-import { AddStockDialog } from '@/components/products/add-stock-dialog'
+import { EditVariationDialog } from '@/components/products/edit-variation-dialog'
 import { StockHistoryList } from '@/components/products/stock-history-list'
-import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
-import { EditArticleDialog } from '@/components/products/edit-article-dialog'
-import api from '@/lib/api'
-import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
-import { useTranslation } from "@/lib/i18n/hooks/useTranslation";
-import { useCurrency } from '@/lib/utils/currency';
+import { Button, Card, CardHeader, CardTitle, StatusBadge, SegmentedControl } from '@/components/waelly'
+
 dayjs.locale('fr')
 
+const formatAmount = (value: number): string =>
+  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+
+const TYPE_OPTIONS = [
+  { value: 'simple', label: 'Simple' },
+  { value: 'variable', label: 'À variations' },
+]
+
 /**
- * Page de détail d'un produit - Design moderne et complet
+ * Détail d'un article — reprend design/maquettes/ordinateur/Web-Article.dc.html
+ * (≥ 1024px) et design/maquettes/mobile/Article.dc.html (< 768px).
+ *
+ * Écarts assumés (données/fonctionnalités réellement indisponibles, aucune
+ * invention) :
+ * - "Seuil d'alerte" n'est pas un champ par article : c'est un réglage
+ *   global par utilisateur (% de ventes, Paramètres), affiché ici en lecture
+ *   seule — la maquette montre une unité fixe ("5 pièces"), qui n'existe pas
+ *   côté API.
+ * - Le type (simple/variable) n'est pas modifiable après création (le
+ *   backend renvoie une 400 si on tente de le changer) : le SegmentedControl
+ *   est affiché mais son activation signale juste pourquoi ce n'est pas
+ *   possible, il ne soumet rien.
+ * - Pas de téléversement d'image d'article dans l'API actuelle : le bloc
+ *   photo reste un espace réservé statique.
+ * - Le réapprovisionnement (addStock) agit uniquement au niveau de
+ *   l'article, jamais d'une variation précise (aucun endpoint dédié) : pas
+ *   de sélecteur de variation dans le bloc "Réapprovisionner".
+ * - L'historique de réapprovisionnement n'enregistre pas les variations
+ *   concernées (aucune colonne en base) : on affiche la note libre saisie
+ *   lors de l'ajout, le cas échéant, à la place des tailles fictives de la
+ *   maquette.
+ * - "Vendus (30 j)" / "CA généré (30 j)" sont calculés côté client à partir
+ *   de GET /api/transactions (pas de filtre serveur par article ni par
+ *   date) : aucun nouvel endpoint n'a été inventé.
  */
 export default function ProductDetailPage() {
-  const { t } = useTranslation()
-  const { currency } = useCurrency()
   const params = useParams()
   const router = useRouter()
   const productId = params.id as string
+  const { currency } = useCurrency()
+  const { settings } = useSettings()
 
-  // Récupérer l'article avec SWR
   const { article, error, isLoading, mutate: mutateArticle } = useArticle(productId)
 
-  // États pour les transactions et variations
-  const [transactions, setTransactions] = useState<ApiTransaction[]>([])
-  const [loadingTransactions, setLoadingTransactions] = useState(false)
-  const [variations, setVariations] = useState<Variation[]>([])
-  const [loadingVariations, setLoadingVariations] = useState(false)
-  const [addVariationOpen, setAddVariationOpen] = useState(false)
-  const [variationForm, setVariationForm] = useState({
-    name: '',
-    quantity: '',
-  })
-  const [submittingVariation, setSubmittingVariation] = useState(false)
-  
-  // États pour la pagination des transactions
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(10)
+  const [variations, setVariations] = React.useState<Variation[]>([])
+  const [loadingVariations, setLoadingVariations] = React.useState(false)
+  const [addVariationOpen, setAddVariationOpen] = React.useState(false)
+  const [variationForm, setVariationForm] = React.useState({ name: '', quantity: '' })
+  const [submittingVariation, setSubmittingVariation] = React.useState(false)
 
-  // États pour la suppression d'article
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
 
-  // États pour la modification d'article
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingVariation, setEditingVariation] = React.useState<Variation | null>(null)
+  const [editVariationDialogOpen, setEditVariationDialogOpen] = React.useState(false)
+  const [deleteVariationDialogOpen, setDeleteVariationDialogOpen] = React.useState(false)
+  const [variationToDelete, setVariationToDelete] = React.useState<Variation | null>(null)
 
-  // États pour la modification et suppression de variations
-  const [editingVariation, setEditingVariation] = useState<Variation | null>(null)
-  const [editVariationDialogOpen, setEditVariationDialogOpen] = useState(false)
-  const [deleteVariationDialogOpen, setDeleteVariationDialogOpen] = useState(false)
-  const [variationToDelete, setVariationToDelete] = useState<Variation | null>(null)
+  const [stockHistoryRefreshKey, setStockHistoryRefreshKey] = React.useState(0)
+  const [restockQty, setRestockQty] = React.useState(10)
+  const [restocking, setRestocking] = React.useState(false)
+  const [mobileEditOpen, setMobileEditOpen] = React.useState(false)
+  const [mobileRestockOpen, setMobileRestockOpen] = React.useState(false)
 
-  // États pour l'ajout de stock
-  const [addStockDialogOpen, setAddStockDialogOpen] = useState(false)
-  const [stockHistoryRefreshKey, setStockHistoryRefreshKey] = useState(0)
+  const [name, setName] = React.useState('')
+  const [salePrice, setSalePrice] = React.useState('')
+  const [savingInfo, setSavingInfo] = React.useState(false)
 
-  // Charger les transactions de vente et les variations pour cet article
-  useEffect(() => {
-    if (productId && article) {
-      fetchTransactions()
-      if (article.type === 'variable') {
-        fetchVariations()
-      }
+  const [transactions, setTransactions] = React.useState<Transaction[]>([])
+
+  // Ne se resynchronise que sur un changement d'article réel (navigation
+  // vers un autre id), pas sur chaque revalidation SWR du même article —
+  // sinon une frappe en cours dans les champs serait écrasée en arrière-plan.
+  React.useEffect(() => {
+    if (article) {
+      setName(article.name)
+      setSalePrice(String(article.sale_price))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, article?.id, article?.type])
+  }, [article?.id])
 
-  // Réinitialiser à la page 1 quand les transactions changent
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [transactions.length])
-
-  const fetchTransactions = async () => {
-    setLoadingTransactions(true)
-    try {
-      const response = await api.get<{ success: boolean; data: ApiTransaction[] }>('/api/transactions')
-      if (response.data.data) {
-        const filtered = response.data.data.filter(
-          (t: ApiTransaction) => String(t.article_id) === String(productId) && t.type === 'sale'
-        )
-        filtered.sort((a, b) => {
-          const dateA = new Date(a.created_at).getTime()
-          const dateB = new Date(b.created_at).getTime()
-          return dateB - dateA
-        })
-        setTransactions(filtered)
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des transactions:', error)
-      toast.error(t('errors.loading'))
-    } finally {
-      setLoadingTransactions(false)
+  React.useEffect(() => {
+    let cancelled = false
+    getTransactions()
+      .then((data) => {
+        if (!cancelled) setTransactions(data)
+      })
+      .catch(() => {
+        // Les KPI 30 j restent à 0 si la requête échoue — pas de blocage de page.
+      })
+    return () => {
+      cancelled = true
     }
-  }
+  }, [])
 
-  const fetchVariations = async () => {
+  const fetchVariations = React.useCallback(async () => {
     setLoadingVariations(true)
     try {
-      const variationsData = await getVariations(productId)
-      setVariations(variationsData)
-    } catch (error) {
-      console.error('Erreur lors du chargement des variations:', error)
-      toast.error(t('errors.loading'))
+      setVariations(await getVariations(productId))
+    } catch {
+      toast.error('Erreur lors du chargement des variations')
     } finally {
       setLoadingVariations(false)
     }
-  }
+  }, [productId])
 
-  const handleAddVariationSubmit = async () => {
-    if (!variationForm.name.trim()) {
-      toast.error(t('common.required'))
-      return
+  React.useEffect(() => {
+    if (productId && article?.type === 'variable') {
+      fetchVariations()
     }
+  }, [productId, article?.type, fetchVariations])
 
-    const quantityNum = parseInt(variationForm.quantity)
-    if (isNaN(quantityNum) || quantityNum <= 0) {
-      toast.error(t('products.quantityMustBePositive'))
-      return
-    }
+  const totalVariationsQuantity = variations.reduce((sum, v) => sum + v.quantity, 0)
+  const availableQuantityForVariations = (article?.quantity || 0) - totalVariationsQuantity
 
-    if (!article) return
-
-    const totalVariationsQuantity = variations.reduce(
-      (sum, v) => sum + v.quantity,
-      0
+  const last30Days = React.useMemo(() => {
+    const cutoff = dayjs().subtract(30, 'day')
+    const relevant = transactions.filter(
+      (t) => t.type === 'sale' && t.article_id === productId && dayjs(t.date).isAfter(cutoff)
     )
-    const availableQuantity = article.quantity - totalVariationsQuantity
+    return {
+      unitsSold: relevant.reduce((sum, t) => sum + (t.quantity ?? 0), 0),
+      revenue: relevant.reduce((sum, t) => sum + (t.amount ?? 0), 0),
+    }
+  }, [transactions, productId])
 
-    if (quantityNum > availableQuantity) {
-      toast.error(t('products.quantityExceedsAvailable', { available: availableQuantity }))
+  const lowStockThreshold = settings?.low_stock_threshold ?? 80
+
+  const handleSaveInfo = async () => {
+    if (!article) return
+    const priceNum = parseFloat(salePrice)
+    if (!name.trim()) {
+      toast.error('Le nom est requis')
       return
     }
-
-    setSubmittingVariation(true)
+    if (isNaN(priceNum) || priceNum < 0) {
+      toast.error('Le prix doit être supérieur ou égal à 0')
+      return
+    }
+    setSavingInfo(true)
     try {
-      await createVariation({
-        article_id: String(article.id),
-        name: variationForm.name,
-        quantity: quantityNum,
-        image: null,
-      })
-
-      toast.success(t('success.variationAdded'))
-      setVariationForm({ name: '', quantity: '' })
-      setAddVariationOpen(false)
+      await updateArticle(article.id, { name: name.trim(), sale_price: priceNum, quantity: article.quantity })
+      toast.success('Article enregistré')
       await mutateArticle()
-      await fetchVariations()
-    } catch (error: unknown) {
-      const errorObj = error as { message?: string; validationErrors?: Record<string, string[]> }
-      if (errorObj.validationErrors) {
-        const firstError = Object.values(errorObj.validationErrors)[0]
-        toast.error(firstError?.[0] || t('errors.loading'))
-      } else {
-        toast.error(errorObj.message || t('errors.loading'))
-      }
+      await Promise.all([invalidateArticles(), invalidateUserStats()])
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Échec de l'enregistrement")
     } finally {
-      setSubmittingVariation(false)
+      setSavingInfo(false)
     }
   }
 
-  // Fonction de suppression d'article
   const handleDeleteArticle = async () => {
-    if (!article || !productId) return
-
+    if (!article) return
     setDeleting(true)
     try {
       await deleteArticle(productId)
-      
-      // Invalider les caches pour mettre à jour la liste des produits et les statistiques
-      await Promise.all([
-        invalidateArticles(),
-        invalidateUserStats(),
-      ])
-      
-      toast.success(t('products.articleDeleted'))
-      
-      // Rediriger vers la liste des produits
+      await Promise.all([invalidateArticles(), invalidateUserStats()])
+      toast.success('Article supprimé')
       router.push('/products')
-    } catch (error: unknown) {
-      const errorObj = error as { message?: string }
-      const errorMessage = errorObj.message || t('products.errorDeletingArticle')
-      
-      toast.error(errorMessage)
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Erreur lors de la suppression')
     } finally {
       setDeleting(false)
       setDeleteDialogOpen(false)
     }
   }
 
-  // Fonction de modification d'article
-  const handleEditSuccess = async (updatedArticle: Article) => {
-    // Mettre à jour l'article dans le cache SWR
-    await mutateArticle()
-    
-    // Invalider les caches pour mettre à jour la liste des produits et les statistiques
-    await Promise.all([
-      invalidateArticles(),
-      invalidateUserStats(),
-    ])
-    
-    // Recharger les variations si l'article est variable
-    if (updatedArticle.type === 'variable') {
-      await fetchVariations()
+  const handleRestock = async () => {
+    if (!article) return
+    setRestocking(true)
+    try {
+      await addStock(article.id, restockQty)
+      toast.success(`${restockQty} pièce(s) ajoutée(s) au stock`)
+      setRestockQty(10)
+      setStockHistoryRefreshKey((k) => k + 1)
+      await mutateArticle()
+      await Promise.all([invalidateArticles(), invalidateUserStats()])
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Échec de l'ajout de stock")
+    } finally {
+      setRestocking(false)
     }
   }
 
-  // Fonction pour gérer la modification d'une variation
+  const handleAddVariationSubmit = async () => {
+    if (!variationForm.name.trim()) {
+      toast.error('Le nom est requis')
+      return
+    }
+    const quantityNum = parseInt(variationForm.quantity, 10)
+    if (isNaN(quantityNum) || quantityNum <= 0) {
+      toast.error('La quantité doit être positive')
+      return
+    }
+    if (!article) return
+    if (quantityNum > availableQuantityForVariations) {
+      toast.error(`Quantité disponible : ${availableQuantityForVariations}`)
+      return
+    }
+    setSubmittingVariation(true)
+    try {
+      await createVariation({ article_id: String(article.id), name: variationForm.name, quantity: quantityNum, image: null })
+      toast.success('Variation ajoutée')
+      setVariationForm({ name: '', quantity: '' })
+      setAddVariationOpen(false)
+      await mutateArticle()
+      await fetchVariations()
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Erreur lors de la création')
+    } finally {
+      setSubmittingVariation(false)
+    }
+  }
+
   const handleEditVariationSuccess = async (updatedVariation: Variation) => {
-    // Mettre à jour la variation dans la liste locale
-    setVariations(variations.map(v => v.id === updatedVariation.id ? updatedVariation : v))
+    setVariations(variations.map((v) => (v.id === updatedVariation.id ? updatedVariation : v)))
     setEditVariationDialogOpen(false)
     setEditingVariation(null)
-    
-    // Recharger l'article pour avoir les données à jour
     await mutateArticle()
-    
-    // Recharger les variations
     await fetchVariations()
-    
-    toast.success(t('products.variationUpdated'))
+    toast.success('Variation modifiée')
   }
 
-  // Fonction pour gérer le succès de l'ajout de stock
-  const handleAddStockSuccess = async () => {
-    // ⚡ Rafraîchir l'historique de stock IMMÉDIATEMENT (avant les await)
-    // Cela garantit que le useEffect du composant StockHistoryList se déclenche
-    setStockHistoryRefreshKey(prev => prev + 1)
-    
-    // Recharger l'article depuis SWR (en parallèle, non bloquant pour l'historique)
-    mutateArticle()
-    
-    // Invalider les caches pour mettre à jour les statistiques (en parallèle)
-    Promise.all([
-      invalidateArticles(),
-      invalidateUserStats(),
-    ]).catch(err => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('Erreur lors de l\'invalidation du cache:', err)
-      }
-    })
-  }
-
-  // Fonction pour gérer la suppression d'une variation
   const handleDeleteVariation = async () => {
     if (!variationToDelete) return
-
     try {
       await deleteVariation(variationToDelete.id)
-      
-      // Retirer la variation de la liste locale
-      setVariations(variations.filter(v => v.id !== variationToDelete.id))
-      
-      // Recharger l'article pour avoir les données à jour
+      setVariations(variations.filter((v) => v.id !== variationToDelete.id))
       await mutateArticle()
-      
-      // Recharger les variations
       await fetchVariations()
-      
-      toast.success(t('success.variationDeleted'))
+      toast.success('Variation supprimée')
       setDeleteVariationDialogOpen(false)
       setVariationToDelete(null)
-    } catch (error: unknown) {
-      const errorObj = error as { message?: string }
-      toast.error(errorObj.message || t('errors.loading'))
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Erreur lors de la suppression')
     }
   }
 
-  // Vérifier que l'article existe et est valide
-  const isValidArticle = article && typeof article === 'object' && 'id' in article && 'name' in article
-
-  // Gestion des erreurs
   if (error) {
     const isAuthError = error.message.includes('Non authentifié')
-    
     if (isAuthError) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <AlertCircle className="h-12 w-12 text-muted-foreground" />
-          <p className="text-lg font-medium">{t('errors.redirecting')}</p>
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
+          <AlertCircle className="h-12 w-12 text-subtle" />
+          <p className="text-lg font-medium">Redirection vers la page de connexion...</p>
         </div>
       )
     }
-
     return (
-      <div className="flex flex-col gap-6 py-6 px-4 lg:px-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/products')}
-          className="h-9 w-9"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>{t('errors.loading')}</AlertTitle>
-          <AlertDescription>
-            {error.message || t('products.errorLoadingProduct')}
-          </AlertDescription>
-        </Alert>
-      </div>
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Erreur de chargement</AlertTitle>
+        <AlertDescription>{error.message || "Impossible de charger l'article."}</AlertDescription>
+      </Alert>
     )
   }
 
-  // État de chargement
-  if (isLoading || !isValidArticle) {
+  if (isLoading || !article) {
     return (
-      <div className="flex flex-col gap-6 py-6 px-4 lg:px-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push('/products')}
-            className="h-9 w-9"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="h-8 w-64 bg-muted animate-pulse rounded" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <div className="h-6 w-48 bg-muted animate-pulse rounded mb-2" />
-              <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="h-24 bg-muted animate-pulse rounded" />
-              <div className="grid grid-cols-2 gap-4">
-                <div className="h-20 bg-muted animate-pulse rounded" />
-                <div className="h-20 bg-muted animate-pulse rounded" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <div className="h-6 w-32 bg-muted animate-pulse rounded" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="h-20 bg-muted animate-pulse rounded" />
-              <div className="h-20 bg-muted animate-pulse rounded" />
-            </CardContent>
-          </Card>
+      <div className="flex flex-col gap-5">
+        <div className="h-8 w-60 animate-pulse rounded bg-surface-soft" />
+        <div className="flex flex-wrap gap-5">
+          <div className="h-[420px] flex-[1_1_360px] animate-pulse rounded-panel bg-surface-soft" />
+          <div className="h-[420px] flex-[2_1_480px] animate-pulse rounded-panel bg-surface-soft" />
         </div>
       </div>
     )
   }
 
-  const product = articleToProduct(article!)
-  const totalQuantity = (product.quantity_sold || 0) + (product.quantity_remaining || 0)
-  const stockPercentage = article!.sales_percentage !== undefined && article!.sales_percentage !== null
-    ? article!.sales_percentage
-    : totalQuantity > 0 
-      ? ((product.quantity_remaining || 0) / totalQuantity) * 100 
-      : 0
-
-  const totalValue = (product.quantity_remaining || 0) * (product.price || 0)
-  const totalSales = (product.quantity_sold || 0) * (product.price || 0)
-
-  const getStockStatus = () => {
-    if ((product.quantity_remaining || 0) === 0) {
-      return { 
-        label: t('products.stockStatus.outOfStock'), 
-        variant: 'destructive' as const,
-        color: 'red'
-      }
-    }
-    if (article!.low_stock) {
-      return { 
-        label: t('products.stockStatus.lowStock'), 
-        variant: 'secondary' as const,
-        color: 'orange'
-      }
-    }
-    return { 
-      label: t('products.stockStatus.inStock'), 
-      variant: 'default' as const,
-      color: 'green'
-    }
-  }
-
-  const stockStatus = getStockStatus()
-  const totalVariationsQuantity = variations.reduce((sum, v) => sum + v.quantity, 0)
-  const availableQuantityForVariations = (article?.quantity || 0) - totalVariationsQuantity
-
-  // Formatage
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('fr-FR').format(value)
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value)
-  }
-
-  // Format de date "12 MAI 2025"
-  const formatDate = (dateString: string) => {
-    return dayjs(dateString).format('DD MMMM YYYY');
-  }
-
-  // Calculs de pagination
-  const totalPages = Math.ceil(transactions.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedTransactions = transactions.slice(startIndex, endIndex)
+  const sellHref = `/wallet/new?type=sale&article=${article.id}`
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto px-4 lg:px-6 py-8 space-y-8">
-        {/* Header moderne */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push('/products')}
-              className="h-10 w-10 hover:bg-primary/10"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">{product.name}</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t('products.productId', { id: product.id })} • {product.type === 'simple' ? t('products.simpleArticleType') : t('products.variableArticleType')}
-              </p>
+    <div className="flex flex-col gap-5">
+      {/* --- Mobile (< 1024px) --- */}
+      <div className="-mx-4 -mt-5 flex flex-col pb-28 lg:hidden">
+        <div className="relative flex h-[290px] flex-col items-center justify-center gap-2 bg-brand-100 text-[13px] font-semibold text-brand-700">
+          <ImageIcon className="size-10" strokeWidth={1.5} />
+          [Photo de l&apos;article]
+          <Link
+            href="/products"
+            aria-label="Retour au stock"
+            className="absolute left-5 top-[52px] flex size-11 items-center justify-center rounded-full bg-surface text-ink"
+          >
+            <ArrowLeft className="size-[22px]" />
+          </Link>
+          <button
+            type="button"
+            aria-label="Modifier l'article"
+            onClick={() => setMobileEditOpen(true)}
+            className="absolute right-5 top-[52px] flex size-11 items-center justify-center rounded-full bg-surface text-ink"
+          >
+            <Pencil className="size-5" strokeWidth={1.9} />
+          </button>
+        </div>
+
+        <div className="-mt-6 flex flex-col gap-5 rounded-t-3xl bg-canvas p-5">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-wide text-brand-500">
+              {article.type === 'simple' ? 'Article simple' : 'Article à variations'}
+            </span>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{article.name}</h1>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl font-bold text-ink">{formatAmount(article.sale_price)}</span>
+              <span className="text-sm font-semibold text-subtle">{currency} / pièce</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button 
-              size="sm"
-              onClick={() => setAddStockDialogOpen(true)}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              {t('products.addStock')}
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setEditDialogOpen(true)}
-            >
-              <Edit2 className="mr-2 h-4 w-4" />
-              {t('common.edit')}
-            </Button>
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {t('common.delete')}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t('products.deleteArticleConfirm')}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('products.deleteArticleDescription')}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={deleting}>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteArticle}
-                    disabled={deleting}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {deleting ? t('products.deleting') : t('products.delete')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col gap-1 rounded-tile border border-line bg-surface p-3">
+              <span className="text-xs text-subtle">En stock</span>
+              <span className="text-lg font-bold text-ink">{article.remaining_quantity}</span>
+            </div>
+            <div className="flex flex-col gap-1 rounded-tile border border-line bg-surface p-3">
+              <span className="text-xs text-subtle">Vendus (30 j)</span>
+              <span className="text-lg font-bold text-ink">{last30Days.unitsSold}</span>
+            </div>
+            <div className="flex flex-col gap-1 rounded-tile border border-line bg-surface p-3">
+              <span className="text-xs text-subtle">Seuil</span>
+              <span className="text-lg font-bold text-ink">{lowStockThreshold}%</span>
+            </div>
+          </div>
+
+          {article.type === 'variable' ? (
+            <div className="flex flex-col gap-2.5">
+              <h2 className="text-lg font-bold text-ink">Variations</h2>
+              {loadingVariations ? (
+                <p className="text-sm text-subtle">Chargement…</p>
+              ) : variations.length === 0 ? (
+                <p className="text-sm text-subtle">Aucune variation pour cet article</p>
+              ) : (
+                <div className="flex flex-col rounded-tile border border-line bg-surface">
+                  {variations.map((variation, i) => (
+                    <div
+                      key={variation.id}
+                      className={`flex items-center gap-3 p-3.5 ${i > 0 ? 'border-t border-divider' : ''}`}
+                    >
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-soft text-[13px] font-bold text-ink">
+                        {variation.name.slice(0, 2).toUpperCase()}
+                      </span>
+                      <span className="flex-1 text-sm font-semibold text-ink">{variation.name}</span>
+                      {variation.low_stock ? (
+                        <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
+                          Faible
+                        </span>
+                      ) : null}
+                      <span className="text-sm font-bold text-ink">{variation.remaining_quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-2.5">
+            <h2 className="text-lg font-bold text-ink">Réapprovisionnements</h2>
+            <StockHistoryList articleId={productId} refreshKey={stockHistoryRefreshKey} showUser={false} />
           </div>
         </div>
+      </div>
 
-        {/* Stats principales en haut */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('products.unitPrice')}</p>
-                  <p className="text-2xl font-bold mt-1">{formatCurrency(product.price)} {currency}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2.5 border-t border-line bg-surface p-5 pb-7 lg:hidden">
+        <Button variant="secondary" onClick={() => setMobileRestockOpen(true)}>
+          Réapprovisionner
+        </Button>
+        <Button variant="primary" asChild>
+          <Link href={sellHref}>Vendre</Link>
+        </Button>
+      </div>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('products.sold')}</p>
-                  <p className="text-2xl font-bold mt-1">
-                    {formatNumber(product.quantity_sold)}
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('products.remaining')}</p>
-                  <p className="text-2xl font-bold mt-1">
-                    {formatNumber(product.quantity_remaining)}
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <Package className="h-6 w-6 text-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{t('products.stock')}</p>
-                  <p className="text-2xl font-bold mt-1">
-                    {Math.round(stockPercentage)}%
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <BarChart3 className="h-6 w-6 text-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* --- Ordinateur (≥ 1024px) --- */}
+      <div className="hidden flex-col gap-5 lg:flex">
+      {/* --- En-tête --- */}
+      <div className="flex flex-wrap items-center justify-between gap-3.5">
+        <div className="flex flex-col gap-1.5">
+          <nav aria-label="Fil d'Ariane" className="flex gap-2 text-[13px] text-subtle">
+            <Link href="/products" className="font-semibold">
+              Stock
+            </Link>
+            <span aria-hidden>/</span>
+            <span>{article.name}</span>
+          </nav>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">{article.name}</h1>
         </div>
+        <div className="flex flex-wrap gap-2.5">
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <Button
+              variant="danger"
+              className="border border-danger-border bg-surface"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              Supprimer
+            </Button>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette action est irréversible et supprimera aussi ses variations.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteArticle} disabled={deleting}>
+                  {deleting ? 'Suppression…' : 'Supprimer'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button variant="glass" asChild>
+            <Link href={sellHref}>Vendre</Link>
+          </Button>
+          <Button variant="primary" onClick={handleSaveInfo} disabled={savingInfo}>
+            {savingInfo ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Colonne principale */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Informations détaillées */}
-            <Card>
+      <div className="flex flex-wrap items-start gap-5">
+        {/* --- Panneau article (photo + champs éditables) --- */}
+        <Card className="flex flex-[1_1_360px] flex-col gap-4 rounded-panel">
+          <div className="flex h-[240px] flex-col items-center justify-center gap-2 rounded-tile bg-gradient-to-br from-brand-100 to-brand-200 text-[13px] font-semibold text-brand-700">
+            <ImageIcon className="size-10" strokeWidth={1.5} />
+            [Photo de l&apos;article]
+            <button
+              type="button"
+              onClick={() => toast('Téléversement de photo bientôt disponible')}
+              className="flex min-h-10 items-center rounded-full bg-surface px-3.5 text-[13px] font-bold text-brand-700"
+            >
+              Changer l&apos;image
+            </button>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="article-name" className="text-[13px] font-semibold text-ink">
+              Nom
+            </Label>
+            <Input id="article-name" value={name} onChange={(e) => setName(e.target.value)} className="h-12 rounded-field" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="article-price" className="text-[13px] font-semibold text-ink">
+                Prix de vente ({currency})
+              </Label>
+              <Input
+                id="article-price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={salePrice}
+                onChange={(e) => setSalePrice(e.target.value)}
+                className="h-12 rounded-field"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className="text-[13px] font-semibold text-ink">Seuil d&apos;alerte</Label>
+              <span className="flex h-12 items-center rounded-field border border-line-strong bg-surface-soft px-4 text-sm font-semibold text-ink-2">
+                {lowStockThreshold}% des ventes
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span className="text-[13px] font-semibold text-ink">Type d&apos;article</span>
+            <SegmentedControl
+              options={TYPE_OPTIONS}
+              value={article.type}
+              onChange={() => toast.error("Le type d'un article ne peut pas être modifié après sa création")}
+            />
+          </div>
+        </Card>
+
+        <div className="flex flex-[2_1_480px] flex-col gap-5">
+          {/* --- KPI --- */}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+            <div className="flex flex-col gap-1.5 rounded-card bg-hero p-[18px] text-white">
+              <span className="text-[13px] text-navy-text">En stock</span>
+              <span className="text-2xl font-bold tracking-[-0.02em]">{article.remaining_quantity} pièces</span>
+            </div>
+            <div className="flex flex-col gap-1.5 rounded-card bg-surface p-[18px] shadow-card">
+              <span className="text-[13px] text-subtle">Vendus (30 j)</span>
+              <span className="text-2xl font-bold tracking-[-0.02em] text-ink">{last30Days.unitsSold}</span>
+            </div>
+            <div className="flex flex-col gap-1.5 rounded-card bg-surface p-[18px] shadow-card">
+              <span className="text-[13px] text-subtle">CA généré (30 j)</span>
+              <span className="text-2xl font-bold tracking-[-0.02em] text-success">
+                {formatAmount(last30Days.revenue)} F
+              </span>
+            </div>
+          </div>
+
+          {/* --- Variations --- */}
+          {article.type === 'variable' ? (
+            <Card className="flex flex-col gap-3 rounded-panel">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    {t('products.productInfo')}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge 
-                      variant="outline"
-                      className={cn(
-                        "font-medium",
-                        product.type === 'simple' 
-                          ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                          : "border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300"
-                      )}
-                    >
-                      {product.type === 'simple' ? t('products.simple') : t('products.variable')}
-                    </Badge>
-                    <Badge 
-                      variant="outline"
-                      className={cn(
-                        "font-medium",
-                        stockStatus.variant === 'destructive' && "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300",
-                        stockStatus.variant === 'secondary' && "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-300",
-                        stockStatus.variant === 'default' && "border-green-300 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300"
-                      )}
-                    >
-                      {stockStatus.label}
-                    </Badge>
-                  </div>
-                </div>
+                <CardTitle>Variations</CardTitle>
+                <Button variant="secondary" onClick={() => setAddVariationOpen(true)}>
+                  <Plus className="size-4" />
+                  Ajouter une variation
+                </Button>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Barre de progression du stock */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">{t('products.stockLevel')}</span>
-                    <span className="text-sm font-bold">{Math.round(stockPercentage)}%</span>
-                  </div>
-                  <div className="relative w-full">
-                    <div className="h-4 w-full rounded-full bg-muted/50 overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full transition-all duration-500 rounded-full",
-                          stockPercentage === 0 && "bg-red-500",
-                          stockPercentage > 0 && stockPercentage < 20 && "bg-orange-500",
-                          stockPercentage >= 20 && stockPercentage < 50 && "bg-yellow-500",
-                          stockPercentage >= 50 && "bg-green-500"
-                        )}
-                        style={{ width: `${stockPercentage}%` }}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t('products.totalPieces', { total: formatNumber(totalQuantity) })}
-                  </p>
+              {loadingVariations ? (
+                <div className="py-8 text-center text-sm text-subtle">Chargement…</div>
+              ) : variations.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-8 text-sm text-subtle">
+                  <Layers className="size-10" strokeWidth={1.5} />
+                  Aucune variation pour cet article
                 </div>
-
-                {/* Alerte stock faible */}
-                {article!.low_stock && (
-                  <Alert className={cn(
-                    product.quantity_remaining === 0
-                      ? "border-red-200 bg-red-50 dark:bg-red-950/20"
-                      : "border-orange-200 bg-orange-50 dark:bg-orange-950/20"
-                  )}>
-                    <AlertTriangle className={cn(
-                      "h-4 w-4",
-                      product.quantity_remaining === 0
-                        ? "text-red-600"
-                        : "text-orange-600"
-                    )} />
-                    <AlertTitle className={cn(
-                      product.quantity_remaining === 0
-                        ? "text-red-700"
-                        : "text-orange-700"
-                    )}>
-                      {product.quantity_remaining === 0 ? t('products.outOfStock') : t('products.lowStock')}
-                    </AlertTitle>
-                    <AlertDescription className={cn(
-                      product.quantity_remaining === 0
-                        ? "text-red-600"
-                        : "text-orange-600"
-                    )}>
-                      {product.quantity_remaining === 0
-                        ? t('products.outOfStockDescription')
-                        : t('products.lowStockDescription')}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Section Variations */}
-            {article && article.type === 'variable' && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Layers className="h-5 w-5" />
-                      {t('products.variations')}
-                    </CardTitle>
-                    <Button onClick={() => setAddVariationOpen(true)} size="sm">
-                      <Plus className="mr-2 h-4 w-4" />
-                      {t('common.add')}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {loadingVariations ? (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">{t('common.loading')}</p>
-                    </div>
-                  ) : variations.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">{t('products.noVariationForArticle')}</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[460px] border-collapse text-sm">
+                    <thead>
+                      <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
+                        <th className="px-2 py-2">Variation</th>
+                        <th className="px-2 py-2">Quantité</th>
+                        <th className="px-2 py-2">Statut</th>
+                        <th className="px-2 py-2 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {variations.map((variation) => (
-                        <Card key={variation.id} className="border">
-                          <CardContent className="p-4">
-                            {/* Nom et badge */}
-                            <div className="flex items-center justify-between mb-4 gap-3">
-                              <h3 className="font-semibold text-base truncate flex-1" title={variation.name}>
-                                {variation.name}
-                              </h3>
-                              {variation.remaining_quantity > 0 ? (
-                                <Badge variant="outline" className="border-green-500 text-green-700 dark:text-green-400 whitespace-nowrap">
-                                  {t('products.stockStatus.inStock')}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="border-red-500 text-red-700 dark:text-red-400 whitespace-nowrap">
-                                  {t('products.stockStatus.outOfStock')}
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Statistiques simples */}
-                            <div className="space-y-2 mb-4">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">{t('products.soldLabel')}</span>
-                                <span className="text-sm font-semibold">{formatNumber(variation.sold_quantity)}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">{t('products.remainingLabel')}</span>
-                                <span className="text-sm font-semibold">{formatNumber(variation.remaining_quantity)}</span>
-                              </div>
-                            </div>
-
-                            {/* Barre de progression */}
-                            <div className="space-y-2 pt-3 border-t">
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs text-muted-foreground">{t('products.progress')}</span>
-                                <span className="text-xs font-semibold">{variation.sales_percentage.toFixed(1)}%</span>
-                              </div>
-                              <Progress value={variation.sales_percentage} className="h-2" />
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center justify-end gap-1.5 mt-4 pt-3 border-t">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        <tr key={variation.id} className="border-t border-divider">
+                          <td className="px-2 py-2.5">
+                            <span className="flex items-center gap-2.5">
+                              <span className="flex size-9 shrink-0 items-center justify-center rounded-tile bg-surface-soft text-[13px] font-bold text-ink">
+                                {variation.name.slice(0, 2).toUpperCase()}
+                              </span>
+                              {variation.name}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2.5 font-bold text-ink">{variation.remaining_quantity}</td>
+                          <td className="px-2 py-2.5">
+                            <StatusBadge status={variation.low_stock ? 'stock-faible' : 'disponible'} />
+                          </td>
+                          <td className="px-2 py-2.5 text-right">
+                            <span className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
                                 onClick={() => {
                                   setEditingVariation(variation)
                                   setEditVariationDialogOpen(true)
                                 }}
-                                title={t('common.edit')}
+                                className="inline-flex min-h-9 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink"
                               >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                <Pencil className="mr-1.5 size-3.5" />
+                                Modifier
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Supprimer la variation"
                                 onClick={() => {
                                   setVariationToDelete(variation)
                                   setDeleteVariationDialogOpen(true)
                                 }}
-                                title={t('common.delete')}
+                                className="inline-flex size-9 items-center justify-center rounded-full border border-danger-border text-danger-strong"
                               >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
+                                <X className="size-3.5" />
+                              </button>
+                            </span>
+                          </td>
+                        </tr>
                       ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Section Transactions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  {t('products.saleTransactions')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingTransactions ? (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">{t('common.loading')}</p>
-                  </div>
-                ) : transactions.length === 0 ? (
-                  <div className="text-center py-8">
-                    <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">{t('products.noSaleTransactionForArticle')}</p>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[150px]">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4" />
-                              {t('products.date')}
-                            </div>
-                          </TableHead>
-                          <TableHead>
-                            <div className="flex items-center gap-2">
-                              <Tag className="h-4 w-4" />
-                              {t('products.variation')}
-                            </div>
-                          </TableHead>
-                          <TableHead className="text-right">{t('products.quantity')}</TableHead>
-                          <TableHead className="text-right">{t('products.unitPriceLabel')}</TableHead>
-                          <TableHead className="text-right">{t('products.totalAmount')}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedTransactions.map((transaction) => (
-                          <TableRow key={transaction.id}>
-                            <TableCell className="font-medium">
-                              {formatDate(transaction.created_at)}
-                            </TableCell>
-                            <TableCell>
-                              {transaction.variation ? (
-                                <Badge variant="outline">{transaction.variation.name}</Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">{transaction.quantity || 0}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(transaction.sale_price || 0)} {currency}</TableCell>
-                            <TableCell className="text-right font-semibold text-green-600">
-                              {formatCurrency(transaction.amount)} {currency}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-                
-                {/* Pagination */}
-                {transactions.length > 0 && totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <div className="text-sm text-muted-foreground">
-                      {t('products.showingTransactions', { start: startIndex + 1, end: Math.min(endIndex, transactions.length), total: transactions.length })}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        {t('products.previous')}
-                      </Button>
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                          // Afficher seulement la première page, la dernière, la page actuelle et les pages adjacentes
-                          if (
-                            page === 1 ||
-                            page === totalPages ||
-                            (page >= currentPage - 1 && page <= currentPage + 1)
-                          ) {
-                            return (
-                              <Button
-                                key={page}
-                                variant={currentPage === page ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setCurrentPage(page)}
-                                className="min-w-[40px]"
-                              >
-                                {page}
-                              </Button>
-                            )
-                          } else if (page === currentPage - 2 || page === currentPage + 2) {
-                            return (
-                              <span key={page} className="px-2 text-muted-foreground">
-                                ...
-                              </span>
-                            )
-                          }
-                          return null
-                        })}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        {t('products.next')}
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </Card>
-          </div>
+          ) : null}
 
-          {/* Colonne latérale */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  {t('products.financialValues')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 rounded-lg bg-muted/50 border">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-muted-foreground">{t('products.stockValue')}</p>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(totalValue)} {currency}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatNumber(product.quantity_remaining)} × {formatCurrency(product.price)}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-muted-foreground">{t('products.revenue')}</p>
-                    <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  </div>
-                  <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                    {formatCurrency(totalSales)} {currency}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatNumber(product.quantity_sold)} × {formatCurrency(product.price)}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium">{t('products.totalValue')}</p>
-                    <DollarSign className="h-4 w-4 text-primary" />
-                  </div>
-                  <p className="text-2xl font-bold text-primary">
-                    {formatCurrency(totalValue + totalSales)} {currency}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t('products.stockPlusSales')}
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <p className="text-xs text-muted-foreground mb-2">{t('products.salesPercentage')}</p>
-                  <p className="text-2xl font-bold">
-                    {article!.sales_percentage ? article!.sales_percentage.toFixed(1) : '0.0'}%
-                  </p>
-                </div>
-              </CardContent>
+          <div className="flex flex-wrap items-start gap-5">
+            {/* --- Réapprovisionner (niveau article uniquement, voir note en tête de fichier) --- */}
+            <Card className="glass-panel flex flex-[1_1_300px] flex-col gap-3">
+              <CardTitle>Réapprovisionner</CardTitle>
+              <div className="flex items-center justify-between gap-2.5">
+                <span className="text-[13px] font-semibold text-ink">Quantité ajoutée</span>
+                <span className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="Diminuer"
+                    onClick={() => setRestockQty((q) => Math.max(1, q - 1))}
+                    className="flex size-10 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
+                  >
+                    <Minus className="size-4" />
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    aria-label="Quantité à réapprovisionner"
+                    value={restockQty}
+                    onChange={(e) => {
+                      const next = parseInt(e.target.value, 10)
+                      setRestockQty(Number.isNaN(next) || next < 1 ? 1 : next)
+                    }}
+                    className="w-14 rounded-lg border border-line-strong bg-surface text-center text-lg font-bold text-ink outline-none focus:border-brand-500"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Augmenter"
+                    onClick={() => setRestockQty((q) => q + 1)}
+                    className="flex size-10 items-center justify-center rounded-full bg-brand-500 font-bold text-white"
+                  >
+                    <Plus className="size-4" />
+                  </button>
+                </span>
+              </div>
+              <Button variant="black" onClick={handleRestock} disabled={restocking}>
+                {restocking ? 'Ajout…' : `Ajouter ${restockQty} pièce(s) au stock`}
+              </Button>
             </Card>
 
-            {/* Historique de réapprovisionnement */}
-            <StockHistoryList 
-              articleId={productId} 
-              refreshKey={stockHistoryRefreshKey}
-            />
+            {/* --- Historique --- */}
+            <Card className="flex flex-[1_1_300px] flex-col gap-1.5">
+              <CardTitle>Historique</CardTitle>
+              <StockHistoryList articleId={productId} refreshKey={stockHistoryRefreshKey} />
+            </Card>
           </div>
         </div>
       </div>
+      </div>
 
-      {/* Modal d'ajout de variation */}
-      <Dialog open={addVariationOpen} onOpenChange={setAddVariationOpen}>
+      {/* --- Modale mobile : modifier l'article --- */}
+      <Dialog open={mobileEditOpen} onOpenChange={setMobileEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('products.addVariationTitle')}</DialogTitle>
+            <DialogTitle>Modifier l&apos;article</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="variation-name">{t('products.variationNameLabel')}</Label>
-              <Input
-                id="variation-name"
-                placeholder={t('products.variationNamePlaceholder')}
-                value={variationForm.name}
-                onChange={(e) => setVariationForm({ ...variationForm, name: e.target.value })}
-              />
+              <Label htmlFor="mobile-article-name">Nom</Label>
+              <Input id="mobile-article-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="variation-quantity">{t('products.variationQuantityLabel')}</Label>
+              <Label htmlFor="mobile-article-price">Prix de vente ({currency})</Label>
               <Input
-                id="variation-quantity"
+                id="mobile-article-price"
                 type="number"
-                min="1"
-                max={availableQuantityForVariations}
-                placeholder={t('products.variationQuantityPlaceholder')}
-                value={variationForm.quantity}
-                onChange={(e) =>
-                  setVariationForm({ ...variationForm, quantity: e.target.value })
-                }
+                min="0"
+                step="0.01"
+                value={salePrice}
+                onChange={(e) => setSalePrice(e.target.value)}
               />
-              <p className="text-sm text-muted-foreground">
-                {t('products.availableQuantity', { quantity: formatNumber(availableQuantityForVariations) })}
-              </p>
             </div>
             <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setMobileEditOpen(false)}>
+                Annuler
+              </Button>
               <Button
-                variant="outline"
-                onClick={() => {
-                  setAddVariationOpen(false)
-                  setVariationForm({ name: '', quantity: '' })
+                variant="primary"
+                disabled={savingInfo}
+                onClick={async () => {
+                  await handleSaveInfo()
+                  setMobileEditOpen(false)
                 }}
               >
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleAddVariationSubmit} disabled={submittingVariation}>
-                {submittingVariation ? t('products.adding') : t('products.add')}
+                {savingInfo ? 'Enregistrement…' : 'Enregistrer'}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modale de modification d'article */}
-      <EditArticleDialog
-        article={article || null}
-        open={editDialogOpen}
-        onClose={() => setEditDialogOpen(false)}
-        onSuccess={handleEditSuccess}
-      />
+      {/* --- Modale mobile : réapprovisionner --- */}
+      <Dialog open={mobileRestockOpen} onOpenChange={setMobileRestockOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Réapprovisionner</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-between gap-2.5">
+            <span className="text-[13px] font-semibold text-ink">Quantité ajoutée</span>
+            <span className="flex items-center gap-1.5">
+              <button
+                type="button"
+                aria-label="Diminuer"
+                onClick={() => setRestockQty((q) => Math.max(1, q - 1))}
+                className="flex size-10 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
+              >
+                <Minus className="size-4" />
+              </button>
+              <input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                aria-label="Quantité à réapprovisionner"
+                value={restockQty}
+                onChange={(e) => {
+                  const next = parseInt(e.target.value, 10)
+                  setRestockQty(Number.isNaN(next) || next < 1 ? 1 : next)
+                }}
+                className="w-14 rounded-lg border border-line-strong bg-surface text-center text-lg font-bold text-ink outline-none focus:border-brand-500"
+              />
+              <button
+                type="button"
+                aria-label="Augmenter"
+                onClick={() => setRestockQty((q) => q + 1)}
+                className="flex size-10 items-center justify-center rounded-full bg-brand-500 font-bold text-white"
+              >
+                <Plus className="size-4" />
+              </button>
+            </span>
+          </div>
+          <Button
+            variant="black"
+            disabled={restocking}
+            onClick={async () => {
+              await handleRestock()
+              setMobileRestockOpen(false)
+            }}
+          >
+            {restocking ? 'Ajout…' : `Ajouter ${restockQty} pièce(s) au stock`}
+          </Button>
+        </DialogContent>
+      </Dialog>
 
-      {/* Modale de modification de variation */}
-      {editingVariation && article && (
+      {/* --- Modale : ajouter une variation --- */}
+      <Dialog open={addVariationOpen} onOpenChange={setAddVariationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajouter une variation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="variation-name">Nom de la variation</Label>
+              <Input
+                id="variation-name"
+                placeholder="Ex: Taille M"
+                value={variationForm.name}
+                onChange={(e) => setVariationForm({ ...variationForm, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="variation-quantity">Quantité</Label>
+              <Input
+                id="variation-quantity"
+                type="number"
+                min="1"
+                max={availableQuantityForVariations}
+                value={variationForm.quantity}
+                onChange={(e) => setVariationForm({ ...variationForm, quantity: e.target.value })}
+              />
+              <p className="text-sm text-muted-foreground">
+                Quantité disponible : {availableQuantityForVariations}
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAddVariationOpen(false)
+                  setVariationForm({ name: '', quantity: '' })
+                }}
+              >
+                Annuler
+              </Button>
+              <Button variant="primary" onClick={handleAddVariationSubmit} disabled={submittingVariation}>
+                {submittingVariation ? 'Ajout…' : 'Ajouter'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {editingVariation ? (
         <EditVariationDialog
           variation={editingVariation}
           article={article}
@@ -1054,35 +814,19 @@ export default function ProductDetailPage() {
           }}
           onSuccess={handleEditVariationSuccess}
         />
-      )}
+      ) : null}
 
-      {/* Modal d'ajout de stock */}
-      {article && (
-        <AddStockDialog
-          article={article}
-          open={addStockDialogOpen}
-          onClose={() => setAddStockDialogOpen(false)}
-          onSuccess={handleAddStockSuccess}
-        />
-      )}
-
-      {/* Dialogue de confirmation de suppression de variation */}
       <AlertDialog open={deleteVariationDialogOpen} onOpenChange={setDeleteVariationDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('products.deleteVariationTitle')}</AlertDialogTitle>
+            <AlertDialogTitle>Supprimer cette variation ?</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('products.deleteVariationDescription', { name: variationToDelete?.name || '' })}
+              {variationToDelete?.name} sera définitivement supprimée.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteVariation}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {t('products.delete')}
-            </AlertDialogAction>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteVariation}>Supprimer</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

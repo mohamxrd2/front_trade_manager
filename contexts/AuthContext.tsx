@@ -14,8 +14,9 @@ import {
   type RegisterData,
   type VerifyRegistrationPayload,
 } from '@/lib/auth'
-import { isApiError } from '@/lib/api'
+import { isApiError, ApiErrorType } from '@/lib/api'
 import { checkOnboarding as checkOnboardingService } from '@/lib/services/onboarding'
+import { ensureQueryCacheForUser } from '@/lib/query-client'
 
 /**
  * Types pour le contexte d'authentification
@@ -29,7 +30,15 @@ import { checkOnboarding as checkOnboardingService } from '@/lib/services/onboar
 export interface LoginResult {
   success: boolean
   user?: User
+  /** Présent uniquement si success:true — la page appelante décide où rediriger (ex. ?next=, replace vs push). */
+  onboardingComplete?: boolean
   error?: string
+  /** Statut HTTP brut de l'échec (401, 403, 429, 500…) — permet à la page d'afficher le texte exact qu'elle veut plutôt que le message générique ci-dessus. */
+  status?: number
+  /** Type ApiError (ex. "NETWORK_ERROR", "TIMEOUT_ERROR") — pour distinguer une erreur réseau d'un vrai 401/429. */
+  errorType?: string
+  /** Secondes à attendre avant de réessayer, lues depuis l'en-tête Retry-After d'un 429. */
+  retryAfterSeconds?: number
   emailVerificationRequired?: { email: string; expiresIn: number }
 }
 
@@ -53,6 +62,7 @@ export interface RegisterInitResult {
 export interface VerifyRegistrationResult {
   success: boolean
   user?: User
+  onboardingComplete?: boolean
   error?: string
   status?: number
 }
@@ -139,6 +149,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (userData) {
         // ✅ Utilisateur authentifié
+        ensureQueryCacheForUser(userData.id)
         setUser(userData)
         setIsAuthenticated(true)
 
@@ -239,6 +250,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // la moindre erreur. `loading` ne doit représenter QUE la vérification
     // de session initiale ; le spinner de "connexion en cours" est déjà géré
     // par le state local `isLoading` du formulaire.
+    //
+    // Ne redirige PAS ici (ni push ni replace) : la page appelante (/login)
+    // décide de la cible exacte (?next=, /onboarding, /dashboard) et de la
+    // sémantique (replace, pour que retour arrière ne revienne pas sur
+    // /login) — ce n'est pas cette fonction qui doit l'imposer globalement.
     try {
       // Réinitialiser les Analytics avant la connexion
       if (typeof window !== 'undefined') {
@@ -248,31 +264,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Appeler loginApi qui utilise l'intercepteur pour récupérer le CSRF automatiquement
       const userData = await loginApi(credentials)
 
+      // Si ce compte diffère du dernier utilisateur ayant rempli le cache
+      // persistant (navigateur partagé entre plusieurs comptes), tout vider
+      // AVANT que le moindre composant ne monte et ne lise une valeur
+      // périmée appartenant à l'autre compte.
+      ensureQueryCacheForUser(userData.id)
+
       // Mettre à jour l'état avec l'utilisateur retourné
       setUser(userData)
       setIsAuthenticated(true)
 
-      // Vérifier l'onboarding après la connexion
+      let onboardingComplete = true
       try {
         const onboardingStatus = await checkOnboardingService()
-        
-        if (!onboardingStatus.is_complete) {
-          // Rediriger vers l'onboarding si non complété
-          router.push('/onboarding')
-          return { success: true, user: userData }
-        } else {
-          // Rediriger vers le dashboard si onboarding complété
-          router.push('/dashboard')
-        }
+        onboardingComplete = onboardingStatus.is_complete
       } catch (onboardingError) {
-        // Si erreur 404, l'onboarding n'existe pas encore, rediriger vers onboarding
+        // 404 : l'onboarding n'existe pas encore → traité comme incomplet.
+        // Toute autre erreur : on ne bloque pas la connexion dessus, on
+        // suppose l'onboarding complété (comportement déjà existant).
         const axiosError = onboardingError as { response?: { status?: number } }
-        if (axiosError?.response?.status === 404) {
-          router.push('/onboarding')
-        } else {
-          // Pour les autres erreurs, rediriger quand même vers le dashboard
-          router.push('/dashboard')
-        }
+        onboardingComplete = axiosError?.response?.status !== 404
       }
 
       // Attendre un court instant avant de charger les nouvelles données Analytics
@@ -282,16 +293,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }, 100)
       }
 
-      return { success: true, user: userData }
+      return { success: true, user: userData, onboardingComplete }
     } catch (error: unknown) {
       // Email non vérifié : le backend a déjà envoyé un code (les identifiants
       // étaient corrects) — router vers le même écran de vérification que
       // l'inscription plutôt que d'afficher un échec de connexion classique.
       if (isApiError(error) && error.code === 'EMAIL_NOT_VERIFIED') {
         const data = error.data as { email?: string; expires_in?: number } | undefined
-
-        // TEMP DEBUG — à retirer une fois le flow validé en prod
-        console.log('🔍 [AuthContext] login(): EMAIL_NOT_VERIFIED intercepté', { code: error.code, data })
 
         setIsAuthenticated(false)
         setUser(null)
@@ -305,36 +313,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             },
           }
         }
-
-        console.log('🔍 [AuthContext] EMAIL_NOT_VERIFIED sans data.email exploitable, fallback erreur générique', data)
         // Pas d'email exploitable dans data (ne devrait pas arriver) : on
         // retombe sur la gestion d'erreur générique ci-dessous.
-      }
-
-      const axiosError = error as { response?: { data?: { message?: string }; status?: number }; message?: string }
-
-      // Extraire le message d'erreur
-      let errorMessage = 'Erreur de connexion'
-
-      if (axiosError?.response?.data?.message) {
-        errorMessage = axiosError.response.data.message
-      } else if (axiosError?.message) {
-        errorMessage = axiosError.message
-      } else if (axiosError?.response?.status === 401) {
-        errorMessage = 'Identifiants invalides'
-      } else if (axiosError?.response?.status === 422) {
-        errorMessage = 'Données invalides'
       }
 
       setIsAuthenticated(false)
       setUser(null)
 
-      return {
-        success: false,
-        error: errorMessage
+      if (isApiError(error)) {
+        const retryAfterHeader = error.originalError?.response?.headers?.['retry-after']
+        return {
+          success: false,
+          status: error.status,
+          errorType: error.type,
+          retryAfterSeconds: retryAfterHeader ? Number(retryAfterHeader) : undefined,
+          error: error.message,
+        }
       }
+
+      return { success: false, error: 'Erreur de connexion' }
     }
-  }, [router])
+  }, [])
 
   /**
    * Étape 1/2 de l'inscription : envoie les infos du compte, déclenche
@@ -348,55 +347,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const pending = await registerApi(data)
       return { success: true, email: pending.email, expiresIn: pending.expiresIn }
     } catch (error: unknown) {
-      const axiosError = error as {
-        response?: {
-          data?: {
-            message?: string
-            errors?: Record<string, string[]>
+      // registerApi() throw une ApiError (voir lib/api.ts), pas une
+      // AxiosError imbriquée sous `.response` — lire la mauvaise forme
+      // faisait que `fieldErrors` n'était JAMAIS rempli sur un vrai 422
+      // (ex. email déjà utilisé), peu importe la réponse réelle du backend.
+      if (isApiError(error)) {
+        if (error.status === 422 && error.errors && typeof error.errors === 'object') {
+          const fieldErrors = error.errors as Record<string, string[]>
+          const allErrors = Object.values(fieldErrors).flat()
+          return {
+            success: false,
+            error: allErrors.length > 0 ? allErrors.join('\n') : error.message || 'Données invalides',
+            errors: fieldErrors,
           }
-          status?: number
         }
-        message?: string
-        code?: string
+        if (error.status === 502) {
+          return { success: false, error: error.message || "Impossible d'envoyer l'email de vérification. Réessayez." }
+        }
+        if (error.type === ApiErrorType.SERVER) {
+          return { success: false, error: 'Erreur serveur. Veuillez réessayer plus tard.' }
+        }
+        if (error.type === ApiErrorType.NETWORK || error.type === ApiErrorType.TIMEOUT) {
+          return { success: false, error: 'Erreur de connexion. Vérifiez votre connexion internet.' }
+        }
+        return { success: false, error: error.message || "Erreur lors de l'inscription" }
       }
 
-      // Extraire le message d'erreur et les erreurs par champ
-      let errorMessage = 'Erreur lors de l\'inscription'
-      let fieldErrors: Record<string, string[]> | undefined = undefined
-
-      // Erreur 422 : Validation Laravel
-      if (axiosError?.response?.status === 422 && axiosError?.response?.data?.errors) {
-        fieldErrors = axiosError.response.data.errors
-        // Créer un message général à partir des erreurs
-        const allErrors = Object.values(fieldErrors).flat()
-        errorMessage = allErrors.length > 0
-          ? allErrors.join('\n')
-          : axiosError.response.data.message || 'Données invalides'
-      }
-      // Erreur 502 : Échec d'envoi de l'email de vérification
-      else if (axiosError?.response?.status === 502) {
-        errorMessage = axiosError.response.data?.message || 'Impossible d\'envoyer l\'email de vérification. Réessayez.'
-      }
-      // Erreur 500 : Serveur
-      else if (axiosError?.response?.status === 500) {
-        errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.'
-      }
-      // Erreur réseau
-      else if (axiosError?.code === 'ERR_NETWORK' || !axiosError?.response) {
-        errorMessage = 'Erreur de connexion. Vérifiez votre connexion internet.'
-      }
-      // Autres erreurs
-      else if (axiosError?.response?.data?.message) {
-        errorMessage = axiosError.response.data.message
-      } else if (axiosError?.message) {
-        errorMessage = axiosError.message
-      }
-
-      return {
-        success: false,
-        error: errorMessage,
-        errors: fieldErrors
-      }
+      return { success: false, error: "Erreur lors de l'inscription" }
     }
   }, [])
 
@@ -408,9 +385,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
    */
   const verifyRegistration = useCallback(async (payload: VerifyRegistrationPayload): Promise<VerifyRegistrationResult> => {
     // Même remarque que login() : ne pas toggle `loading` ici, sinon
-    // AuthRoute démonte/remonte VerifyCodeScreen à chaque tentative de code
-    // (et efface le code tapé, le countdown, etc.) — voir le commentaire
-    // détaillé au-dessus de login().
+    // AuthRoute démonte/remonte l'écran de vérification à chaque tentative
+    // de code (et efface le code tapé, le countdown, etc.) — voir le
+    // commentaire détaillé au-dessus de login(). Ne redirige pas non plus :
+    // la page /verify décide (replace vers /onboarding ou /dashboard).
     try {
       // Réinitialiser les Analytics avant la connexion
       if (typeof window !== 'undefined') {
@@ -419,10 +397,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       const userData = await verifyRegistrationCodeApi(payload)
 
+      ensureQueryCacheForUser(userData.id)
       setUser(userData)
       setIsAuthenticated(true)
 
-      router.push('/dashboard')
+      let onboardingComplete = true
+      try {
+        const onboardingStatus = await checkOnboardingService()
+        onboardingComplete = onboardingStatus.is_complete
+      } catch (onboardingError) {
+        const axiosError = onboardingError as { response?: { status?: number } }
+        onboardingComplete = axiosError?.response?.status !== 404
+      }
 
       if (typeof window !== 'undefined') {
         setTimeout(() => {
@@ -430,31 +416,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }, 100)
       }
 
-      return { success: true, user: userData }
+      return { success: true, user: userData, onboardingComplete }
     } catch (error: unknown) {
-      const axiosError = error as {
-        response?: { data?: { message?: string }; status?: number }
-        message?: string
-        code?: string
-      }
-
-      const status = axiosError?.response?.status
-      let errorMessage = 'Code invalide'
-
-      if (axiosError?.response?.data?.message) {
-        errorMessage = axiosError.response.data.message
-      } else if (axiosError?.code === 'ERR_NETWORK' || !axiosError?.response) {
-        errorMessage = 'Erreur de connexion. Vérifiez votre connexion internet.'
-      } else if (axiosError?.message) {
-        errorMessage = axiosError.message
-      }
-
+      // verifyRegistrationCodeApi() throw une ApiError (voir lib/api.ts) —
+      // `status`/`message` sont directement sur l'erreur, PAS sous
+      // `error.response.status` (forme AxiosError) : lire la mauvaise forme
+      // faisait retomber TOUTE erreur (422 code faux, 410 expiré, 429 trop
+      // de tentatives…) sur le message générique réseau ci-dessous, peu
+      // importe la vraie cause.
       setIsAuthenticated(false)
       setUser(null)
 
-      return { success: false, error: errorMessage, status }
+      if (isApiError(error)) {
+        if (error.type === ApiErrorType.NETWORK || error.type === ApiErrorType.TIMEOUT) {
+          return { success: false, error: 'Erreur de connexion. Vérifiez votre connexion internet.', status: error.status }
+        }
+        return { success: false, error: error.message, status: error.status }
+      }
+
+      return { success: false, error: 'Code invalide' }
     }
-  }, [router])
+  }, [])
 
   /**
    * Régénère un code de vérification pour une inscription en attente.
@@ -464,24 +446,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const pending = await resendRegistrationCodeApi(email)
       return { success: true, email: pending.email, expiresIn: pending.expiresIn }
     } catch (error: unknown) {
-      const axiosError = error as {
-        response?: { data?: { message?: string }; status?: number }
-        message?: string
-        code?: string
+      // Même remarque que verifyRegistration() ci-dessus : resendRegistrationCodeApi()
+      // throw une ApiError, pas une AxiosError imbriquée sous `.response`.
+      if (isApiError(error)) {
+        if (error.type === ApiErrorType.NETWORK || error.type === ApiErrorType.TIMEOUT) {
+          return { success: false, error: 'Erreur de connexion. Vérifiez votre connexion internet.', status: error.status }
+        }
+        return { success: false, error: error.message, status: error.status }
       }
 
-      const status = axiosError?.response?.status
-      let errorMessage = 'Erreur lors du renvoi du code'
-
-      if (axiosError?.response?.data?.message) {
-        errorMessage = axiosError.response.data.message
-      } else if (axiosError?.code === 'ERR_NETWORK' || !axiosError?.response) {
-        errorMessage = 'Erreur de connexion. Vérifiez votre connexion internet.'
-      } else if (axiosError?.message) {
-        errorMessage = axiosError.message
-      }
-
-      return { success: false, error: errorMessage, status }
+      return { success: false, error: 'Erreur lors du renvoi du code' }
     }
   }, [])
 
@@ -495,7 +469,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Nettoyer l'état immédiatement pour éviter les appels API après déconnexion
       setUser(null)
       setIsAuthenticated(false)
-      
+      // Vider le cache persistant : sinon il survit à la déconnexion (il vit
+      // dans localStorage) et se présenterait, instantanément et sans
+      // requête, au prochain compte qui se connecte sur ce navigateur.
+      ensureQueryCacheForUser(null)
+
       // Réinitialiser les Analytics avant la déconnexion
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('analytics:reset'))

@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Tableau de bord</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), radial-gradient(600px 500px at 40% 100%, rgba(165,140,255,0.16), rgba(165,140,255,0) 70%), #F1F2F7">
+<div style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="tableau" hint-size="100%,820px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Bonjour, Awa</h1>
+        <span style="font-size: 14px; color: #6B6B7B">Jeudi 15 octobre 2026 · voici votre activité</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+        <div style="position: relative; display: flex">
+          <label for="ds" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Rechercher</label>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B6B7B" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 16px; top: 15px"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          <input id="ds" placeholder="Rechercher article, client, facture…" style="width: 300px; max-width: 100%; height: 48px; box-sizing: border-box; border-radius: 24px; padding: 0 16px 0 44px; font-family: inherit; font-size: 14px; color: #0E0E1A; background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.95); box-shadow: 0 4px 14px rgba(17,17,80,0.06)">
+        </div>
+        <a href="Web-Notifications.dc.html" aria-label="Notifications, 3 non lues" style="position: relative; width: 48px; height: 48px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.95); background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; color: #0E0E1A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg><span style="position: absolute; top: 12px; right: 13px; width: 8px; height: 8px; border-radius: 4px; background: #E5484D"></span></a>
+        <a href="Web-Vente.dc.html" style="height: 48px; padding: 0 20px; border-radius: 24px; display: flex; align-items: center; gap: 8px; color: #FFFFFF; font-weight: 700; font-size: 14px; text-decoration: none; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.35)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Nouvelle vente</a>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px">
+      <div style="flex: 2 1 400px; min-width: 0; border-radius: 28px; padding: 26px; color: #FFFFFF; display: flex; flex-direction: column; gap: 20px; background: radial-gradient(120% 120% at 100% 100%, #3A3AF0 0%, #1717A0 35%, #0A0A4A 70%, #06062A 100%); box-shadow: 0 20px 44px rgba(16,16,120,0.28)">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px">
+          <span style="font-size: 15px; color: #C8C8F0">Solde du mois</span>
+          <span style="font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18)">Octobre 2026</span>
+        </div>
+        <span style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap"><span style="font-weight: 700; font-size: 46px; letter-spacing: -0.03em">1 245 000</span><span style="font-size: 18px; font-weight: 600; color: #C8C8F0">FCFA</span></span>
+        <div style="border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.16)">
+          <div style="display: flex; justify-content: space-between; font-size: 13px; color: #DCDCF7"><span>Objectif de ventes · 74 %</span><span>1 860 000 / 2 500 000</span></div>
+          <div style="height: 6px; border-radius: 3px; background: rgba(255,255,255,0.22)"><div style="width: 74%; height: 100%; border-radius: 3px; background: #FFFFFF"></div></div>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <a href="Web-Vente.dc.html" style="flex: 1 1 120px; height: 48px; border-radius: 24px; background: #FFFFFF; color: #0E0E1A; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; text-decoration: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"></path></svg>Vente</a>
+          <a href="Web-Vente.dc.html" style="flex: 1 1 120px; height: 48px; border-radius: 24px; background: #FFFFFF; color: #0E0E1A; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; text-decoration: none"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7 7 17M16 17H7V8"></path></svg>Dépense</a>
+          <a href="Web-Factures.dc.html" style="flex: 1 1 120px; height: 48px; border-radius: 24px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.3); color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; font-size: 14px; text-decoration: none">Facture</a>
+        </div>
+      </div>
+
+      <div style="flex: 3 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+        <div role="group" aria-label="Période" style="align-self: flex-start; display: flex; gap: 4px; padding: 4px; border-radius: 22px; background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.9)">
+          <sc-for list="{{periods}}" as="p" hint-placeholder-count="3">
+            <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}">{{p.label}}</button>
+          </sc-for>
+        </div>
+        <div style="flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 14px">
+          <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+            <div style="background: #FFFFFF; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+              <span style="display: flex; align-items: center; justify-content: space-between"><span style="font-size: 13px; color: #6B6B7B; font-weight: 600">{{k.label}}</span><span style="{{k.dot}}"></span></span>
+              <span style="font-weight: 700; font-size: 26px; letter-spacing: -0.02em">{{k.value}}</span>
+              <span style="{{k.deltaStyle}}">{{k.delta}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px">
+      <section style="flex: 2 1 520px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700">Tendance des ventes &amp; prévision</h2>
+            <span style="font-size: 13px; color: #4B4B5C"><span style="color: #0B8A43; font-weight: 700">↑ 18 %</span> par rapport au mois dernier</span>
+          </div>
+          <span style="display: flex; gap: 16px; font-size: 13px; color: #3F3F50">
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 16px; height: 3px; border-radius: 2px; background: #5B3FE6"></span>Réel</span>
+            <span style="display: flex; align-items: center; gap: 6px"><span style="width: 16px; border-top: 3px dashed #9A9AAB"></span>Prévision</span>
+          </span>
+        </div>
+        <div style="position: relative">
+          <svg viewBox="0 0 600 220" preserveAspectRatio="none" role="img" aria-label="Ventes en hausse de mai à octobre, prévision en hausse jusqu'en décembre" style="display: block; width: 100%; height: 220px">
+            <defs><linearGradient id="dga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6A4CF0" stop-opacity="0.28"></stop><stop offset="1" stop-color="#6A4CF0" stop-opacity="0"></stop></linearGradient></defs>
+            <line x1="0" y1="50" x2="600" y2="50" stroke="#EFEFF4" vector-effect="non-scaling-stroke"></line>
+            <line x1="0" y1="110" x2="600" y2="110" stroke="#EFEFF4" vector-effect="non-scaling-stroke"></line>
+            <line x1="0" y1="170" x2="600" y2="170" stroke="#EFEFF4" vector-effect="non-scaling-stroke"></line>
+            <path d="M0 180 C 50 172, 70 150, 92 146 S 160 140, 184 128 S 240 92, 276 96 S 330 132, 368 130 S 420 80, 460 60 L 460 220 L 0 220 Z" fill="url(#dga)"></path>
+            <path d="M0 180 C 50 172, 70 150, 92 146 S 160 140, 184 128 S 240 92, 276 96 S 330 132, 368 130 S 420 80, 460 60" fill="none" stroke="#5B3FE6" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+            <path d="M460 60 C 500 48, 540 40, 600 28" fill="none" stroke="#9A9AAB" stroke-width="3" stroke-dasharray="7 7" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+          </svg>
+          <span style="position: absolute; left: 76.6%; top: 27%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 7px; background: #FFFFFF; border: 3px solid #5B3FE6; box-sizing: border-box"></span>
+          <span style="position: absolute; left: 76.6%; top: 27%; transform: translate(-50%, -150%); padding: 6px 12px; border-radius: 14px; background: #0E0E1A; color: #FFFFFF; font-size: 12px; font-weight: 700; white-space: nowrap">1 860 000 F</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); font-size: 12px; color: #6B6B7B; text-align: center">
+          <span>Mai</span><span>Juin</span><span>Juil.</span><span>Août</span><span>Sept.</span><span style="color: #0E0E1A; font-weight: 700">Oct.</span><span>Nov.</span><span>Déc.</span>
+        </div>
+      </section>
+
+      <section style="flex: 1 1 300px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">Ventes par catégorie</h2>
+        <div role="img" aria-label="Robes et boubous 46 %, tissus 28 %, accessoires 17 %, chemises 9 %" style="align-self: center; position: relative; width: 168px; height: 168px; border-radius: 84px; background: conic-gradient(#2A1A9E 0 46%, #6A4CF0 46% 74%, #A58CFF 74% 91%, #DCD4FF 91% 100%)">
+          <div style="position: absolute; inset: 24px; border-radius: 50%; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-weight: 700; font-size: 19px">1,86 M</span><span style="font-size: 12px; color: #6B6B7B">FCFA ce mois</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2A1A9E"></span><span style="flex: 1">Robes &amp; boubous</span><span style="font-weight: 700">46 %</span></div>
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #6A4CF0"></span><span style="flex: 1">Tissus (wax, bazin)</span><span style="font-weight: 700">28 %</span></div>
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #A58CFF"></span><span style="flex: 1">Accessoires</span><span style="font-weight: 700">17 %</span></div>
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #DCD4FF; box-shadow: inset 0 0 0 1px #B9ACF5"></span><span style="flex: 1">Chemises</span><span style="font-weight: 700">9 %</span></div>
+        </div>
+      </section>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px">
+      <section style="flex: 2 1 520px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">Dernières opérations</h2>
+          <a href="Web-Portefeuille.dc.html" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 10px 0">Tout voir</a>
+        </div>
+        <div style="overflow-x: auto">
+          <table style="width: 100%; min-width: 520px; border-collapse: collapse; font-size: 14px">
+            <thead>
+              <tr style="text-align: left; color: #6B6B7B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em">
+                <th style="padding: 10px 8px; font-weight: 600">Opération</th><th style="padding: 10px 8px; font-weight: 600">Type</th><th style="padding: 10px 8px; font-weight: 600">Date</th><th style="padding: 10px 8px; font-weight: 600; text-align: right">Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{tx}}" as="t" hint-placeholder-count="5">
+                <tr style="border-top: 1px solid #F0F0F4">
+                  <td style="padding: 12px 8px"><span style="display: flex; align-items: center; gap: 12px"><span style="{{t.icon}}">{{t.ini}}</span><span style="font-weight: 600">{{t.title}}</span></span></td>
+                  <td style="padding: 12px 8px"><span style="{{t.pill}}">{{t.type}}</span></td>
+                  <td style="padding: 12px 8px; color: #4B4B5C">{{t.date}}</td>
+                  <td style="{{t.amtStyle}}">{{t.amt}}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section style="flex: 1 1 300px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">Stock faible</h2>
+          <span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #FDE8EC; color: #A3213A">3 alertes</span>
+        </div>
+        <sc-for list="{{low}}" as="l" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0">
+            <span style="{{l.thumb}}">{{l.ini}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+              <span style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 600">{{l.name}}</span><span style="font-weight: 700; color: #A3213A">{{l.q}}</span></span>
+              <span style="height: 5px; border-radius: 3px; background: #F0F0F4"><span style="{{l.bar}}"></span></span>
+            </span>
+          </div>
+        </sc-for>
+        <a href="Web-Stock.dc.html" style="margin-top: auto; min-height: 46px; border-radius: 23px; border: 1px solid #E2E2EA; background: #FFFFFF; font-weight: 700; font-size: 14px; color: #0E0E1A; text-decoration: none; display: flex; align-items: center; justify-content: center">Voir le stock</a>
+      </section>
+    </div>
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1250}}'>
+class Component extends DCLogic {
+renderVals() {
+const p = (this.state && this.state.p) || '30';
+const sets = {
+'7': [['Chiffre d’affaires', '486 000', '↑ 12 % vs sem. préc.', true], ['Dépenses', '173 500', '↓ 4 %', true], ['Bénéfice net', '312 500', '↑ 8 %', true], ['Panier moyen', '24 300', '↓ 3 %', false]],
+'30': [['Chiffre d’affaires', '1 860 000', '↑ 18 % vs mois préc.', true], ['Dépenses', '615 000', '↓ 3,2 %', true], ['Bénéfice net', '1 245 000', '↑ 21 %', true], ['Panier moyen', '27 400', '↑ 5 %', true]],
+'365': [['Chiffre d’affaires', '17,4 M', '↑ 34 % vs an préc.', true], ['Dépenses', '6,5 M', '↑ 9 %', false], ['Bénéfice net', '10,9 M', '↑ 29 %', true], ['Panier moyen', '25 800', '↑ 2 %', true]]
+};
+const dots = ['#5B3FE6', '#E5484D', '#0B8A43', '#2B2BD9'];
+const on = 'min-height: 38px; padding: 0 16px; border-radius: 18px; border: 0; background: #0E0E1A; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer';
+const off = 'min-height: 38px; padding: 0 16px; border-radius: 18px; border: 0; background: transparent; color: #3F3F50; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer';
+const tints = [['#EEEAFE', '#4B2FD6'], ['#E6EEFF', '#1F3FB8'], ['#FFF0E0', '#8A4B00'], ['#E8F6EE', '#0B6B39'], ['#FDE8EC', '#A3213A']];
+const tx = [
+['Robe wax · Taille M', 'RW', 'Vente', 'Aujourd’hui, 14:32', '+25 000 F', true],
+['Transport marchandises', 'TR', 'Dépense', 'Aujourd’hui, 11:05', '−8 500 F', false],
+['Sac en raphia ×2', 'SR', 'Vente', 'Aujourd’hui, 10:20', '+36 000 F', true],
+['Électricité boutique', 'EL', 'Dépense', 'Hier, 09:12', '−32 000 F', false],
+['Boubou brodé · L', 'BB', 'Vente', 'Hier, 08:40', '+45 000 F', true]
+];
+const low = [['Sac en raphia', 'SR', 2], ['Robe wax · XL', 'RW', 2], ['Pagne wax 6 yards', 'PW', 3], ['Bazin riche (m)', 'BR', 4]];
+return {
+periods: [['7', '7 jours'], ['30', '30 jours'], ['365', '12 mois']].map(([id, label]) => ({ label, pressed: id === p ? 'true' : 'false', style: id === p ? on : off, pick: () => this.setState({ p: id }) })),
+kpis: sets[p].map(([label, value, delta, good], i) => ({
+label, value, delta,
+dot: 'width: 10px; height: 10px; border-radius: 5px; background: ' + dots[i],
+deltaStyle: 'font-size: 13px; font-weight: 700; color: ' + (good ? '#0B8A43' : '#D92D20')
+})),
+tx: tx.map(([title, ini, type, date, amt, inc], i) => ({
+title, ini, type, date, amt,
+icon: 'width: 38px; height: 38px; flex-shrink: 0; border-radius: 19px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: ' + tints[i % 5][0] + '; color: ' + tints[i % 5][1],
+pill: 'font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; ' + (inc ? 'background: #E3F5EA; color: #0B6B39' : 'background: #FDE8EC; color: #A3213A'),
+amtStyle: 'padding: 12px 8px; text-align: right; font-weight: 700; white-space: nowrap; color: ' + (inc ? '#0B8A43' : '#D92D20')
+})),
+low: low.map(([name, ini, q], i) => ({
+name, ini, q: q + ' restants',
+thumb: 'width: 44px; height: 44px; flex-shrink: 0; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; background: ' + tints[i][0] + '; color: ' + tints[i][1],
+bar: 'display: block; height: 100%; border-radius: 3px; background: #E5484D; width: ' + (q * 15) + '%'
+}))
+};
+}
+}
+</script>
+</body>
+</html>

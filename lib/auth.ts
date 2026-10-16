@@ -60,7 +60,7 @@ export interface ValidationErrors {
 
 /**
  * Inscription en attente de vérification : le compte n'existe pas encore,
- * seul un code à 5 chiffres a été envoyé par email (POST /api/register ou
+ * seul un code à 6 chiffres a été envoyé par email (POST /api/register ou
  * /api/register/resend-code).
  */
 export interface PendingRegistration {
@@ -160,8 +160,13 @@ export async function getCsrfCookie(): Promise<void> {
  */
 export async function login(credentials: LoginCredentials): Promise<User> {
   try {
-    // L'intercepteur axios récupère automatiquement le cookie CSRF
-    const response = await api.post<User>('/api/login', credentials)
+    // L'intercepteur axios récupère automatiquement le cookie CSRF.
+    // skipRetry: true — /api/login est maintenant limité par un throttle
+    // (8/min) ; un retry automatique sur un 429 consommerait une tentative
+    // supplémentaire pour rien et retarderait l'affichage du message
+    // "Trop de tentatives" de plusieurs secondes.
+    const config: NoRetryRequestConfig = { skipRetry: true }
+    const response = await api.post<User>('/api/login', credentials, config)
     return response.data
   } catch (error: unknown) {
     // Erreur 401 est normale quand les identifiants sont incorrects
@@ -175,11 +180,6 @@ export async function login(credentials: LoginCredentials): Promise<User> {
     // erreur de connexion. On laisse l'erreur remonter telle quelle, avec
     // ses champs code/data intacts, sans la logger comme un bug.
     if (isApiError(error) && error.code === 'EMAIL_NOT_VERIFIED') {
-      // TEMP DEBUG — à retirer une fois le flow validé en prod
-      console.log('🔍 [lib/auth.ts] login(): EMAIL_NOT_VERIFIED détecté, passthrough sans transformation', {
-        code: error.code,
-        data: error.data,
-      })
       throw error
     }
 
@@ -208,7 +208,7 @@ export async function login(credentials: LoginCredentials): Promise<User> {
 
 /**
  * Étape 1/2 de l'inscription : envoie les infos du compte et déclenche
- * l'envoi d'un code de vérification à 5 chiffres par email. Le compte
+ * l'envoi d'un code de vérification à 6 chiffres par email. Le compte
  * n'est PAS créé à ce stade — il faut appeler verifyRegistrationCode()
  * avec le code reçu pour finaliser l'inscription.
  *
@@ -249,7 +249,7 @@ export async function register(data: RegisterData): Promise<PendingRegistration>
 }
 
 /**
- * Étape 2/2 de l'inscription : vérifie le code à 5 chiffres reçu par email
+ * Étape 2/2 de l'inscription : vérifie le code à 6 chiffres reçu par email
  * et finalise la création du compte. En cas de succès, l'utilisateur est
  * déjà connecté via cookie de session (comme login()).
  *
@@ -327,6 +327,65 @@ export async function logout(): Promise<void> {
     setTimeout(() => {
       setLoggingOut(false)
     }, 1000)
+  }
+}
+
+/**
+ * Payload de mise à jour du profil — tous les champs sont optionnels,
+ * seuls ceux fournis sont modifiés (voir UserProfileController::updateProfile).
+ */
+export interface UpdateProfilePayload {
+  first_name?: string
+  last_name?: string
+  username?: string
+  email?: string
+}
+
+/**
+ * Met à jour les informations de profil de l'utilisateur connecté.
+ *
+ * @throws Erreur avec un message lisible (422 validation incluse)
+ */
+export async function updateUserProfile(payload: UpdateProfilePayload): Promise<User> {
+  try {
+    const response = await api.put<{ success: boolean; message?: string; data: Partial<User> }>(
+      '/api/user/profile',
+      payload
+    )
+    return response.data.data as User
+  } catch (error: unknown) {
+    if (isSilentError(error)) {
+      throw error
+    }
+    const axiosError = error as AxiosError<{ message?: string; errors?: ValidationErrors }>
+    if (axiosError.response?.status === 422 && axiosError.response.data?.errors) {
+      throw new Error(Object.values(axiosError.response.data.errors).flat().join(', '))
+    }
+    throw new Error(axiosError.response?.data?.message || 'Erreur lors de la mise à jour du profil')
+  }
+}
+
+/**
+ * Change le mot de passe de l'utilisateur connecté.
+ *
+ * @throws Erreur avec un message lisible (mot de passe actuel incorrect, 422 validation, etc.)
+ */
+export async function updateUserPassword(payload: {
+  current_password: string
+  new_password: string
+  new_password_confirmation: string
+}): Promise<void> {
+  try {
+    await api.put<{ success: boolean; message?: string }>('/api/user/password', payload)
+  } catch (error: unknown) {
+    if (isSilentError(error)) {
+      throw error
+    }
+    const axiosError = error as AxiosError<{ message?: string; errors?: ValidationErrors }>
+    if (axiosError.response?.status === 422 && axiosError.response.data?.errors) {
+      throw new Error(Object.values(axiosError.response.data.errors).flat().join(', '))
+    }
+    throw new Error(axiosError.response?.data?.message || 'Erreur lors de la mise à jour du mot de passe')
   }
 }
 

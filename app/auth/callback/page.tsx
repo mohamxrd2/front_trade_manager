@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getUser } from '@/lib/auth'
+import { FullPageSpinner } from '@/components/ui/full-page-spinner'
 
 /**
  * Page de retour après connexion sociale (Google/Facebook).
@@ -41,12 +41,5 @@ export default function AuthCallbackPage() {
     finalizeSocialLogin()
   }, [checkAuth, router])
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="flex flex-col items-center space-y-4">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-        <p className="text-sm text-muted-foreground">Connexion en cours...</p>
-      </div>
-    </div>
-  )
+  return <FullPageSpinner />
 }

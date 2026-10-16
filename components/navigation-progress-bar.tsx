@@ -16,12 +16,23 @@ const CONFIG = {
   // Délai considéré comme "lent" pour afficher la barre plus visiblement
   slowThreshold: 300,
 
-  // Délai minimum d'affichage une fois démarrée (évite les flashs)
-  minimumDisplayTime: 200,
+  // Délai minimum d'affichage une fois démarrée (évite les clignotements)
+  minimumDisplayTime: 300,
 
   // Timeout maximum pour éviter une barre bloquée
   maxDuration: 30000,
 }
+
+// Gabarit custom : conserve la structure attendue par les styles .bar/.peg
+// (voir globals.css) tout en ajoutant un rôle ARIA lisible par les lecteurs
+// d'écran. NProgress sélectionne sa barre via `Settings.barSelector`, qui
+// vaut `[role="bar"]` par défaut (pas `.bar`) — garder `role="bar"` ici est
+// donc obligatoire, sinon `progress.querySelector('[role="bar"]')` renvoie
+// null et NProgress plante sur `null.style` dans son propre `css()`.
+// `aria-label`/`aria-valuemin`/`aria-valuemax` restent lisibles par un
+// lecteur d'écran même avec `role="bar"` plutôt que `role="progressbar"`.
+const NPROGRESS_TEMPLATE =
+  '<div class="bar" role="bar" aria-label="Chargement" aria-valuemin="0" aria-valuemax="1" style="transition: all 0 linear;"><div class="peg"></div></div>'
 
 // Configuration NProgress (une seule fois au chargement)
 if (typeof window !== 'undefined') {
@@ -32,6 +43,7 @@ if (typeof window !== 'undefined') {
     easing: 'ease-out',
     speed: 300,
     trickle: true,
+    template: NPROGRESS_TEMPLATE,
   })
 }
 
@@ -43,9 +55,16 @@ if (typeof window !== 'undefined') {
  * Hook qui gère la logique de la barre de progression
  * Connecté à React Query pour détecter les requêtes en cours
  */
+// Exclut les requêtes marquées `meta: { silent: true }` (ex. le polling du
+// compteur de notifications non lues) : elles ne doivent JAMAIS déclencher
+// la barre, qui reste réservée aux chargements que l'utilisateur perçoit.
+const isNotSilent = (query: { meta?: Record<string, unknown> }) => query.meta?.silent !== true
+
 function useProgressBar() {
-  // État React Query
-  const isFetching = useIsFetching()
+  // État React Query (les requêtes "silencieuses", ex. le polling des
+  // notifications, ne comptent pas — les mutations sont toujours des
+  // actions visibles pour l'utilisateur, pas besoin de les filtrer)
+  const isFetching = useIsFetching({ predicate: isNotSilent })
   const isMutating = useIsMutating()
 
   // Refs pour gérer les timers et l'état
@@ -219,9 +238,9 @@ function useRouteChangeDetection() {
  * - ✅ Se réaffiche si les données ont été invalidées
  * - ✅ Se réaffiche après une mutation qui invalide le cache
  * - ✅ Délai de 150ms avant affichage (évite les flashs)
- * - ✅ Durée minimum d'affichage de 200ms (évite les clignotements)
+ * - ✅ Durée minimum d'affichage de 300ms (évite les clignotements)
  * - ✅ Timeout de sécurité de 30s (évite les barres bloquées)
- * 
+ *
  * UX similaire à Notion / Vercel / Linear
  */
 export function NavigationProgressBar() {
@@ -233,6 +252,17 @@ export function NavigationProgressBar() {
 
   // Ce composant ne rend rien, NProgress gère son propre DOM
   return null
+}
+
+/**
+ * À poser sur `aria-busy` du `<main>` de chaque layout — reflète l'état réel
+ * de chargement (requêtes non-silencieuses + mutations), indépendamment du
+ * délai d'affichage visuel de la barre elle-même.
+ */
+export function useIsAppBusy(): boolean {
+  const isFetching = useIsFetching({ predicate: isNotSilent })
+  const isMutating = useIsMutating()
+  return isFetching + isMutating > 0
 }
 
 // ============================================================================

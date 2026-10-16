@@ -1,3 +1,2 @@
 export { ClientFormDialog } from './client-form-dialog'
-export { ClientList } from './client-list'
-
+export { ClientDetailCard, PAYMENT_METHOD_LABELS } from './client-detail-card'

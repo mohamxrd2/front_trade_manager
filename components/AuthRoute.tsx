@@ -3,7 +3,7 @@
 import { useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { Loader2 } from 'lucide-react'
+import { FullPageSpinner } from '@/components/ui/full-page-spinner'
 
 interface AuthRouteProps {
   children: ReactNode
@@ -25,13 +25,7 @@ export default function AuthRoute({ children }: AuthRouteProps) {
 
   // Afficher un loader pendant la vérification
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-        </div>
-      </div>
-    )
+    return <FullPageSpinner />
   }
 
   // Si l'utilisateur est authentifié, ne rien afficher (redirection en cours)

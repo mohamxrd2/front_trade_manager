@@ -1,479 +1,556 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
-import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
+import * as React from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import type { InfiniteData } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { ChevronLeft, Loader2, X } from 'lucide-react'
+
 import { useNotifications } from '@/hooks/useNotifications'
-import { usePushNotifications } from '@/hooks/usePushNotifications'
-import { markAsRead, markAllAsRead, deleteNotification } from '@/lib/services/notifications'
-import type { Notification } from '@/lib/services/notifications'
-import { 
-  Bell, 
-  Check, 
-  Trash2, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Info, 
-  XCircle,
-  ArrowRight,
-  MoreVertical,
-  Sparkles,
-  Loader2
-} from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
-import { fr } from 'date-fns/locale'
-import { cn } from '@/lib/utils'
+import { useSettings } from '@/contexts/SettingsContext'
+import { keys } from '@/lib/query-keys'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  getNotifications,
+  markAsRead as apiMarkAsRead,
+  markAllAsRead as apiMarkAllAsRead,
+  deleteNotification as apiDeleteNotification,
+  type Notification,
+  type NotificationsResponse,
+} from '@/lib/services/notifications'
 
 /**
- * Page Notifications
- * 
- * Affiche la liste des notifications de l'utilisateur
+ * Notifications — design/maquettes/ordinateur/Web-Notifications.dc.html
+ * (≥ 768px) et design/maquettes/mobile/Notifications.dc.html (< 768px). Un
+ * seul composant, deux rendus (md:hidden / hidden md:block) partageant les
+ * mêmes hooks et mutations.
+ *
+ * Le compteur de non-lues reste porté par `useNotifications()` (déjà
+ * partagé par la cloche de l'Accueil, le badge Paramètres et le menu
+ * latéral) plutôt qu'un nouveau hook `useUnreadCount` — créer un second
+ * hook aurait fragmenté la seule source de vérité que la consigne demande.
+ * Cette page construit sa PROPRE liste paginée (useInfiniteQuery) et ses
+ * propres mutations optimistes, et déclenche l'événement
+ * `notification-updated` déjà écouté par ce hook pour que le compteur se
+ * resynchronise immédiatement après une action.
+ *
+ * Écarts assumés (la colonne réelle `type` de la table notifications est
+ * `info | success | warning | error`, pas `stock | invoice | team`) :
+ * - La catégorie (icône, filtre, libellé d'action) est déduite de
+ *   `action_url` (/products → stock, /invoices → facture, /collaborators →
+ *   équipe), avec repli sur « stock » si rien ne correspond. Pour les
+ *   factures, « payée » vs « en retard » est déduit de `type === 'success'`.
+ *
+ * « Me prévenir quand… » est branché sur /api/user/settings (quatre
+ * colonnes booléennes `notify_*`, ajoutées pour cette fonctionnalité) et sur
+ * les points de création réels : NotificationService::checkLowStock (stock),
+ * InvoiceController::updateStatus (paid/overdue → notifyInvoicePaid /
+ * notifyInvoiceOverdue), CollaboratorController::store (notifyTeamJoined).
+ * Un interrupteur désactivé empêche donc vraiment la création côté serveur,
+ * pas seulement l'affichage.
  */
-export default function NotificationsPage() {
-  const { t } = useTranslation()
-  const router = useRouter()
-  const { notifications, unreadCount, loading, refreshNotifications } = useNotifications()
-  const { permission, requestPermission } = usePushNotifications()
 
-  const [isMarkingAsRead, setIsMarkingAsRead] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState<string | null>(null)
-  const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false)
+type Kind = 'stock' | 'invoice' | 'team'
+type PrefKey = 'notify_stock_low' | 'notify_invoice_paid' | 'notify_invoice_overdue' | 'notify_team_joined'
+type FilterId = 'all' | 'unread' | Kind
 
-  const handleMarkAsRead = async (id: string) => {
-    setIsMarkingAsRead(id)
-    try {
-      await markAsRead(id)
-      await refreshNotifications()
-      // Déclencher un événement pour mettre à jour le badge dans la sidebar
-      window.dispatchEvent(new Event('notification-updated'))
-      toast.success('Notification marquée comme lue')
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Impossible de marquer la notification comme lue'
-      toast.error('Erreur', {
-        description: errorMessage,
-      })
-    } finally {
-      setIsMarkingAsRead(null)
-    }
+const KIND_STYLE: Record<Kind, { glyph: string; bg: string; text: string }> = {
+  stock: { glyph: '!', bg: 'bg-warning-bg', text: 'text-warning' },
+  invoice: { glyph: 'F', bg: 'bg-brand-100', text: 'text-brand-600' },
+  team: { glyph: '+', bg: 'bg-info-bg', text: 'text-info' },
+}
+
+const PREF_DEFS: { key: PrefKey; label: string }[] = [
+  { key: 'notify_stock_low', label: 'Un article passe en stock faible' },
+  { key: 'notify_invoice_paid', label: 'Une facture est payée' },
+  { key: 'notify_invoice_overdue', label: 'Une facture est en retard' },
+  { key: 'notify_team_joined', label: 'Un collaborateur rejoint l’équipe' },
+]
+
+function inferKind(n: Notification): Kind {
+  if (n.article_id || n.action_url?.startsWith('/products')) return 'stock'
+  if (n.action_url?.startsWith('/invoices')) return 'invoice'
+  if (n.action_url?.startsWith('/collaborators')) return 'team'
+  return 'stock'
+}
+
+function prefKeyFor(kind: Kind, n: Notification): PrefKey {
+  if (kind === 'stock') return 'notify_stock_low'
+  if (kind === 'team') return 'notify_team_joined'
+  return n.type === 'success' ? 'notify_invoice_paid' : 'notify_invoice_overdue'
+}
+
+function actionLabelFor(n: Notification, kind: Kind): string | null {
+  if (!n.action_url) return null
+  if (kind === 'stock') return 'Réapprovisionner'
+  if (kind === 'team') return 'Voir l’équipe'
+  return n.type === 'success' ? 'Voir la facture' : 'Relancer'
+}
+
+const MONTH_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+
+function formatRelative(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const diffMin = Math.floor((now.getTime() - d.getTime()) / 60000)
+  const sameDay = d.toDateString() === now.toDateString()
+  if (sameDay) {
+    if (diffMin < 1) return 'À l’instant'
+    if (diffMin < 60) return `Il y a ${diffMin} min`
+    return `Il y a ${Math.floor(diffMin / 60)} h`
   }
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) {
+    return `Hier, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`
+}
+
+type EnrichedNotification = Notification & { kind: Kind; prefKey: PrefKey; actionLabel: string | null }
+
+const PAGE_SIZE = 20
+const LIST_QUERY_KEY = keys.notifications.list()
+
+function dispatchUpdated() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('notification-updated'))
+}
+
+export default function NotificationsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
+  const { unreadCount } = useNotifications()
+  const { settings, updateSettings } = useSettings()
+
+  const urlFilter = searchParams.get('filter') as FilterId | null
+  const filter: FilterId = (['all', 'unread', 'stock', 'invoice', 'team'] as FilterId[]).includes(urlFilter as FilterId)
+    ? (urlFilter as FilterId)
+    : 'all'
+  const setFilter = (next: FilterId) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === 'all') params.delete('filter')
+    else params.set('filter', next)
+    router.replace(`/notifications${params.toString() ? `?${params.toString()}` : ''}`, { scroll: false })
+  }
+
+  const togglePref = (key: PrefKey) => {
+    const current = settings?.[key] ?? true
+    void updateSettings({ [key]: !current })
+  }
+
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: LIST_QUERY_KEY,
+    queryFn: ({ pageParam }) => getNotifications(pageParam, PAGE_SIZE, false),
+    staleTime: 30 * 1000, // Notifications : 30 s
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.data.pagination.current_page < lastPage.data.pagination.last_page
+        ? lastPage.data.pagination.current_page + 1
+        : undefined,
+  })
+
+  const rawList = React.useMemo(() => (data?.pages ?? []).flatMap((p) => p.data.notifications), [data])
+
+  const enriched: EnrichedNotification[] = React.useMemo(
+    () =>
+      rawList.map((n) => {
+        const kind = inferKind(n)
+        return { ...n, kind, prefKey: prefKeyFor(kind, n), actionLabel: actionLabelFor(n, kind) }
+      }),
+    [rawList]
+  )
+
+  // Les préférences « Me prévenir quand… » contrôlent uniquement la CRÉATION
+  // côté serveur (voir NotificationService) : désactiver un type n'efface ni
+  // ne masque l'historique déjà reçu, donc pas de filtrage local ici.
+  const filteredList = React.useMemo(
+    () =>
+      enriched.filter((n) => {
+        if (filter === 'all') return true
+        if (filter === 'unread') return !n.read
+        return n.kind === filter
+      }),
+    [enriched, filter]
+  )
+  const unreadVisibleCount = enriched.filter((n) => !n.read).length
+
+  const patchList = React.useCallback(
+    (fn: (notifications: Notification[]) => Notification[]) => {
+      queryClient.setQueryData<InfiniteData<NotificationsResponse>>(LIST_QUERY_KEY, (old) => {
+        if (!old) return old
+        return { ...old, pages: old.pages.map((p) => ({ ...p, data: { ...p.data, notifications: fn(p.data.notifications) } })) }
+      })
+    },
+    [queryClient]
+  )
+
+  const handleMarkAsRead = React.useCallback(
+    async (id: string) => {
+      const target = rawList.find((n) => n.id === id)
+      if (!target || target.read) return
+      patchList((list) => list.map((n) => (n.id === id ? { ...n, read: true } : n)))
+      dispatchUpdated()
+      try {
+        await apiMarkAsRead(id)
+      } catch (error) {
+        patchList((list) => list.map((n) => (n.id === id ? { ...n, read: false } : n)))
+        dispatchUpdated()
+        toast.error(error instanceof Error ? error.message : 'Échec de la mise à jour')
+      }
+    },
+    [patchList, rawList]
+  )
 
   const handleMarkAllAsRead = async () => {
-    setIsMarkingAllAsRead(true)
+    const previouslyUnread = rawList.filter((n) => !n.read).map((n) => n.id)
+    if (previouslyUnread.length === 0) return
+    patchList((list) => list.map((n) => ({ ...n, read: true })))
+    dispatchUpdated()
     try {
-      await markAllAsRead()
-      await refreshNotifications()
-      // Déclencher un événement pour mettre à jour le badge dans la sidebar
-      window.dispatchEvent(new Event('notification-updated'))
-      toast.success('Toutes les notifications ont été marquées comme lues')
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Impossible de marquer toutes les notifications comme lues'
-      toast.error('Erreur', {
-        description: errorMessage,
-      })
-    } finally {
-      setIsMarkingAllAsRead(false)
+      await apiMarkAllAsRead()
+    } catch (error) {
+      patchList((list) => list.map((n) => (previouslyUnread.includes(n.id) ? { ...n, read: false } : n)))
+      dispatchUpdated()
+      toast.error(error instanceof Error ? error.message : 'Échec de la mise à jour')
     }
   }
 
-  const handleDelete = async (id: string) => {
-    setIsDeleting(id)
-    try {
-      await deleteNotification(id)
-      await refreshNotifications()
-      // Déclencher un événement pour mettre à jour le badge dans la sidebar
-      window.dispatchEvent(new Event('notification-updated'))
-      toast.success('Notification supprimée')
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Impossible de supprimer la notification'
-      toast.error('Erreur', {
-        description: errorMessage,
-      })
-    } finally {
-      setIsDeleting(null)
-    }
-  }
-
-  const handleViewDetails = async (notification: Notification) => {
-    // Marquer la notification comme lue si elle ne l'est pas déjà
-    if (!notification.read) {
+  const handleDelete = (notification: Notification) => {
+    patchList((list) => list.filter((n) => n.id !== notification.id))
+    dispatchUpdated()
+    let undone = false
+    const timer = setTimeout(async () => {
+      if (undone) return
       try {
-        await markAsRead(notification.id)
-        await refreshNotifications()
-        // Déclencher un événement pour mettre à jour le badge dans la sidebar
-        window.dispatchEvent(new Event('notification-updated'))
+        await apiDeleteNotification(notification.id)
+        dispatchUpdated()
       } catch (error) {
-        console.error('Erreur lors du marquage de la notification comme lue:', error)
-        // Continuer quand même la redirection même en cas d'erreur
+        patchList((list) => [notification, ...list])
+        dispatchUpdated()
+        toast.error(error instanceof Error ? error.message : 'Échec de la suppression')
       }
-    }
-    
-    // Rediriger vers l'URL de la notification
-    if (notification.action_url) {
-      router.push(notification.action_url)
-    }
+    }, 5000)
+
+    toast('Notification supprimée', {
+      duration: 5000,
+      action: {
+        label: 'Annuler',
+        onClick: () => {
+          undone = true
+          clearTimeout(timer)
+          patchList((list) => [notification, ...list])
+          dispatchUpdated()
+        },
+      },
+    })
   }
 
-  const getTypeConfig = (type: Notification['type']) => {
-    switch (type) {
-      case 'success':
-        return {
-          icon: CheckCircle2,
-          iconBg: 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50',
-          iconColor: 'text-green-600 dark:text-green-400',
-          borderColor: 'border-green-200/50 dark:border-green-800/50',
-          glowColor: 'shadow-green-500/20',
-          badge: <Badge variant="outline" className="border-green-500/50 text-green-700 dark:text-green-400 bg-green-50/80 dark:bg-green-950/50 backdrop-blur-sm">{t('common.success')}</Badge>,
-        }
-      case 'warning':
-        return {
-          icon: AlertTriangle,
-          iconBg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/50 dark:to-amber-950/50',
-          iconColor: 'text-orange-600 dark:text-orange-400',
-          borderColor: 'border-orange-200/50 dark:border-orange-800/50',
-          glowColor: 'shadow-orange-500/20',
-          badge: <Badge variant="outline" className="border-orange-500/50 text-orange-700 dark:text-orange-400 bg-orange-50/80 dark:bg-orange-950/50 backdrop-blur-sm">{t('notifications.warning')}</Badge>,
-        }
-      case 'error':
-        return {
-          icon: XCircle,
-          iconBg: 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/50 dark:to-rose-950/50',
-          iconColor: 'text-red-600 dark:text-red-400',
-          borderColor: 'border-red-200/50 dark:border-red-800/50',
-          glowColor: 'shadow-red-500/20',
-          badge: <Badge variant="outline" className="border-red-500/50 text-red-700 dark:text-red-400 bg-red-50/80 dark:bg-red-950/50 backdrop-blur-sm">{t('common.error')}</Badge>,
-        }
-      default:
-        return {
-          icon: Info,
-          iconBg: 'bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/50 dark:to-cyan-950/50',
-          iconColor: 'text-blue-600 dark:text-blue-400',
-          borderColor: 'border-blue-200/50 dark:border-blue-800/50',
-          glowColor: 'shadow-blue-500/20',
-          badge: <Badge variant="outline" className="border-blue-500/50 text-blue-700 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/50 backdrop-blur-sm">{t('notifications.info')}</Badge>,
-        }
-    }
+  const handleOpen = (notification: EnrichedNotification) => {
+    void handleMarkAsRead(notification.id)
+    if (notification.action_url) router.push(notification.action_url)
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 lg:px-6 py-6 space-y-4">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Skeleton className="h-8 w-48 mb-2" />
-            <Skeleton className="h-4 w-64" />
-          </div>
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="rounded-xl">
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <Skeleton className="h-12 w-12 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    )
-  }
+  const unreadLabel = unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'Tout est lu'
+
+  const DESKTOP_FILTERS: { id: FilterId; label: string }[] = [
+    { id: 'all', label: 'Toutes' },
+    { id: 'unread', label: `Non lues · ${unreadVisibleCount}` },
+    { id: 'stock', label: 'Stock' },
+    { id: 'invoice', label: 'Factures' },
+    { id: 'team', label: 'Équipe' },
+  ]
+  const MOBILE_FILTERS: { id: FilterId; label: string }[] = [
+    { id: 'all', label: 'Toutes' },
+    { id: 'unread', label: 'Non lues' },
+  ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto px-4 lg:px-6 py-8 space-y-8">
-        {/* En-tête moderne */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
-                <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 backdrop-blur-sm">
-                  <Bell className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                  {t('nav.notifications')}
-                </h1>
-                {unreadCount > 0 && (
-                  <Badge 
-                    variant="default" 
-                    className="ml-2 px-3 py-1 text-sm font-semibold bg-primary text-primary-foreground shadow-lg shadow-primary/20 animate-pulse"
-                  >
-                    {unreadCount}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 ml-16">
-              {unreadCount > 0 ? (
-                <>
-                  <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-                  <p className="text-muted-foreground">
-                    {unreadCount} notification{unreadCount > 1 ? 's' : ''} non lue{unreadCount > 1 ? 's' : ''}
-                  </p>
-                </>
-              ) : (
-                <p className="text-muted-foreground flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  {t('notifications.allRead')}
-                </p>
-              )}
-            </div>
+    <>
+      {/* ============================= ORDINATEUR (≥ 768px / md) ============================= */}
+      <div className="hidden flex-col gap-5 md:flex">
+        <div className="flex flex-wrap items-center justify-between gap-3.5">
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">Notifications</h1>
+            <span className="text-sm text-subtle" aria-live="polite">
+              {unreadLabel}
+            </span>
           </div>
-          <div className="flex gap-2 items-center">
-            {permission !== 'granted' && (
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  const granted = await requestPermission()
-                  if (granted) {
-                    toast.success('Notifications push activées', {
-                      description: 'Vous recevrez désormais des notifications push pour les nouvelles alertes',
-                    })
-                  } else if (Notification.permission === 'denied') {
-                    toast.error('Permission refusée', {
-                      description: 'Veuillez autoriser les notifications dans les paramètres de votre navigateur',
-                    })
-                  }
-                }}
-                className="border-2 hover:bg-primary hover:text-primary-foreground transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                <Bell className="h-4 w-4 mr-2" />
-                Activer les notifications push
-              </Button>
-            )}
-            {permission === 'granted' && (
-              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>Notifications push activées</span>
+          <button
+            type="button"
+            onClick={handleMarkAllAsRead}
+            disabled={unreadCount === 0}
+            className="glass flex h-12 items-center rounded-full px-4.5 text-sm font-bold text-brand-700 disabled:opacity-50"
+          >
+            Tout marquer comme lu
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-start gap-5">
+          <section className="flex flex-[3_1_520px] flex-col gap-3 rounded-panel bg-surface p-5 shadow-card">
+            <div className="flex flex-wrap gap-2">
+              {DESKTOP_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={`min-h-10 rounded-full px-4 text-[13px] font-semibold ${
+                    filter === f.id ? 'bg-active text-white' : 'border border-line-strong bg-surface text-ink-2'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {isLoading ? (
+              <div className="flex flex-col gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-[92px] animate-pulse rounded-[20px] bg-surface-soft" />
+                ))}
               </div>
+            ) : filteredList.length === 0 ? (
+              <p className="py-10 text-center text-[15px] text-subtle">Rien de nouveau ici.</p>
+            ) : (
+              <ul className="m-0 flex list-none flex-col gap-3 p-0">
+                {filteredList.map((n) => {
+                  const style = KIND_STYLE[n.kind]
+                  return (
+                    <li
+                      key={n.id}
+                      className={`flex items-start gap-3.5 rounded-[20px] p-4 ${
+                        n.read ? 'border border-line bg-surface' : 'border border-brand-200 bg-brand-50'
+                      }`}
+                    >
+                      <span className={`flex size-11 shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${style.bg} ${style.text}`}>
+                        {style.glyph}
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="flex items-center gap-2">
+                          <span className={`text-[15px] ${n.read ? 'font-semibold' : 'font-bold'} text-ink`}>{n.title}</span>
+                          {!n.read ? <span aria-label="Non lue" className="size-2 shrink-0 rounded-full bg-danger-dot" /> : null}
+                        </span>
+                        <span className="text-sm leading-[1.45] text-ink-2">
+                          {n.message}
+                        </span>
+                        <span className="mt-1 flex flex-wrap items-center gap-3">
+                          <span className="text-xs text-subtle">{formatRelative(n.created_at)}</span>
+                          {n.actionLabel ? (
+                            <Link
+                              href={n.action_url!}
+                              onClick={() => void handleMarkAsRead(n.id)}
+                              className="py-1.5 text-[13px] font-bold text-brand-600 no-underline"
+                            >
+                              {n.actionLabel}
+                            </Link>
+                          ) : null}
+                          {!n.read ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleMarkAsRead(n.id)}
+                              className="min-h-8 border-0 bg-transparent p-0 text-[13px] font-semibold text-ink-3"
+                            >
+                              Marquer comme lue
+                            </button>
+                          ) : null}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(n)}
+                        aria-label="Supprimer la notification"
+                        className="flex size-10 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-subtle"
+                      >
+                        <X className="size-[18px]" strokeWidth={2} />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             )}
-            {unreadCount > 0 && (
-              <Button 
-                variant="outline" 
-                onClick={handleMarkAllAsRead}
-                disabled={isMarkingAllAsRead}
-                className="border-2 hover:bg-primary hover:text-primary-foreground transition-all duration-200 shadow-sm hover:shadow-md"
+
+            {hasNextPage ? (
+              <button
+                type="button"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="self-center rounded-full border border-line-strong bg-surface px-5 py-2.5 text-sm font-bold text-ink"
               >
-                {isMarkingAllAsRead ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    En cours...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    {t('notifications.markAllAsRead')}
-                  </>
-                )}
-              </Button>
-            )}
+                {isFetchingNextPage ? <Loader2 className="size-4 animate-spin" /> : 'Charger plus'}
+              </button>
+            ) : null}
+          </section>
+
+          <aside
+            aria-label="Préférences de notification"
+            className="glass-panel flex flex-[2_1_300px] flex-col gap-1.5 rounded-panel p-5.5"
+          >
+            <h2 className="mb-2 text-lg font-bold text-ink">Me prévenir quand…</h2>
+            {PREF_DEFS.map((p) => {
+              const on = settings?.[p.key] ?? true
+              return (
+              <div key={p.key} className="flex items-center gap-3 border-b border-line py-2.5">
+                <span id={`pref-${p.key}`} className="flex-1 text-sm font-semibold text-ink">
+                  {p.label}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={on}
+                  aria-labelledby={`pref-${p.key}`}
+                  onClick={() => togglePref(p.key)}
+                  className="flex p-[3px]"
+                  style={{
+                    width: 50,
+                    height: 30,
+                    borderRadius: 15,
+                    justifyContent: on ? 'flex-end' : 'flex-start',
+                    background: on ? '#5B3FE6' : '#C9C9D6',
+                  }}
+                >
+                  <span className="rounded-full bg-white" style={{ width: 24, height: 24, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                </button>
+              </div>
+              )
+            })}
+            <Link href="/settings?tab=preferences" className="mt-2 py-2 text-[13px] font-bold text-brand-600 no-underline">
+              Modifier le seuil de stock faible →
+            </Link>
+          </aside>
+        </div>
+      </div>
+
+      {/* ============================= MOBILE (< 768px / md) ============================= */}
+      <div className="flex flex-col gap-4 md:hidden">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              aria-label="Retour"
+              className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
+            >
+              <ChevronLeft className="size-[22px]" strokeWidth={2} />
+            </button>
+            <h1 className="flex-1 text-[22px] font-bold text-ink">Notifications</h1>
+            <button
+              type="button"
+              onClick={handleMarkAllAsRead}
+              disabled={unreadCount === 0}
+              className="flex min-h-11 items-center border-0 bg-transparent text-sm font-bold text-brand-500 disabled:opacity-40"
+            >
+              Tout marquer lu
+            </button>
+          </div>
+          <div className="flex gap-2">
+            {MOBILE_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                aria-pressed={filter === f.id}
+                onClick={() => setFilter(f.id)}
+                className={`min-h-10 rounded-full px-4 text-[13px] font-semibold ${
+                  filter === f.id ? 'bg-active text-white' : 'border border-line-strong bg-surface text-ink'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Liste des notifications */}
-        {notifications.length === 0 ? (
-          <Card className="rounded-2xl border-2 border-dashed bg-gradient-to-br from-muted/50 to-muted/30 backdrop-blur-sm">
-            <CardContent className="p-16 text-center">
-              <div className="relative inline-block mb-6">
-                <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full" />
-                <div className="relative p-6 rounded-full bg-muted/80 backdrop-blur-sm border-2 border-border">
-                  <Bell className="h-12 w-12 text-muted-foreground" />
-                </div>
-              </div>
-              <h3 className="text-xl font-bold mb-2">{t('notifications.noNotifications')}</h3>
-              <p className="text-muted-foreground max-w-md mx-auto">{t('notifications.noNotificationsDescription')}</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {notifications.map((notification, index) => {
-              const typeConfig = getTypeConfig(notification.type)
-              const Icon = typeConfig.icon
+        <div className="flex flex-col gap-2.5">
+          {isLoading ? (
+            [1, 2, 3, 4].map((i) => <div key={i} className="h-[100px] animate-pulse rounded-[18px] bg-surface-soft" />)
+          ) : filteredList.length === 0 ? (
+            <p className="px-5 py-15 text-center text-sm text-subtle">
+              {filter === 'unread' ? 'Aucune notification non lue.' : 'Rien de nouveau ici.'}
+            </p>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+              {filteredList.map((n) => (
+                <MobileNotificationCard key={n.id} notification={n} onOpen={handleOpen} onDelete={handleDelete} />
+              ))}
+            </ul>
+          )}
 
-              return (
-                <Card
-                  key={notification.id}
-                  className={cn(
-                    'group rounded-2xl transition-all duration-300 border-2 backdrop-blur-sm',
-                    'hover:shadow-xl hover:scale-[1.01]',
-                    !notification.read 
-                      ? cn(
-                          'border-l-4 border-l-primary bg-gradient-to-r from-primary/5 via-primary/5 to-transparent dark:from-primary/10 dark:via-primary/10',
-                          'shadow-lg shadow-primary/10',
-                          typeConfig.glowColor
-                        )
-                      : 'border-border/50 bg-card/50 hover:bg-card',
-                    typeConfig.borderColor
-                  )}
-                  style={{
-                    animationDelay: `${index * 50}ms`,
-                  }}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-5">
-                      {/* Icône de type avec effet moderne */}
-                      <div className={cn(
-                        'relative flex-shrink-0',
-                        'transition-transform duration-300 group-hover:scale-110'
-                      )}>
-                        <div className={cn(
-                          'absolute inset-0 rounded-2xl blur-md opacity-50',
-                          typeConfig.iconBg
-                        )} />
-                        <div className={cn(
-                          'relative p-4 rounded-2xl border-2 border-border/50 backdrop-blur-sm',
-                          typeConfig.iconBg,
-                          'group-hover:border-primary/50 transition-colors'
-                        )}>
-                          <Icon className={cn('h-6 w-6', typeConfig.iconColor)} />
-                        </div>
-                        {!notification.read && (
-                          <div className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full border-2 border-background animate-pulse" />
-                        )}
-                      </div>
-
-                      {/* Contenu */}
-                      <div className="flex-1 min-w-0 space-y-3">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0 space-y-2">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <h3
-                                className={cn(
-                                  'font-bold text-lg leading-tight',
-                                  !notification.read 
-                                    ? 'text-foreground' 
-                                    : 'text-muted-foreground'
-                                )}
-                              >
-                                {notification.title}
-                              </h3>
-                              {typeConfig.badge}
-                            </div>
-                            <p
-                              className={cn(
-                                'text-sm leading-relaxed',
-                                !notification.read
-                                  ? 'text-foreground/80'
-                                  : 'text-muted-foreground'
-                              )}
-                            >
-                              {notification.message}
-                            </p>
-                          </div>
-
-                          {/* Menu d'actions */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 flex-shrink-0 rounded-lg hover:bg-muted/80 transition-colors"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-xl">
-                              {!notification.read && (
-                                <DropdownMenuItem 
-                                  onClick={() => handleMarkAsRead(notification.id)}
-                                  disabled={isMarkingAsRead === notification.id}
-                                  className="rounded-lg"
-                                >
-                                  {isMarkingAsRead === notification.id ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      En cours...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Check className="h-4 w-4 mr-2" />
-                                      {t('notifications.markAsRead')}
-                                    </>
-                                  )}
-                                </DropdownMenuItem>
-                              )}
-                              {notification.action_url && (
-                                <DropdownMenuItem
-                                  onClick={() => handleViewDetails(notification)}
-                                  className="rounded-lg"
-                                >
-                                  <ArrowRight className="h-4 w-4 mr-2" />
-                                  {t('notifications.viewDetails')}
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(notification.id)}
-                                disabled={isDeleting === notification.id}
-                                className="text-destructive focus:text-destructive rounded-lg"
-                              >
-                                {isDeleting === notification.id ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Suppression...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    {t('common.delete')}
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        {/* Date et actions rapides */}
-                        <Separator className="opacity-50" />
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground font-medium">
-                              {formatDistanceToNow(new Date(notification.created_at), {
-                                addSuffix: true,
-                                locale: fr,
-                              })}
-                            </span>
-                          </div>
-                          {notification.action_url && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewDetails(notification)}
-                              className="h-8 text-xs rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-                            >
-                              {t('notifications.view')}
-                              <ArrowRight className="h-3 w-3 ml-2" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        )}
+          {hasNextPage ? (
+            <button
+              type="button"
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="self-center rounded-full border border-line-strong bg-surface px-5 py-2.5 text-sm font-bold text-ink"
+            >
+              {isFetchingNextPage ? <Loader2 className="size-4 animate-spin" /> : 'Charger plus'}
+            </button>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
+function MobileNotificationCard({
+  notification: n,
+  onOpen,
+  onDelete,
+}: {
+  notification: EnrichedNotification
+  onOpen: (n: EnrichedNotification) => void
+  onDelete: (n: Notification) => void
+}) {
+  const [dragX, setDragX] = React.useState(0)
+  const startX = React.useRef<number | null>(null)
+  const style = KIND_STYLE[n.kind]
+
+  return (
+    <li
+      className={`flex items-start gap-3 overflow-hidden rounded-[18px] p-3.5 ${
+        n.read ? 'border border-line bg-canvas' : 'border border-line-strong bg-surface'
+      }`}
+      style={{ transform: `translateX(${dragX}px)`, transition: dragX === 0 ? 'transform 0.2s ease-out' : 'none' }}
+      onTouchStart={(e) => {
+        startX.current = e.touches[0].clientX
+      }}
+      onTouchMove={(e) => {
+        if (startX.current === null) return
+        const dx = e.touches[0].clientX - startX.current
+        if (dx < 0) setDragX(dx)
+      }}
+      onTouchEnd={() => {
+        if (dragX < -80) onDelete(n)
+        setDragX(0)
+        startX.current = null
+      }}
+    >
+      <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold ${style.bg} ${style.text}`}>
+        {style.glyph}
+      </span>
+      <button
+        type="button"
+        onClick={() => onOpen(n)}
+        className="flex min-w-0 flex-1 flex-col gap-1 border-0 bg-transparent p-0 text-left text-ink"
+      >
+        <span className="flex items-center gap-2">
+          <span className={`text-sm ${n.read ? 'font-semibold' : 'font-bold'}`}>{n.title}</span>
+          {!n.read ? <span aria-label="Non lue" className="size-2 shrink-0 rounded-full bg-danger-dot" /> : null}
+        </span>
+        <span className="text-[13px] leading-[1.4] text-ink-2">
+          {n.message}
+        </span>
+        <span className="text-xs text-subtle">{formatRelative(n.created_at)}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onDelete(n)}
+        aria-label="Supprimer la notification"
+        className="flex size-11 shrink-0 items-center justify-center border-0 bg-transparent text-subtle"
+        style={{ margin: '-10px -10px 0 0' }}
+      >
+        <X className="size-[18px]" strokeWidth={2} />
+      </button>
+    </li>
+  )
+}

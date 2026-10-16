@@ -1,43 +1,75 @@
-import { AppSidebar } from "@/components/app-sidebar"
-import { SiteHeader } from "@/components/site-header"
+"use client"
+
+import { useQuery } from "@tanstack/react-query"
+
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { OnboardingGuard } from "@/components/onboarding/onboarding-guard"
 import { ConnectionIndicator } from "@/components/connection-indicator"
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar"
+import { GlassSidebar } from "@/components/waelly"
+import { BottomTabBar } from "@/components/navigation/BottomTabBar"
+import { TabPageTransition } from "@/components/navigation/TabPageTransition"
+import { useAuth } from "@/contexts/AuthContext"
+import { useNotifications } from "@/hooks/useNotifications"
+import { useArticles } from "@/lib/hooks/useArticles"
+import { useIsAppBusy } from "@/components/navigation-progress-bar"
+import { useTabScrollRestoration } from "@/hooks/useTabScrollRestoration"
+import { getCompany } from "@/lib/services/company"
+import { keys } from "@/lib/query-keys"
 
-export default function DashboardLayout({ 
-  children 
-}: { 
-  children: React.ReactNode 
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
 }) {
+  const { user, logout } = useAuth()
+  const { unreadCount } = useNotifications()
+  // Même hook (même clé TanStack Query ['products','list']) que la page
+  // Stock : aucun appel réseau supplémentaire, juste un second abonné au cache.
+  const { articles } = useArticles()
+  const isBusy = useIsAppBusy()
+  const stockAlerts = articles.filter((article) => article.low_stock).length
+
+  // Même clé que Settings > Entreprise (keys.settings.company()) : cache déjà
+  // chaud si l'utilisateur est passé par Paramètres, sinon un seul fetch ici.
+  const { data: company } = useQuery({
+    queryKey: keys.settings.company(),
+    queryFn: getCompany,
+    staleTime: 30 * 60 * 1000,
+  })
+
+  const initials = user
+    ? `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase()
+    : "?"
+
+  // Une seule fois ici (layout jamais démonté) : si c'était dans chaque
+  // page, la position de défilement serait perdue à chaque changement d'onglet.
+  useTabScrollRestoration()
+
   return (
     <ProtectedRoute>
       <OnboardingGuard>
-        <SidebarProvider
-          style={
-            {
-              "--sidebar-width": "calc(var(--spacing) * 72)",
-              "--header-height": "calc(var(--spacing) * 12)",
-            } as React.CSSProperties
-          }
-        >
-          <AppSidebar variant="inset" />
-          <SidebarInset>
-            <SiteHeader />
-            <div className="flex flex-1 flex-col">
-              <div className="@container/main flex flex-1 flex-col gap-2">
-                <div className="flex flex-col gap-4 py-4 px-4 lg:px-6 md:gap-6 md:py-6">
-                  {children}
-                </div>
-              </div>
+        <div className="bg-canvas min-h-screen lg:bg-desktop">
+          <div className="mx-auto flex max-w-[1480px] flex-wrap items-start gap-5 p-5">
+            <div className="sticky top-5 hidden max-h-[calc(100vh-40px)] lg:block lg:flex-[1_1_240px]">
+              <GlassSidebar
+                user={{
+                  initials,
+                  name: user ? `${user.first_name} ${user.last_name}` : "",
+                  company: user?.email,
+                  logoUrl: company?.logo_url,
+                }}
+                unreadNotifications={unreadCount}
+                stockAlerts={stockAlerts}
+                onLogout={logout}
+              />
             </div>
-          </SidebarInset>
-          {/* Indicateur de connexion au serveur */}
-          <ConnectionIndicator />
-        </SidebarProvider>
+            <main className="min-w-0 flex-[999_1_560px] pb-nav-safe md:pb-6" aria-busy={isBusy}>
+              <TabPageTransition>{children}</TabPageTransition>
+            </main>
+          </div>
+        </div>
+        <BottomTabBar />
+        <ConnectionIndicator />
       </OnboardingGuard>
     </ProtectedRoute>
   )

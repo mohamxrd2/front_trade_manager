@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Analyses</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), #F1F2F7">
+<div style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="analyses" hint-size="100%,820px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Analyses</h1>
+        <span style="font-size: 14px; color: #6B6B7B">{{rangeText}}</span>
+      </div>
+      <div role="group" aria-label="Période" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 24px; background: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.95)">
+        <sc-for list="{{periods}}" as="p" hint-placeholder-count="6">
+          <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}">{{p.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <sc-if value="{{isCustom}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; background: #FFFFFF; border-radius: 20px; padding: 14px 16px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="display: flex; flex-direction: column; gap: 6px"><label for="adu" style="font-size: 12px; font-weight: 600; color: #6B6B7B">Du</label><input id="adu" type="date" value="2026-09-15" style="height: 44px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 12px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A"></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><label for="aau" style="font-size: 12px; font-weight: 600; color: #6B6B7B">Au</label><input id="aau" type="date" value="2026-10-15" style="height: 44px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 12px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A"></div>
+        <button type="button" style="height: 44px; padding: 0 18px; border-radius: 22px; border: 0; background: #0E0E1A; color: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer">Appliquer</button>
+      </div>
+    </sc-if>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 14px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="{{k.card}}">
+          <span style="{{k.labelStyle}}">{{k.label}}</span>
+          <span style="font-weight: 700; font-size: 28px; letter-spacing: -0.02em">{{k.value}}</span>
+          <span style="{{k.deltaStyle}}">{{k.delta}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px">
+      <section style="flex: 2 1 560px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px">
+          <div style="display: flex; flex-direction: column; gap: 2px"><h2 style="margin: 0; font-size: 18px; font-weight: 700">Tendance des ventes</h2><span style="font-size: 13px; color: #4B4B5C"><span style="color: #0B8A43; font-weight: 700">{{trendDelta}}</span> {{trendText}}</span></div>
+          <span style="font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 16px; border: 1px solid #E2E2EA">{{periodLabel}}</span>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <div aria-hidden="true" style="width: 44px; height: 240px; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; color: #6B6B7B; padding: 4px 0 0"><span>{{y3}}</span><span>{{y2}}</span><span>{{y1}}</span><span>0</span></div>
+          <div style="flex: 1; min-width: 0; position: relative; height: 240px">
+            <svg viewBox="0 0 600 240" preserveAspectRatio="none" role="img" aria-label="{{chartAria}}" style="display: block; width: 100%; height: 240px">
+              <defs><linearGradient id="wag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6A4CF0" stop-opacity="0.30"></stop><stop offset="1" stop-color="#6A4CF0" stop-opacity="0"></stop></linearGradient></defs>
+              <line x1="0" y1="10" x2="600" y2="10" stroke="#ECECF2" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"></line>
+              <line x1="0" y1="83" x2="600" y2="83" stroke="#ECECF2" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"></line>
+              <line x1="0" y1="156" x2="600" y2="156" stroke="#ECECF2" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"></line>
+              <line x1="0" y1="229" x2="600" y2="229" stroke="#ECECF2" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"></line>
+              <path d="{{area}}" fill="url(#wag)"></path>
+              <path d="{{line}}" fill="none" stroke="#5B3FE6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <span style="{{dotStyle}}"></span>
+            <span style="{{tipStyle}}">{{tipValue}} F</span>
+          </div>
+        </div>
+        <div style="position: relative; height: 18px; margin-left: 52px">
+          <sc-for list="{{xLabels}}" as="x" hint-placeholder-count="6"><span style="{{x.style}}">{{x.label}}</span></sc-for>
+        </div>
+      </section>
+
+      <section style="flex: 1 1 300px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">Répartition des ventes</h2>
+        <div role="img" aria-label="Robes et boubous 46 %, tissus 28 %, accessoires 17 %, chemises 9 %" style="align-self: center; position: relative; width: 168px; height: 168px; border-radius: 84px; background: conic-gradient(#2A1A9E 0 46%, #6A4CF0 46% 74%, #A58CFF 74% 91%, #DCD4FF 91% 100%)">
+          <div style="position: absolute; inset: 24px; border-radius: 50%; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-weight: 700; font-size: 19px">{{caShort}}</span><span style="font-size: 12px; color: #6B6B7B">Total ventes</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2A1A9E"></span><span style="flex: 1">Robes &amp; boubous</span><span style="font-weight: 700">46 %</span></div>
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #6A4CF0"></span><span style="flex: 1">Tissus</span><span style="font-weight: 700">28 %</span></div>
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #A58CFF"></span><span style="flex: 1">Accessoires</span><span style="font-weight: 700">17 %</span></div>
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #DCD4FF; box-shadow: inset 0 0 0 1px #B9ACF5"></span><span style="flex: 1">Chemises</span><span style="font-weight: 700">9 %</span></div>
+        </div>
+      </section>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px">
+      <section style="flex: 1 1 320px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">Comparaison avec la période précédente</h2>
+        <sc-for list="{{compare}}" as="c" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; font-size: 14px"><span style="font-weight: 600">{{c.label}}</span><span style="{{c.deltaStyle}}">{{c.delta}}</span></div>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <span style="height: 8px; border-radius: 4px; background: #F0F0F4; display: block"><span style="{{c.now}}"></span></span>
+              <span style="height: 8px; border-radius: 4px; background: #F0F0F4; display: block"><span style="{{c.prev}}"></span></span>
+            </div>
+          </div>
+        </sc-for>
+        <div style="display: flex; gap: 16px; font-size: 12px; color: #4B4B5C"><span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 8px; border-radius: 4px; background: #5B3FE6"></span>Période actuelle</span><span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 8px; border-radius: 4px; background: #C9BDFB"></span>Période précédente</span></div>
+      </section>
+      <section style="flex: 1 1 320px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <h2 style="margin: 0 0 4px; font-size: 18px; font-weight: 700">Meilleurs articles</h2>
+        <div style="display: flex; align-items: center; gap: 12px; font-size: 14px"><span style="width: 28px; font-weight: 800; color: #5B3FE6">1</span><span style="flex: 1; font-weight: 600">Robe wax</span><span style="color: #4B4B5C">42 ventes</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; font-size: 14px"><span style="width: 28px; font-weight: 800; color: #5B3FE6">2</span><span style="flex: 1; font-weight: 600">Boubou brodé</span><span style="color: #4B4B5C">15 ventes</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; font-size: 14px"><span style="width: 28px; font-weight: 800; color: #5B3FE6">3</span><span style="flex: 1; font-weight: 600">Chemise bazin</span><span style="color: #4B4B5C">12 ventes</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; font-size: 14px"><span style="width: 28px; font-weight: 800; color: #5B3FE6">4</span><span style="flex: 1; font-weight: 600">Sac en raphia</span><span style="color: #4B4B5C">9 ventes</span></div>
+      </section>
+      <section style="flex: 1 1 320px; min-width: 0; border-radius: 26px; padding: 22px; color: #FFFFFF; display: flex; flex-direction: column; gap: 12px; background: radial-gradient(120% 140% at 100% 100%, #3A3AF0 0%, #1717A0 40%, #0A0A4A 85%); box-shadow: 0 14px 30px rgba(16,16,120,0.24)">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700">Prévision</h2>
+        <span style="font-weight: 800; font-size: 34px; letter-spacing: -0.03em">≈ 2,2 M F</span>
+        <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #DCDCF7">Ventes attendues en décembre 2026 si la tendance des 6 derniers mois se poursuit.</p>
+      </section>
+    </div>
+
+    <section style="background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+        <div style="display: flex; align-items: center; gap: 10px"><h2 style="margin: 0; font-size: 18px; font-weight: 700">Transactions de la période</h2><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #EEEAFE; color: #3A20B8">{{txCount}}</span></div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+          <span style="font-size: 13px; font-weight: 700; color: #0B6B39">Entrées {{inSum}}</span>
+          <span style="font-size: 13px; font-weight: 700; color: #A3213A">Sorties {{outSum}}</span>
+          <div role="group" aria-label="Type" style="display: flex; gap: 4px; padding: 4px; border-radius: 22px; background: #F3F3F7">
+            <sc-for list="{{types}}" as="t" hint-placeholder-count="3"><button type="button" onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="{{t.style}}">{{t.label}}</button></sc-for>
+          </div>
+        </div>
+      </div>
+      <div style="overflow-x: auto">
+        <table style="width: 100%; min-width: 620px; border-collapse: collapse; font-size: 14px">
+          <thead><tr style="text-align: left; color: #6B6B7B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em"><th style="padding: 10px 8px; font-weight: 600">Opération</th><th style="padding: 10px 8px; font-weight: 600">Type</th><th style="padding: 10px 8px; font-weight: 600">Date</th><th style="padding: 10px 8px; font-weight: 600; text-align: right">Montant</th></tr></thead>
+          <tbody>
+            <sc-for list="{{tx}}" as="r" hint-placeholder-count="6">
+              <tr style="border-top: 1px solid #F0F0F4">
+                <td style="padding: 10px 8px"><span style="display: flex; align-items: center; gap: 12px"><span style="{{r.icon}}">{{r.sign}}</span><span style="font-weight: 600">{{r.title}}</span></span></td>
+                <td style="padding: 10px 8px"><span style="{{r.pill}}">{{r.type}}</span></td>
+                <td style="padding: 10px 8px; color: #4B4B5C; white-space: nowrap">{{r.date}}</td>
+                <td style="{{r.amtStyle}}">{{r.amt}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 24px 0; text-align: center; font-size: 14px; color: #6B6B7B">Aucune transaction sur cette période.</p></sc-if>
+      </div>
+      <sc-if value="{{hasMore}}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{toggleAll}}" style="align-self: center; min-height: 44px; padding: 0 20px; border-radius: 22px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #3A20B8; cursor: pointer">{{moreLabel}}</button>
+      </sc-if>
+    </section>
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const p = s.p || '30';
+const type = s.type || 'all';
+const showAll = !!s.all;
+const fmt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+const short = (n) => n >= 1000000 ? String(Math.round(n / 100000) / 10).replace('.', ',') + ' M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n);
+const months = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const today = new Date(2026, 9, 15);
+const dayLabel = (ago) => { const d = new Date(today); d.setDate(d.getDate() - ago); return d.getDate() + ' ' + months[d.getMonth()]; };
+const P = {
+today: { label: 'Aujourd’hui', days: 0, range: 'Jeudi 15 octobre 2026', delta: '↑ 9 %', text: 'par rapport à hier', vals: [0, 25000, 36000, 36000, 61000, 86000], xl: ['8h', '10h', '12h', '14h', '16h', '18h'], kpi: [['Chiffre d’affaires', '86 000 F', '↑ 9 % vs hier', true], ['Dépenses', '8 500 F', '↓ 12 %', true], ['Bénéfice net', '77 500 F', '↑ 6 %', true], ['Ventes', '3', '+1', true]], cmp: [[86000, 79000], [8500, 9700], [3, 2]], ca: 86000 },
+'7': { label: '7 jours', days: 6, range: '9 → 15 octobre 2026', delta: '↑ 12 %', text: 'par rapport à la semaine dernière', vals: [140000, 190000, 120000, 230000, 205000, 270000, 312000], xl: ['Ven', 'Sam', 'Dim', 'Lun', 'Mar', 'Mer', 'Jeu'], kpi: [['Chiffre d’affaires', '486 000 F', '↑ 12 % vs sem. préc.', true], ['Dépenses', '173 500 F', '↓ 4 %', true], ['Bénéfice net', '312 500 F', '↑ 8 %', true], ['Ventes', '20', '+4', true]], cmp: [[486000, 434000], [173500, 181000], [20, 16]], ca: 486000 },
+'30': { label: '30 jours', days: 29, range: '16 sept. → 15 oct. 2026', delta: '↑ 18 %', text: 'par rapport au mois dernier', vals: [310000, 420000, 380000, 520000, 486000], xl: ['Sem. 1', 'Sem. 2', 'Sem. 3', 'Sem. 4', 'Sem. 5'], kpi: [['Chiffre d’affaires', '1 860 000 F', '↑ 18 % vs mois préc.', true], ['Dépenses', '615 000 F', '↓ 3,2 %', true], ['Bénéfice net', '1 245 000 F', '↑ 21 %', true], ['Ventes', '68', '+9', true]], cmp: [[1860000, 1576000], [615000, 635000], [68, 59]], ca: 1860000 },
+'90': { label: '3 mois', days: 89, range: '17 juil. → 15 oct. 2026', delta: '↑ 22 %', text: 'par rapport au trimestre précédent', vals: [1000000, 1350000, 1550000, 1860000], xl: ['Juil.', 'Août', 'Sept.', 'Oct.'], kpi: [['Chiffre d’affaires', '4 760 000 F', '↑ 22 % vs trim. préc.', true], ['Dépenses', '1 740 000 F', '↑ 6 %', false], ['Bénéfice net', '3 020 000 F', '↑ 19 %', true], ['Ventes', '177', '+31', true]], cmp: [[4760000, 3900000], [1740000, 1640000], [177, 146]], ca: 4760000 },
+'365': { label: '12 mois', days: 364, range: 'Oct. 2025 → oct. 2026', delta: '↑ 34 %', text: 'par rapport à l’année précédente', vals: [1100000, 1400000, 900000, 1000000, 1200000, 1050000, 950000, 1100000, 1000000, 1350000, 1550000, 1860000], xl: ['Nov.', 'Déc.', 'Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.'], kpi: [['Chiffre d’affaires', '17,4 M F', '↑ 34 % vs an préc.', true], ['Dépenses', '6,5 M F', '↑ 9 %', false], ['Bénéfice net', '10,9 M F', '↑ 29 %', true], ['Ventes', '674', '+152', true]], cmp: [[17400000, 13000000], [6500000, 5960000], [674, 522]], ca: 17400000 }
+};
+P.custom = Object.assign({}, P['30'], { label: 'Personnalisé', range: '15 sept. → 15 oct. 2026' });
+const cur = P[p];
+const vals = cur.vals;
+const max = Math.max.apply(null, vals);
+const ymax = [100000, 300000, 600000, 2000000].find((v) => v >= max) || max;
+const X0 = 8, X1 = 592, Y0 = 229, YT = 10;
+const pts = vals.map((v, i) => [X0 + (X1 - X0) * i / (vals.length - 1), Y0 - (Y0 - YT) * v / ymax]);
+let d = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+for (let i = 0; i < pts.length - 1; i++) {
+const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+d += ' C ' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + ' ' + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + ', ' + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + ' ' + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + ', ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+}
+const last = pts[pts.length - 1];
+const lx = (last[0] / 600 * 100).toFixed(2), ly = (last[1] / 240 * 100).toFixed(2);
+const all = [
+[0, 'Robe wax · Taille M', 'sale', 25000, '14:32'], [0, 'Transport marchandises', 'exp', 8500, '11:05'], [0, 'Sac en raphia ×2', 'sale', 36000, '10:20'],
+[1, 'Boubou brodé · L', 'sale', 45000, '17:48'], [1, 'Électricité boutique', 'exp', 32000, '09:12'], [3, 'Chemise bazin · M', 'sale', 22000, '10:02'],
+[5, 'Foulard soie ×3', 'sale', 21000, '16:15'], [9, 'Achat tissu wax', 'exp', 180000, '15:20'], [12, 'Robe wax · Taille S ×3', 'sale', 75000, '11:40'],
+[18, 'Loyer boutique', 'exp', 150000, '09:00'], [24, 'Pagne wax ×4', 'sale', 60000, '13:10'], [40, 'Hôtel Assinie Beach', 'sale', 275000, '10:30'],
+[65, 'Machine à coudre', 'exp', 220000, '14:00'], [120, 'Atelier Yopougon', 'sale', 190000, '12:25'], [200, 'Commande bazin', 'exp', 300000, '08:45']
+];
+const inPeriod = all.filter((t) => t[0] <= cur.days);
+const shown = inPeriod.filter((t) => type === 'all' || t[2] === type);
+const list = showAll ? shown : shown.slice(0, 6);
+const sumIn = inPeriod.filter((t) => t[2] === 'sale').reduce((a, t) => a + t[3], 0);
+const sumOut = inPeriod.filter((t) => t[2] === 'exp').reduce((a, t) => a + t[3], 0);
+const chipOn = 'min-height: 40px; padding: 0 16px; border-radius: 20px; border: 0; background: #0E0E1A; color: #FFFFFF; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap';
+const chipOff = 'min-height: 40px; padding: 0 16px; border-radius: 20px; border: 0; background: transparent; color: #3F3F50; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap';
+const segOn = 'min-height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: #FFFFFF; color: #0E0E1A; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(17,17,80,0.1)';
+const segOff = 'min-height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: transparent; color: #4B4B5C; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer';
+const cmpLabels = ['Chiffre d’affaires', 'Dépenses', 'Nombre de ventes'];
+return {
+isCustom: p === 'custom', rangeText: cur.range, periodLabel: cur.label,
+periods: ['today', '7', '30', '90', '365', 'custom'].map((id) => ({ label: P[id].label, pressed: id === p ? 'true' : 'false', style: id === p ? chipOn : chipOff, pick: () => this.setState({ p: id, all: false }) })),
+kpis: cur.kpi.map(([label, value, delta, good], i) => ({
+label, value, delta,
+card: i === 0 ? 'border-radius: 22px; padding: 18px; color: #FFFFFF; display: flex; flex-direction: column; gap: 6px; background: radial-gradient(120% 120% at 100% 100%, #3A3AF0 0%, #1717A0 40%, #0A0A4A 85%); box-shadow: 0 14px 30px rgba(16,16,120,0.24)' : 'background: #FFFFFF; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)',
+labelStyle: 'font-size: 13px; font-weight: 600; color: ' + (i === 0 ? '#C8C8F0' : '#6B6B7B'),
+deltaStyle: 'font-size: 13px; font-weight: 700; color: ' + (i === 0 ? '#9FF0C4' : good ? '#0B8A43' : '#D92D20')
+})),
+trendDelta: cur.delta, trendText: cur.text,
+chartAria: 'Évolution des ventes sur ' + cur.label.toLowerCase() + ', dernière valeur ' + fmt(vals[vals.length - 1]) + ' FCFA',
+y3: short(ymax), y2: short(ymax * 2 / 3), y1: short(ymax / 3),
+line: d, area: d + ' L ' + X1 + ' ' + Y0 + ' L ' + X0 + ' ' + Y0 + ' Z',
+dotStyle: 'position: absolute; width: 14px; height: 14px; box-sizing: border-box; border-radius: 7px; background: #FFFFFF; border: 3px solid #5B3FE6; transform: translate(-50%, -50%); left: ' + lx + '%; top: ' + ly + '%',
+tipStyle: 'position: absolute; padding: 6px 12px; border-radius: 14px; background: #0E0E1A; color: #FFFFFF; font-size: 12px; font-weight: 700; white-space: nowrap; transform: translate(-100%, ' + (last[1] < 40 ? '20%' : '-150%') + '); left: ' + lx + '%; top: ' + ly + '%',
+tipValue: fmt(vals[vals.length - 1]),
+xLabels: cur.xl.map((l, i) => ({ label: l, style: 'position: absolute; top: 0; font-size: 12px; white-space: nowrap; transform: translateX(-50%); left: ' + ((X0 + (X1 - X0) * i / (cur.xl.length - 1)) / 600 * 100).toFixed(2) + '%; ' + (i === cur.xl.length - 1 ? 'color: #0E0E1A; font-weight: 700' : 'color: #6B6B7B') })),
+caShort: short(cur.ca),
+compare: cur.cmp.map(([now, prev], i) => {
+const m = Math.max(now, prev); const up = now >= prev; const good = i === 1 ? !up : up;
+const pct = prev ? Math.round((now - prev) / prev * 100) : 0;
+return { label: cmpLabels[i], delta: (up ? '↑ ' : '↓ ') + Math.abs(pct) + ' %', deltaStyle: 'font-weight: 700; color: ' + (good ? '#0B8A43' : '#D92D20'), now: 'display: block; height: 100%; border-radius: 4px; background: #5B3FE6; width: ' + Math.round(now / m * 100) + '%', prev: 'display: block; height: 100%; border-radius: 4px; background: #C9BDFB; width: ' + Math.round(prev / m * 100) + '%' };
+}),
+txCount: inPeriod.length + (inPeriod.length > 1 ? ' opérations' : ' opération'),
+inSum: '+' + fmt(sumIn) + ' F', outSum: '−' + fmt(sumOut) + ' F',
+types: [['all', 'Tout'], ['sale', 'Ventes'], ['exp', 'Dépenses']].map(([id, label]) => ({ label, pressed: id === type ? 'true' : 'false', style: id === type ? segOn : segOff, pick: () => this.setState({ type: id, all: false }) })),
+tx: list.map(([ago, title, k, amt, time]) => ({
+title, type: k === 'sale' ? 'Vente' : 'Dépense', sign: k === 'sale' ? '+' : '−',
+date: (ago === 0 ? 'Aujourd’hui' : ago === 1 ? 'Hier' : dayLabel(ago)) + ' · ' + time,
+amt: (k === 'sale' ? '+' : '−') + fmt(amt) + ' F',
+icon: 'width: 36px; height: 36px; flex-shrink: 0; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; ' + (k === 'sale' ? 'background: #E3F5EA; color: #0B6B39' : 'background: #FDE8EC; color: #D92D20'),
+pill: 'font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; ' + (k === 'sale' ? 'background: #E3F5EA; color: #0B6B39' : 'background: #FDE8EC; color: #A3213A'),
+amtStyle: 'padding: 10px 8px; text-align: right; font-weight: 700; white-space: nowrap; color: ' + (k === 'sale' ? '#0B8A43' : '#D92D20')
+})),
+empty: shown.length === 0, hasMore: shown.length > 6,
+moreLabel: showAll ? 'Réduire' : 'Voir les ' + shown.length + ' transactions',
+toggleAll: () => this.setState({ all: !showAll })
+};
+}
+}
+</script>
+</body>
+</html>

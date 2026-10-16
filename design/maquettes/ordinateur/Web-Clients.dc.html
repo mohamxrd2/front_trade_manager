@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Clients</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), #F1F2F7">
+<div style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="clients" hint-size="100%,820px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Clients</h1>
+        <span style="font-size: 14px; color: #6B6B7B">Votre annuaire pour facturer plus vite</span>
+      </div>
+      <a href="Web-NouveauClient.dc.html" style="height: 48px; padding: 0 20px; border-radius: 24px; display: flex; align-items: center; text-decoration: none; font-weight: 700; font-size: 14px; color: #FFFFFF; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.35)">+ Nouveau client</a>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <section style="flex: 3 1 480px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="position: relative; display: flex">
+          <label for="cq" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Rechercher un client</label>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B6B7B" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 14px; top: 13px"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+          <input id="cq" placeholder="Rechercher par nom, téléphone, e-mail" style="flex: 1; height: 44px; box-sizing: border-box; border-radius: 22px; padding: 0 16px 0 42px; font-family: inherit; font-size: 14px; color: #0E0E1A; background: #F3F3F7; border: 1px solid #ECECF2">
+        </div>
+        <div style="overflow-x: auto">
+          <table style="width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14px">
+            <thead><tr style="text-align: left; color: #6B6B7B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em"><th style="padding: 10px 8px; font-weight: 600">Client</th><th style="padding: 10px 8px; font-weight: 600">Contact</th><th style="padding: 10px 8px; font-weight: 600">Paiement</th><th style="padding: 10px 8px; font-weight: 600; text-align: right">Facturé</th></tr></thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                <tr style="{{r.rowStyle}}">
+                  <td style="padding: 0 8px"><button type="button" onClick="{{r.pick}}" aria-pressed="{{r.pressed}}" style="min-height: 56px; width: 100%; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 0; font-family: inherit; text-align: left; color: #0E0E1A; cursor: pointer"><span style="{{r.avatar}}">{{r.ini}}</span><span style="font-weight: 700; font-size: 14px">{{r.name}}</span></button></td>
+                  <td style="padding: 0 8px; color: #4B4B5C; white-space: nowrap">{{r.phone}}</td>
+                  <td style="padding: 0 8px; color: #4B4B5C">{{r.pay}}</td>
+                  <td style="padding: 0 8px; text-align: right; font-weight: 700; white-space: nowrap">{{r.billed}}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside aria-label="Fiche client" style="flex: 2 1 340px; min-width: 0; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.5)); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,0.9); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 20px 50px rgba(17,17,80,0.10)">
+        <div style="display: flex; align-items: center; gap: 14px">
+          <span style="width: 56px; height: 56px; border-radius: 28px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-weight: 800; font-size: 18px; background: radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8)">{{sel.ini}}</span>
+          <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 800; font-size: 20px">{{sel.name}}</span><span style="font-size: 13px; color: #6B6B7B">Client depuis {{sel.since}}</span></span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <div style="background: #FFFFFF; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #6B6B7B">Total facturé</span><span style="font-weight: 700; font-size: 17px">{{sel.billed}}</span></div>
+          <div style="background: #FFFFFF; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #6B6B7B">Reste à payer</span><span style="font-weight: 700; font-size: 17px; color: #8A4B00">{{sel.due}}</span></div>
+        </div>
+        <dl style="margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; font-size: 14px">
+          <dt style="color: #6B6B7B">Téléphone</dt><dd style="margin: 0; font-weight: 600">{{sel.phone}}</dd>
+          <dt style="color: #6B6B7B">E-mail</dt><dd style="margin: 0; font-weight: 600">{{sel.email}}</dd>
+          <dt style="color: #6B6B7B">Paiement</dt><dd style="margin: 0; font-weight: 600">{{sel.pay}}</dd>
+          <dt style="color: #6B6B7B">Facturation</dt><dd style="margin: 0; font-weight: 600">{{sel.addr}}</dd>
+          <dt style="color: #6B6B7B">Livraison</dt><dd style="margin: 0; font-weight: 600">{{sel.ship}}</dd>
+        </dl>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-weight: 700; font-size: 15px">Dernières factures</span>
+          <sc-for list="{{sel.invoices}}" as="i" hint-placeholder-count="2"><div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #ECECF2; font-size: 14px"><span style="font-weight: 600; color: #3A20B8">{{i.num}}</span><span style="{{i.pill}}">{{i.status}}</span><span style="font-weight: 700">{{i.amount}}</span></div></sc-for>
+        </div>
+        <div style="display: flex; gap: 10px">
+          <button type="button" style="flex: 1; min-height: 46px; border-radius: 23px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; color: #0E0E1A; cursor: pointer">Modifier</button>
+          <a href="Web-NouvelleFacture.dc.html" style="flex: 1; min-height: 46px; border-radius: 23px; display: flex; align-items: center; justify-content: center; text-decoration: none; background: #0E0E1A; color: #FFFFFF; font-weight: 700; font-size: 14px">Facturer</a>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+renderVals() {
+const cur = (this.state && this.state.sel) || 'BP';
+const av = [['#EEEAFE', '#4B2FD6'], ['#E6EEFF', '#1F3FB8'], ['#FFF0E0', '#8A4B00'], ['#E8F6EE', '#0B6B39'], ['#FDE8EC', '#A3213A']];
+const pills = { sent: ['Envoyée', '#FFF0E0', '#8A4B00'], paid: ['Payée', '#E3F5EA', '#0B6B39'], draft: ['Brouillon', '#EDEDF2', '#3F3F50'] };
+const all = [
+{ ini: 'BP', name: 'Boutique Le Plateau', phone: '+225 07 00 00 00 01', email: 'contact@boutiqueplateau.ci', pay: 'Virement', addr: 'Avenue Chardy, Plateau, Abidjan', ship: 'Même adresse', since: 'mars 2026', billed: '612 000 F', due: '148 000 F', inv: [['F-0145', 'draft', '148 000'], ['F-0131', 'paid', '264 000']] },
+{ ini: 'KA', name: 'Mme Kouassi Aya', phone: '+225 05 00 00 00 02', email: 'aya.kouassi@mail.ci', pay: 'Mobile Money', addr: 'Riviera 3, Cocody', ship: 'Riviera 3, Cocody', since: 'juin 2026', billed: '187 500 F', due: '62 500 F', inv: [['F-0144', 'sent', '62 500'], ['F-0120', 'paid', '125 000']] },
+{ ini: 'HA', name: 'Hôtel Assinie Beach', phone: '+225 27 00 00 00 03', email: 'achats@assiniebeach.ci', pay: 'Virement', addr: 'Assinie-Mafia', ship: 'Réception de l’hôtel', since: 'janv. 2026', billed: '1 140 000 F', due: '275 000 F', inv: [['F-0143', 'sent', '275 000'], ['F-0098', 'paid', '420 000']] },
+{ ini: 'TI', name: 'M. Traoré Ibrahim', phone: '+225 01 00 00 00 04', email: 'i.traore@mail.ci', pay: 'Espèces', addr: 'Yopougon, Abidjan', ship: 'Retrait en boutique', since: 'sept. 2026', billed: '36 000 F', due: '0 F', inv: [['F-0142', 'paid', '36 000']] },
+{ ini: 'AY', name: 'Atelier Yopougon', phone: '+225 07 00 00 00 05', email: 'atelier.yop@mail.ci', pay: 'Mobile Money', addr: 'Yopougon Selmer', ship: 'Yopougon Selmer', since: 'févr. 2026', billed: '540 000 F', due: '0 F', inv: [['F-0141', 'paid', '190 000']] },
+{ ini: 'BF', name: 'Mme Bamba Fatou', phone: '+225 05 00 00 00 06', email: 'fatou.bamba@mail.ci', pay: 'Espèces', addr: 'Marcory Zone 4', ship: 'Marcory Zone 4', since: 'août 2026', billed: '75 000 F', due: '75 000 F', inv: [['F-0140', 'sent', '75 000']] }
+];
+const sel = all.find((c) => c.ini === cur) || all[0];
+return {
+rows: all.map((c, i) => ({
+ini: c.ini, name: c.name, phone: c.phone, pay: c.pay, billed: c.billed,
+pressed: c.ini === sel.ini ? 'true' : 'false',
+rowStyle: 'border-top: 1px solid #F0F0F4; background: ' + (c.ini === sel.ini ? '#F4F1FF' : 'transparent'),
+avatar: 'width: 38px; height: 38px; flex-shrink: 0; border-radius: 19px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: ' + av[i % 5][0] + '; color: ' + av[i % 5][1],
+pick: () => this.setState({ sel: c.ini })
+})),
+sel: Object.assign({}, sel, { invoices: sel.inv.map(([num, st, amount]) => ({ num, amount: amount + ' F', status: pills[st][0], pill: 'font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: ' + pills[st][1] + '; color: ' + pills[st][2] })) })
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Nouvelle facture</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), #F1F2F7">
+<div style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="factures" hint-size="100%,820px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <nav aria-label="Fil d'Ariane" style="display: flex; gap: 8px; font-size: 13px; color: #6B6B7B"><a href="Web-Factures.dc.html" style="text-decoration: none; font-weight: 600">Factures</a><span aria-hidden="true">/</span><span>F-0146</span></nav>
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Nouvelle facture <span style="font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #EDEDF2; color: #3F3F50; vertical-align: middle">Brouillon</span></h1>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <button type="button" style="height: 48px; padding: 0 18px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.95); background: rgba(255,255,255,0.8); font-family: inherit; font-weight: 600; font-size: 14px; color: #0E0E1A; cursor: pointer">Enregistrer le brouillon</button>
+        <button type="button" style="height: 48px; padding: 0 18px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.95); background: rgba(255,255,255,0.8); font-family: inherit; font-weight: 600; font-size: 14px; color: #0E0E1A; cursor: pointer">Télécharger PDF</button>
+        <a href="Web-Factures.dc.html" style="height: 48px; padding: 0 22px; border-radius: 24px; display: flex; align-items: center; color: #FFFFFF; font-weight: 700; font-size: 14px; text-decoration: none; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.35)">Envoyer la facture</a>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <section style="flex: 3 1 520px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 14px">
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="fc" style="font-size: 13px; font-weight: 600">Client</label><select id="fc" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A; background: #FFFFFF"><option>Boutique Le Plateau</option><option>Mme Kouassi Aya</option><option>Hôtel Assinie Beach</option><option>+ Nouveau client…</option></select></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="fe" style="font-size: 13px; font-weight: 600">Date d'émission</label><input id="fe" type="date" value="2026-10-15" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A"></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="fd" style="font-size: 13px; font-weight: 600">Échéance</label><input id="fd" type="date" value="2026-10-30" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 13px; font-weight: 600">Lignes</span>
+          <div style="overflow-x: auto; border: 1px solid #ECECF2; border-radius: 18px">
+            <table style="width: 100%; min-width: 520px; border-collapse: collapse; font-size: 14px">
+              <thead><tr style="text-align: left; color: #6B6B7B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; background: #F6F5FB"><th style="padding: 10px 12px; font-weight: 600">Désignation</th><th style="padding: 10px 12px; font-weight: 600">Qté</th><th style="padding: 10px 12px; font-weight: 600">Prix unit.</th><th style="padding: 10px 12px; font-weight: 600; text-align: right">Total</th><th style="padding: 10px 12px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Actions</span></th></tr></thead>
+              <tbody>
+                <sc-for list="{{lines}}" as="l" hint-placeholder-count="2">
+                  <tr style="border-top: 1px solid #F0F0F4">
+                    <td style="padding: 10px 12px"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">{{l.label}}</span><span style="font-size: 12px; color: #6B6B7B">{{l.src}}</span></span></td>
+                    <td style="padding: 10px 12px"><span style="display: flex; align-items: center; gap: 4px"><button type="button" onClick="{{l.dec}}" aria-label="Diminuer" style="width: 32px; height: 32px; border-radius: 16px; border: 1px solid #E2E2EA; background: #FFFFFF; font-weight: 700; color: #0E0E1A; cursor: pointer">−</button><span style="width: 24px; text-align: center; font-weight: 700">{{l.q}}</span><button type="button" onClick="{{l.inc}}" aria-label="Augmenter" style="width: 32px; height: 32px; border-radius: 16px; border: 1px solid #E2E2EA; background: #FFFFFF; font-weight: 700; color: #0E0E1A; cursor: pointer">+</button></span></td>
+                    <td style="padding: 10px 12px; white-space: nowrap">{{l.unit}}</td>
+                    <td style="padding: 10px 12px; text-align: right; font-weight: 700; white-space: nowrap">{{l.total}}</td>
+                    <td style="padding: 10px 12px; text-align: right"><button type="button" onClick="{{l.remove}}" aria-label="Supprimer la ligne" style="width: 36px; height: 36px; border-radius: 18px; border: 0; background: transparent; color: #6B6B7B; cursor: pointer; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <button type="button" onClick="{{addStock}}" style="min-height: 42px; padding: 0 16px; border-radius: 21px; border: 1px solid #C9BDFB; background: #F4F1FF; font-family: inherit; font-weight: 700; font-size: 13px; color: #3A20B8; cursor: pointer">+ Depuis le stock</button>
+            <button type="button" onClick="{{addFree}}" style="min-height: 42px; padding: 0 16px; border-radius: 21px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 13px; color: #0E0E1A; cursor: pointer">+ Ligne libre</button>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 14px; align-items: end">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <span style="display: flex; justify-content: space-between; align-items: center"><label for="fr" style="font-size: 13px; font-weight: 600">Remise</label><span role="group" aria-label="Type de remise" style="display: flex; gap: 2px; padding: 2px; border-radius: 12px; background: #F3F3F7"><button type="button" onClick="{{setPct}}" aria-pressed="{{pctOn}}" style="{{pctStyle}}">%</button><button type="button" onClick="{{setAmt}}" aria-pressed="{{amtOn}}" style="{{amtStyle}}">F</button></span></span>
+            <input id="fr" value="{{remVal}}" style="height: 48px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="ft" style="font-size: 13px; font-weight: 600">Taxe (%)</label><input id="ft" value="0" style="height: 48px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A"></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="fp" style="font-size: 13px; font-weight: 600">Frais de port (F)</label><input id="fp" value="5 000" style="height: 48px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A"></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><label for="fn" style="font-size: 13px; font-weight: 600">Note pour le client</label><textarea id="fn" rows="2" style="box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 12px; font-family: inherit; font-size: 14px; color: #0E0E1A; resize: vertical">Merci pour votre confiance.</textarea></div>
+      </section>
+
+      <aside aria-label="Aperçu" style="flex: 2 1 380px; min-width: 0; border-radius: 26px; padding: 18px; display: flex; flex-direction: column; gap: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.5)); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,0.9); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 20px 50px rgba(17,17,80,0.10)">
+        <div style="display: flex; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Aperçu</h2><span style="display: flex; gap: 8px"><sc-for list="{{themes}}" as="t" hint-placeholder-count="4"><button type="button" onClick="{{t.pick}}" aria-label="{{t.label}}" aria-pressed="{{t.pressed}}" style="{{t.ring}}"><span style="{{t.dot}}"></span></button></sc-for></span></div>
+        <div style="background: #FFFFFF; border-radius: 20px; overflow: hidden; box-shadow: 0 6px 20px rgba(17,17,80,0.08)">
+          <div style="{{headStyle}}">
+            <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 800; font-size: 18px">Awa Couture</span><span style="font-size: 12px; opacity: 0.8">Cocody, Abidjan</span></span>
+            <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"><span style="font-size: 12px; opacity: 0.8">Facture</span><span style="font-weight: 700; font-size: 16px">F-0146</span></span>
+          </div>
+          <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; font-size: 13px">
+            <div style="display: flex; justify-content: space-between"><span style="display: flex; flex-direction: column; gap: 2px"><span style="color: #6B6B7B">Facturé à</span><span style="font-weight: 700; font-size: 14px">Boutique Le Plateau</span></span><span style="display: flex; flex-direction: column; gap: 2px; text-align: right"><span style="color: #6B6B7B">Échéance</span><span style="font-weight: 600">30 oct. 2026</span></span></div>
+            <div style="display: flex; flex-direction: column; border-top: 1px solid #F0F0F4">
+              <sc-for list="{{lines}}" as="l" hint-placeholder-count="2"><div style="display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #F0F0F4"><span>{{l.label}} <span style="color: #6B6B7B">×{{l.q}}</span></span><span style="font-weight: 700">{{l.total}}</span></div></sc-for>
+            </div>
+            <div style="display: flex; justify-content: space-between; color: #4B4B5C"><span>Sous-total</span><span>{{sub}}</span></div>
+            <div style="display: flex; justify-content: space-between; color: #4B4B5C"><span>Remise</span><span>{{remLine}}</span></div>
+            <div style="display: flex; justify-content: space-between; color: #4B4B5C"><span>Frais de port</span><span>+5 000</span></div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 6px; border-top: 1px solid #F0F0F4"><span style="font-weight: 700; font-size: 14px">Total</span><span style="font-weight: 800; font-size: 24px; letter-spacing: -0.02em">{{total}} F</span></div>
+            <span style="font-size: 12px; color: #6B6B7B">IBAN : [VOTRE IBAN] · Merci pour votre confiance.</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const fmt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+const lines = s.lines || [{ id: 1, label: 'Robe wax · Taille M', src: 'Depuis le stock', unit: 25000, q: 4 }, { id: 2, label: 'Retouches sur mesure', src: 'Ligne libre', unit: 48000, q: 1 }];
+const mode = s.mode || 'pct';
+const theme = s.theme || 'nuit';
+const upd = (id, d) => this.setState({ lines: lines.map((l) => l.id === id ? Object.assign({}, l, { q: Math.max(1, l.q + d) }) : l) });
+const sub = lines.reduce((t, l) => t + l.unit * l.q, 0);
+const disc = mode === 'pct' ? sub * 0.1 : 10000;
+const th = {
+nuit: ['Bleu nuit', 'radial-gradient(120% 160% at 100% 100%, #3A3AF0 0%, #1717A0 40%, #0A0A4A 85%)', '#FFFFFF'],
+violet: ['Violet', 'linear-gradient(150deg, #5B3FE6, #9B84FF)', '#FFFFFF'],
+encre: ['Encre', '#0E0E1A', '#FFFFFF'],
+clair: ['Clair', '#F4F1FF', '#0E0E1A']
+};
+const sw = { nuit: '#1717A0', violet: '#7A5CF5', encre: '#0E0E1A', clair: '#E4DCFF' };
+const on = 'min-width: 34px; min-height: 30px; border-radius: 10px; border: 0; background: #FFFFFF; color: #0E0E1A; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 3px rgba(17,17,80,0.12)';
+const off = 'min-width: 34px; min-height: 30px; border-radius: 10px; border: 0; background: transparent; color: #4B4B5C; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer';
+let nextId = lines.reduce((m, l) => Math.max(m, l.id), 0) + 1;
+return {
+lines: lines.map((l) => ({ label: l.label, src: l.src, q: l.q, unit: fmt(l.unit) + ' F', total: fmt(l.unit * l.q), inc: () => upd(l.id, 1), dec: () => upd(l.id, -1), remove: () => this.setState({ lines: lines.filter((x) => x.id !== l.id) }) })),
+addStock: () => this.setState({ lines: lines.concat([{ id: nextId, label: 'Sac en raphia', src: 'Depuis le stock', unit: 18000, q: 1 }]) }),
+addFree: () => this.setState({ lines: lines.concat([{ id: nextId, label: 'Livraison express', src: 'Ligne libre', unit: 3000, q: 1 }]) }),
+pctOn: mode === 'pct' ? 'true' : 'false', amtOn: mode === 'amt' ? 'true' : 'false',
+pctStyle: mode === 'pct' ? on : off, amtStyle: mode === 'amt' ? on : off,
+setPct: () => this.setState({ mode: 'pct' }), setAmt: () => this.setState({ mode: 'amt' }),
+remVal: mode === 'pct' ? '10' : '10 000',
+sub: fmt(sub), remLine: '−' + fmt(disc), total: fmt(sub - disc + 5000),
+headStyle: 'padding: 18px 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; background: ' + th[theme][1] + '; color: ' + th[theme][2],
+themes: Object.keys(th).map((id) => ({
+label: 'Thème ' + th[id][0], pressed: id === theme ? 'true' : 'false',
+ring: 'width: 36px; height: 36px; padding: 0; border-radius: 18px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid ' + (id === theme ? '#0E0E1A' : '#E2E2EA'),
+dot: 'width: 24px; height: 24px; border-radius: 12px; background: ' + sw[id],
+pick: () => this.setState({ theme: id })
+}))
+};
+}
+}
+</script>
+</body>
+</html>

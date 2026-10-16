@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Vérification</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 40px 20px; display: flex; align-items: center; justify-content: center; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 500px at 20% 10%, rgba(106,76,240,0.28), rgba(106,76,240,0) 70%), radial-gradient(800px 600px at 90% 90%, rgba(58,58,240,0.22), rgba(58,58,240,0) 70%), #F1F2F7">
+  <div style="width: 100%; max-width: 500px; box-sizing: border-box; border-radius: 32px; padding: 40px; display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center; background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.5)); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,0.9); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 30px 70px rgba(17,17,80,0.14)">
+    <span style="width: 72px; height: 72px; border-radius: 24px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; background: radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8); box-shadow: 0 12px 26px rgba(75,47,214,0.35)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg></span>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <h1 style="margin: 0; font-weight: 800; font-size: 30px; letter-spacing: -0.02em">Vérifiez votre e-mail</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #4B4B5C">Saisissez le code à 6 chiffres envoyé à <strong style="color: #0E0E1A">awa@awacouture.ci</strong></p>
+    </div>
+    <fieldset style="border: 0; margin: 0; padding: 0; width: 100%">
+      <legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Code de vérification</legend>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px">
+        <input aria-label="Chiffre 1" value="4" maxlength="1" style="height: 64px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 18px; text-align: center; font-family: inherit; font-size: 26px; font-weight: 700; background: #FFFFFF; color: #0E0E1A">
+        <input aria-label="Chiffre 2" value="8" maxlength="1" style="height: 64px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 18px; text-align: center; font-family: inherit; font-size: 26px; font-weight: 700; background: #FFFFFF; color: #0E0E1A">
+        <input aria-label="Chiffre 3" value="2" maxlength="1" style="height: 64px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 18px; text-align: center; font-family: inherit; font-size: 26px; font-weight: 700; background: #FFFFFF; color: #0E0E1A">
+        <input aria-label="Chiffre 4" value="" maxlength="1" style="height: 64px; min-width: 0; box-sizing: border-box; border: 2px solid #5B3FE6; border-radius: 18px; text-align: center; font-family: inherit; font-size: 26px; font-weight: 700; background: #FFFFFF; color: #0E0E1A">
+        <input aria-label="Chiffre 5" value="" maxlength="1" style="height: 64px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 18px; text-align: center; font-family: inherit; font-size: 26px; font-weight: 700; background: #FFFFFF; color: #0E0E1A">
+        <input aria-label="Chiffre 6" value="" maxlength="1" style="height: 64px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 18px; text-align: center; font-family: inherit; font-size: 26px; font-weight: 700; background: #FFFFFF; color: #0E0E1A">
+      </div>
+    </fieldset>
+    <a href="Web-Onboarding.dc.html" style="width: 100%; height: 54px; border-radius: 27px; display: flex; align-items: center; justify-content: center; text-decoration: none; color: #FFFFFF; font-weight: 700; font-size: 16px; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 10px 24px rgba(75,47,214,0.32)">Vérifier</a>
+    <p style="margin: 0; font-size: 14px; color: #4B4B5C">Pas reçu ? <a href="#" style="font-weight: 700; text-decoration: none">Renvoyer le code</a> dans 0:42</p>
+    <a href="Web-Inscription.dc.html" style="font-size: 14px; font-weight: 600; color: #4B4B5C; text-decoration: none; padding: 10px">← Modifier l'adresse e-mail</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

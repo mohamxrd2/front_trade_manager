@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Notifications</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), #F1F2F7">
+<div style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="notifications" hint-size="100%,820px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Notifications</h1>
+        <span style="font-size: 14px; color: #6B6B7B">{{unreadLabel}}</span>
+      </div>
+      <button type="button" onClick="{{readAll}}" style="height: 48px; padding: 0 18px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.95); background: rgba(255,255,255,0.8); font-family: inherit; font-weight: 700; font-size: 14px; color: #3A20B8; cursor: pointer">Tout marquer comme lu</button>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <section style="flex: 3 1 520px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{filters}}" as="f" hint-placeholder-count="5">
+            <button type="button" onClick="{{f.pick}}" aria-pressed="{{f.pressed}}" style="{{f.style}}">{{f.label}}</button>
+          </sc-for>
+        </div>
+        <sc-for list="{{list}}" as="n" hint-placeholder-count="5">
+          <div style="{{n.card}}">
+            <span style="{{n.iconWrap}}">{{n.glyph}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <span style="display: flex; align-items: center; gap: 8px"><span style="{{n.titleStyle}}">{{n.title}}</span><sc-if value="{{n.unread}}" hint-placeholder-val="{{ true }}"><span aria-label="Non lue" style="width: 8px; height: 8px; border-radius: 4px; background: #E5484D"></span></sc-if></span>
+              <span style="font-size: 14px; line-height: 1.45; color: #3F3F50">{{n.body}}</span>
+              <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 4px">
+                <span style="font-size: 12px; color: #6B6B7B">{{n.time}}</span>
+                <a href="{{n.href}}" style="font-size: 13px; font-weight: 700; text-decoration: none; padding: 6px 0">{{n.action}}</a>
+                <sc-if value="{{n.unread}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{n.read}}" style="min-height: 32px; padding: 0; border: 0; background: transparent; font-family: inherit; font-size: 13px; font-weight: 600; color: #4B4B5C; cursor: pointer">Marquer comme lue</button></sc-if>
+              </span>
+            </span>
+            <button type="button" onClick="{{n.remove}}" aria-label="Supprimer la notification" style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 20px; border: 0; background: transparent; color: #6B6B7B; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+          </div>
+        </sc-for>
+        <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}"><p style="margin: 0; padding: 40px 0; text-align: center; font-size: 15px; color: #6B6B7B">Rien de nouveau ici.</p></sc-if>
+      </section>
+
+      <aside aria-label="Préférences de notification" style="flex: 2 1 300px; min-width: 0; border-radius: 26px; padding: 22px; display: flex; flex-direction: column; gap: 6px; background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.5)); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,0.9); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 20px 50px rgba(17,17,80,0.10)">
+        <h2 style="margin: 0 0 8px; font-size: 18px; font-weight: 700">Me prévenir quand…</h2>
+        <sc-for list="{{prefs}}" as="p" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #ECECF2">
+            <span id="{{p.id}}" style="flex: 1; font-size: 14px; font-weight: 600">{{p.label}}</span>
+            <button type="button" role="switch" aria-checked="{{p.on}}" aria-labelledby="{{p.id}}" onClick="{{p.toggle}}" style="{{p.track}}"><span style="width: 24px; height: 24px; border-radius: 12px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.2)"></span></button>
+          </div>
+        </sc-for>
+        <a href="Web-Parametres.dc.html" style="margin-top: 8px; font-size: 13px; font-weight: 700; text-decoration: none; padding: 8px 0">Modifier le seuil de stock faible →</a>
+      </aside>
+    </div>
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const f = s.f || 'all';
+const read = s.read || {};
+const gone = s.gone || {};
+const off = s.off || {};
+const all = [
+{ id: 1, kind: 'stock', title: 'Stock faible : Sac en raphia', body: 'Il reste 2 pièces, sous votre seuil de 5.', time: 'Il y a 12 min', unread: true, action: 'Réapprovisionner', href: 'Web-Article.dc.html' },
+{ id: 2, kind: 'stock', title: 'Stock faible : Pagne wax 6 yards', body: 'Il reste 3 pièces. Pensez à réapprovisionner.', time: 'Il y a 2 h', unread: true, action: 'Réapprovisionner', href: 'Web-Article.dc.html' },
+{ id: 3, kind: 'invoice', title: 'Facture F-0142 payée', body: 'M. Traoré Ibrahim a réglé 36 000 FCFA.', time: 'Hier, 16:20', unread: true, action: 'Voir la facture', href: 'Web-Factures.dc.html' },
+{ id: 4, kind: 'invoice', title: 'Facture F-0140 en attente', body: 'Mme Bamba Fatou n’a pas encore réglé 75 000 FCFA.', time: '12 oct.', unread: false, action: 'Relancer', href: 'Web-Factures.dc.html' },
+{ id: 5, kind: 'stock', title: 'Stock faible : Bazin riche', body: 'Il reste 4 mètres en stock.', time: '11 oct.', unread: false, action: 'Réapprovisionner', href: 'Web-Article.dc.html' },
+{ id: 6, kind: 'team', title: 'Koffi a rejoint l’équipe', body: 'Votre collaborateur peut maintenant enregistrer des ventes.', time: '10 oct.', unread: false, action: 'Voir l’équipe', href: 'Web-Collaborateurs.dc.html' }
+];
+const st = { stock: ['!', 'background: #FFF0E0; color: #8A4B00'], invoice: ['F', 'background: #EEEAFE; color: #4B2FD6'], team: ['+', 'background: #E6EEFF; color: #1F3FB8'] };
+const live = all.filter((n) => !gone[n.id]).map((n) => Object.assign({}, n, { unread: n.unread && !read[n.id] }));
+const unreadCount = live.filter((n) => n.unread).length;
+const list = live.filter((n) => f === 'all' || (f === 'unread' && n.unread) || n.kind === f);
+const chips = [['all', 'Toutes'], ['unread', 'Non lues · ' + unreadCount], ['stock', 'Stock'], ['invoice', 'Factures'], ['team', 'Équipe']];
+const prefs = [['p1', 'Un article passe en stock faible'], ['p2', 'Une facture est payée'], ['p3', 'Une facture est en retard'], ['p4', 'Un collaborateur rejoint l’équipe']];
+return {
+unreadLabel: unreadCount ? unreadCount + ' non lue(s)' : 'Tout est lu',
+readAll: () => { const r = {}; all.forEach((n) => { r[n.id] = true; }); this.setState({ read: r }); },
+filters: chips.map(([id, label]) => ({
+label, pressed: id === f ? 'true' : 'false',
+style: 'min-height: 40px; padding: 0 16px; border-radius: 20px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (id === f ? 'background: #0E0E1A; color: #FFFFFF; border: 1px solid #0E0E1A' : 'background: #FFFFFF; color: #3F3F50; border: 1px solid #E2E2EA'),
+pick: () => this.setState({ f: id })
+})),
+list: list.map((n) => ({
+title: n.title, body: n.body, time: n.time, unread: n.unread, action: n.action, href: n.href,
+glyph: st[n.kind][0],
+iconWrap: 'width: 44px; height: 44px; flex-shrink: 0; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; ' + st[n.kind][1],
+card: 'display: flex; align-items: flex-start; gap: 14px; padding: 16px; border-radius: 20px; ' + (n.unread ? 'background: #F7F5FF; border: 1px solid #DCD4FF' : 'background: #FFFFFF; border: 1px solid #ECECF2'),
+titleStyle: 'font-size: 15px; font-weight: ' + (n.unread ? '700' : '600'),
+read: () => this.setState({ read: Object.assign({}, read, { [n.id]: true }) }),
+remove: () => this.setState({ gone: Object.assign({}, gone, { [n.id]: true }) })
+})),
+empty: list.length === 0,
+prefs: prefs.map(([id, label]) => ({
+id, label, on: off[id] ? 'false' : 'true',
+toggle: () => this.setState({ off: Object.assign({}, off, { [id]: !off[id] }) }),
+track: 'width: 50px; height: 30px; padding: 3px; border-radius: 15px; border: 0; display: flex; cursor: pointer; justify-content: ' + (off[id] ? 'flex-start' : 'flex-end') + '; background: ' + (off[id] ? '#C9C9D6' : '#5B3FE6')
+}))
+};
+}
+}
+</script>
+</body>
+</html>

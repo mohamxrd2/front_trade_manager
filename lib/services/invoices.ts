@@ -1,10 +1,16 @@
 import api, { API_BASE_URL, type NoRetryRequestConfig } from '../api'
 import type { AxiosError } from 'axios'
-import { isSilentError, isAuthError } from '../utils/error-handler'
+import { isSilentError, isAuthError, getErrorStatus } from '../utils/error-handler'
 
 // ============================================================================
 // TYPES - CLIENT
 // ============================================================================
+
+// Doit matcher exactement l'enum validé par ClientController@store/update
+// ('cash,credit_card,bank_transfer,cheque,mobile_money,other') — l'ancienne
+// valeur 'card' n'existe pas côté API (une sélection "card" aurait toujours
+// échoué en 422 à l'enregistrement).
+export type ClientPaymentMethod = 'cash' | 'credit_card' | 'bank_transfer' | 'cheque' | 'mobile_money' | 'other'
 
 export interface Client {
   id: string
@@ -12,18 +18,22 @@ export interface Client {
   name: string
   email: string | null
   phone: string | null
-  payment_method: 'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other' | null
+  payment_method: ClientPaymentMethod | null
   billing_address: string | null
   shipping_address: string | null
   created_at: string
   updated_at: string
+  /** Présent sur GET /api/clients (withCount), absent ailleurs */
+  invoices_count?: number
+  /** Présent sur GET /api/clients/{id} (10 dernières factures) */
+  invoices?: Invoice[]
 }
 
 export interface CreateClientPayload {
   name: string
   email?: string | null
   phone?: string | null
-  payment_method?: 'cash' | 'bank_transfer' | 'mobile_money' | 'card' | 'other' | null
+  payment_method?: ClientPaymentMethod | null
   billing_address?: string | null
   shipping_address?: string | null
 }
@@ -64,6 +74,7 @@ export interface InvoiceCompany {
   name: string
   email: string
   logo_url: string | null
+  headquarters?: string | null
 }
 
 export interface Invoice {
@@ -125,6 +136,7 @@ export interface InvoiceDashboardStats {
   unpaid_amount: number
   total_invoices: number
   total_collected: number
+  this_month_total: number
   recent_invoices: Invoice[]
 }
 
@@ -140,6 +152,7 @@ export interface CompanyInfo {
   phone: string | null
   address: string | null
   tax_id: string | null
+  headquarters?: string | null
 }
 
 export interface UpdateCompanyPayload {
@@ -175,7 +188,7 @@ function handleApiError(error: unknown, context: string): never {
   // Entreprise incomplète
   if (code === 'COMPANY_INCOMPLETE') {
     if (typeof window !== 'undefined') {
-      window.location.href = '/company/complete-invoice-profile'
+      window.location.href = '/company/onboarding'
     }
     throw new Error('Profil entreprise incomplet')
   }
@@ -311,6 +324,42 @@ export async function getClients(): Promise<Client[]> {
       console.error('❌ getClients error:', error)
     }
     return []
+  }
+}
+
+/**
+ * Récupère les clients avec recherche/pagination côté API — distincte de
+ * getClients() (sans paramètres, utilisée ailleurs) pour ne pas changer la
+ * forme de son retour pour ses appelants existants.
+ */
+export async function getClientsPaginated(params?: {
+  search?: string
+  payment_method?: ClientPaymentMethod
+  page?: number
+  per_page?: number
+}): Promise<{ clients: Client[]; total: number; pages: number }> {
+  try {
+    const response = await api.get('/api/clients', { params })
+    const data = response.data
+
+    if (data?.success && data?.data?.clients) {
+      return {
+        clients: data.data.clients,
+        total: data.data.pagination?.total ?? data.data.clients.length,
+        pages: data.data.pagination?.last_page ?? 1,
+      }
+    }
+
+    if (Array.isArray(data)) {
+      return { clients: data, total: data.length, pages: 1 }
+    }
+
+    return { clients: [], total: 0, pages: 1 }
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('❌ getClientsPaginated error:', error)
+    }
+    return { clients: [], total: 0, pages: 1 }
   }
 }
 
@@ -455,6 +504,7 @@ export async function getInvoiceDashboard(): Promise<InvoiceDashboardStats> {
         unpaid_amount: raw.unpaid_amount_total ?? raw.unpaid_amount ?? 0,
         total_invoices: raw.total_invoices ?? 0,
         total_collected: raw.paid_amount_total ?? raw.total_collected ?? 0,
+        this_month_total: raw.this_month_total ?? 0,
         recent_invoices: raw.last_invoices ?? raw.recent_invoices ?? [],
       }
     }
@@ -465,6 +515,7 @@ export async function getInvoiceDashboard(): Promise<InvoiceDashboardStats> {
       unpaid_amount: 0,
       total_invoices: 0,
       total_collected: 0,
+      this_month_total: 0,
       recent_invoices: [],
     }
   } catch (error) {
@@ -477,6 +528,7 @@ export async function getInvoiceDashboard(): Promise<InvoiceDashboardStats> {
       unpaid_amount: 0,
       total_invoices: 0,
       total_collected: 0,
+      this_month_total: 0,
       recent_invoices: [],
     }
   }
@@ -488,8 +540,8 @@ export async function getInvoiceDashboard(): Promise<InvoiceDashboardStats> {
 export async function getInvoices(params?: {
   status?: InvoiceStatus
   client_id?: string
-  start_date?: string
-  end_date?: string
+  date_from?: string
+  date_to?: string
   search?: string
   page?: number
   per_page?: number
@@ -550,7 +602,9 @@ export async function getInvoices(params?: {
 
     return { invoices, total, pages }
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
+    // 403 : refus métier attendu (entreprise incomplète), pas un bug — ne pas
+    // bruiter la console avec ça, juste retomber sur une liste vide.
+    if (process.env.NODE_ENV !== 'production' && getErrorStatus(error) !== 403) {
       console.error('❌ getInvoices error:', error)
     }
     return { invoices: [], total: 0, pages: 1 }
@@ -646,6 +700,24 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Pr
     // un toast avec le détail de l'erreur — logguer en plus déclenche
     // l'overlay "Console Error" de Next.js en dev pour une erreur déjà gérée.
     throw error
+  }
+}
+
+/**
+ * Duplique une facture (POST /api/invoices/{id}/duplicate) — le backend crée
+ * une copie en statut "draft" avec les mêmes lignes/montants/thème.
+ */
+export async function duplicateInvoice(id: string): Promise<Invoice> {
+  try {
+    const response = await api.post(`/api/invoices/${id}/duplicate`)
+    const data = response.data
+
+    if (data?.data?.id) return data.data as Invoice
+    if (data?.id) return data as Invoice
+
+    throw new Error('Invalid response format')
+  } catch (error) {
+    handleApiError(error, 'duplicateInvoice')
   }
 }
 

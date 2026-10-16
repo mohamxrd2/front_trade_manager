@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Détail article</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), #F1F2F7">
+<div style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="stock" hint-size="100%,820px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <nav aria-label="Fil d'Ariane" style="display: flex; gap: 8px; font-size: 13px; color: #6B6B7B"><a href="Web-Stock.dc.html" style="text-decoration: none; font-weight: 600">Stock</a><span aria-hidden="true">/</span><span>Robe wax</span></nav>
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Robe wax</h1>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <button type="button" style="height: 48px; padding: 0 18px; border-radius: 24px; border: 1px solid #F3C7CF; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 14px; color: #A3213A; cursor: pointer">Supprimer</button>
+        <a href="Web-Vente.dc.html" style="height: 48px; padding: 0 18px; border-radius: 24px; display: flex; align-items: center; text-decoration: none; font-weight: 700; font-size: 14px; color: #0E0E1A; background: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.95)">Vendre</a>
+        <button type="button" style="height: 48px; padding: 0 20px; border-radius: 24px; border: 0; font-family: inherit; font-weight: 700; font-size: 14px; color: #FFFFFF; cursor: pointer; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.35)">Enregistrer</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <section style="flex: 1 1 360px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+        <div style="height: 240px; border-radius: 20px; background: linear-gradient(145deg, #EEEAFE, #D9D0FF); color: #4B2FD6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 16-5-5-9 9"></path></svg>
+          [Photo de l'article]
+          <button type="button" style="min-height: 40px; padding: 0 14px; border-radius: 20px; border: 0; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 13px; color: #3A20B8; cursor: pointer">Changer l'image</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px"><label for="an" style="font-size: 13px; font-weight: 600">Nom</label><input id="an" value="Robe wax" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="ap" style="font-size: 13px; font-weight: 600">Prix de vente (F)</label><input id="ap" value="25 000" style="height: 48px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+          <div style="display: flex; flex-direction: column; gap: 8px"><label for="as" style="font-size: 13px; font-weight: 600">Seuil d'alerte</label><input id="as" value="5" style="height: 48px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 13px; font-weight: 600">Type d'article</span>
+          <div role="group" aria-label="Type d'article" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 22px; background: #F3F3F7">
+            <button type="button" onClick="{{setSimple}}" aria-pressed="{{simpleOn}}" style="{{simpleStyle}}">Simple</button>
+            <button type="button" onClick="{{setVar}}" aria-pressed="{{varOn}}" style="{{varStyle}}">À variations</button>
+          </div>
+        </div>
+      </section>
+
+      <div style="flex: 2 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 14px">
+          <div style="border-radius: 22px; padding: 18px; color: #FFFFFF; display: flex; flex-direction: column; gap: 6px; background: radial-gradient(120% 120% at 100% 100%, #3A3AF0 0%, #1717A0 40%, #0A0A4A 85%)"><span style="font-size: 13px; color: #C8C8F0">En stock</span><span style="font-weight: 700; font-size: 26px">18 pièces</span></div>
+          <div style="background: #FFFFFF; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)"><span style="font-size: 13px; color: #6B6B7B">Vendus (30 j)</span><span style="font-weight: 700; font-size: 26px">42</span></div>
+          <div style="background: #FFFFFF; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)"><span style="font-size: 13px; color: #6B6B7B">CA généré (30 j)</span><span style="font-weight: 700; font-size: 26px; color: #0B8A43">1 050 000 F</span></div>
+        </div>
+
+        <sc-if value="{{isVar}}" hint-placeholder-val="{{ true }}">
+          <section style="background: #FFFFFF; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+            <div style="display: flex; justify-content: space-between; align-items: center"><h2 style="margin: 0; font-size: 18px; font-weight: 700">Variations</h2><button type="button" style="min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 13px; color: #3A20B8; cursor: pointer">+ Ajouter une variation</button></div>
+            <div style="overflow-x: auto">
+              <table style="width: 100%; min-width: 460px; border-collapse: collapse; font-size: 14px">
+                <thead><tr style="text-align: left; color: #6B6B7B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em"><th style="padding: 8px; font-weight: 600">Variation</th><th style="padding: 8px; font-weight: 600">Quantité</th><th style="padding: 8px; font-weight: 600">Statut</th><th style="padding: 8px; font-weight: 600; text-align: right">Action</th></tr></thead>
+                <tbody>
+                  <tr style="border-top: 1px solid #F0F0F4"><td style="padding: 10px 8px"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; border-radius: 12px; background: #F3F3F7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">S</span>Taille S</span></td><td style="padding: 10px 8px; font-weight: 700">6</td><td style="padding: 10px 8px"><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #E3F5EA; color: #0B6B39">Disponible</span></td><td style="padding: 10px 8px; text-align: right"><button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 13px; color: #0E0E1A; cursor: pointer">Modifier</button></td></tr>
+                  <tr style="border-top: 1px solid #F0F0F4"><td style="padding: 10px 8px"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; border-radius: 12px; background: #F3F3F7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">M</span>Taille M</span></td><td style="padding: 10px 8px; font-weight: 700">7</td><td style="padding: 10px 8px"><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #E3F5EA; color: #0B6B39">Disponible</span></td><td style="padding: 10px 8px; text-align: right"><button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 13px; color: #0E0E1A; cursor: pointer">Modifier</button></td></tr>
+                  <tr style="border-top: 1px solid #F0F0F4"><td style="padding: 10px 8px"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; border-radius: 12px; background: #F3F3F7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">L</span>Taille L</span></td><td style="padding: 10px 8px; font-weight: 700">3</td><td style="padding: 10px 8px"><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #FDE8EC; color: #A3213A">Stock faible</span></td><td style="padding: 10px 8px; text-align: right"><button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 13px; color: #0E0E1A; cursor: pointer">Modifier</button></td></tr>
+                  <tr style="border-top: 1px solid #F0F0F4"><td style="padding: 10px 8px"><span style="display: flex; align-items: center; gap: 10px"><span style="width: 36px; height: 36px; border-radius: 12px; background: #F3F3F7; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">XL</span>Taille XL</span></td><td style="padding: 10px 8px; font-weight: 700">2</td><td style="padding: 10px 8px"><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #FDE8EC; color: #A3213A">Stock faible</span></td><td style="padding: 10px 8px; text-align: right"><button type="button" style="min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 13px; color: #0E0E1A; cursor: pointer">Modifier</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </sc-if>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+          <section style="flex: 1 1 300px; min-width: 0; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.5)); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.9); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 14px 34px rgba(17,17,80,0.08)">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 700">Réapprovisionner</h2>
+            <div style="display: flex; flex-direction: column; gap: 8px"><label for="rv" style="font-size: 13px; font-weight: 600">Variation</label><select id="rv" style="height: 46px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A; background: #FFFFFF"><option>Taille XL</option><option>Taille L</option><option>Taille M</option><option>Taille S</option></select></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+              <span style="font-size: 13px; font-weight: 600">Quantité ajoutée</span>
+              <span style="display: flex; align-items: center; gap: 6px"><button type="button" onClick="{{dec}}" aria-label="Diminuer" style="width: 40px; height: 40px; border-radius: 20px; border: 1px solid #E2E2EA; background: #FFFFFF; font-size: 18px; font-weight: 700; color: #0E0E1A; cursor: pointer">−</button><span aria-live="polite" style="width: 36px; text-align: center; font-weight: 700; font-size: 18px">{{qty}}</span><button type="button" onClick="{{inc}}" aria-label="Augmenter" style="width: 40px; height: 40px; border-radius: 20px; border: 0; background: #5B3FE6; font-size: 18px; font-weight: 700; color: #FFFFFF; cursor: pointer">+</button></span>
+            </div>
+            <button type="button" style="min-height: 48px; border-radius: 24px; border: 0; background: #0E0E1A; color: #FFFFFF; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer">Ajouter {{qty}} pièce(s) au stock</button>
+          </section>
+          <section style="flex: 1 1 300px; min-width: 0; background: #FFFFFF; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+            <h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 700">Historique</h2>
+            <div style="display: flex; gap: 12px; padding: 8px 0"><span style="width: 10px; height: 10px; margin-top: 5px; border-radius: 5px; background: #5B3FE6; flex-shrink: 0"></span><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 14px">+12 pièces · S, M</span><span style="font-size: 12px; color: #6B6B7B">2 oct. 2026 · par Awa</span></span></div>
+            <div style="display: flex; gap: 12px; padding: 8px 0"><span style="width: 10px; height: 10px; margin-top: 5px; border-radius: 5px; background: #A58CFF; flex-shrink: 0"></span><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 14px">+20 pièces · toutes tailles</span><span style="font-size: 12px; color: #6B6B7B">14 sept. 2026 · par Koffi</span></span></div>
+            <div style="display: flex; gap: 12px; padding: 8px 0"><span style="width: 10px; height: 10px; margin-top: 5px; border-radius: 5px; background: #DCD4FF; flex-shrink: 0"></span><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 14px">Création · 30 pièces</span><span style="font-size: 12px; color: #6B6B7B">1 août 2026 · par Awa</span></span></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const isVar = s.type !== 'simple';
+const qty = s.qty || 10;
+const on = 'min-height: 42px; border-radius: 20px; border: 0; background: #FFFFFF; color: #0E0E1A; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(17,17,80,0.1)';
+const off = 'min-height: 42px; border-radius: 20px; border: 0; background: transparent; color: #4B4B5C; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer';
+return {
+isVar,
+simpleOn: isVar ? 'false' : 'true', varOn: isVar ? 'true' : 'false',
+simpleStyle: isVar ? off : on, varStyle: isVar ? on : off,
+setSimple: () => this.setState({ type: 'simple' }), setVar: () => this.setState({ type: 'var' }),
+qty, inc: () => this.setState({ qty: qty + 1 }), dec: () => this.setState({ qty: Math.max(1, qty - 1) })
+};
+}
+}
+</script>
+</body>
+</html>

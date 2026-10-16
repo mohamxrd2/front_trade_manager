@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Nouveau client</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), #F1F2F7">
+<div aria-hidden="true" style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="clients" hint-size="100%,820px"></dc-import></div>
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; justify-content: space-between; align-items: center"><span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Clients</span><span style="font-size: 14px; color: #6B6B7B">Votre annuaire pour facturer plus vite</span></span><span style="height: 48px; padding: 0 20px; border-radius: 24px; display: flex; align-items: center; color: #FFFFFF; font-weight: 700; font-size: 14px; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%)">+ Nouveau client</span></div>
+    <div style="display: flex; flex-wrap: wrap; gap: 20px">
+      <div style="flex: 3 1 480px; min-width: 0; height: 620px; background: #FFFFFF; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+        <span style="height: 44px; border-radius: 22px; background: #F3F3F7"></span>
+        <span style="height: 52px; border-radius: 14px; background: #F6F5FB"></span><span style="height: 52px; border-radius: 14px; background: #F6F5FB"></span><span style="height: 52px; border-radius: 14px; background: #F6F5FB"></span><span style="height: 52px; border-radius: 14px; background: #F6F5FB"></span><span style="height: 52px; border-radius: 14px; background: #F6F5FB"></span>
+      </div>
+      <div style="flex: 2 1 340px; min-width: 0; height: 620px; border-radius: 26px; background: rgba(255,255,255,0.6)"></div>
+    </div>
+  </main>
+</div>
+
+<div style="position: absolute; inset: 0; background: rgba(14,14,26,0.42); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; align-items: flex-start; justify-content: center; padding: 72px 20px; box-sizing: border-box">
+  <section role="dialog" aria-modal="true" aria-labelledby="nc-title" style="width: 100%; max-width: 620px; box-sizing: border-box; background: #FFFFFF; border-radius: 28px; padding: 28px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 40px 90px rgba(10,10,60,0.35)">
+    <div style="display: flex; align-items: flex-start; gap: 16px">
+      <span style="width: 56px; height: 56px; flex-shrink: 0; border-radius: 28px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-weight: 800; font-size: 18px; background: radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8); box-shadow: 0 8px 18px rgba(75,47,214,0.3)">{{ini}}</span>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+        <h1 id="nc-title" style="margin: 0; font-weight: 800; font-size: 22px; letter-spacing: -0.02em">Nouveau client</h1>
+        <span style="font-size: 14px; color: #6B6B7B">Il sera proposé automatiquement dans vos factures.</span>
+      </div>
+      <a href="Web-Clients.dc.html" aria-label="Fermer" style="width: 40px; height: 40px; border-radius: 20px; background: #F3F3F7; color: #0E0E1A; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+    </div>
+
+    <sc-if value="{{saved}}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: #E3F5EA; color: #0B6B39; font-size: 14px; font-weight: 600"><span style="width: 24px; height: 24px; border-radius: 12px; background: #0B8A43; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px">✓</span>Client ajouté. Vous pouvez maintenant le facturer.</div>
+    </sc-if>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="ncn" style="font-size: 13px; font-weight: 600">Nom complet ou raison sociale <span style="color: #A3213A">*</span></label>
+      <input id="ncn" value="{{name}}" onInput="{{setName}}" placeholder="Ex. Boutique Le Plateau" aria-invalid="{{nameInvalid}}" style="{{nameStyle}}">
+      <sc-if value="{{showErr}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #A3213A; font-weight: 600">Le nom du client est obligatoire.</span></sc-if>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 8px"><label for="nct" style="font-size: 13px; font-weight: 600">Téléphone</label><input id="nct" type="tel" placeholder="+225 07 00 00 00 00" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+      <div style="display: flex; flex-direction: column; gap: 8px"><label for="nce" style="font-size: 13px; font-weight: 600">E-mail</label><input id="nce" type="email" placeholder="client@exemple.ci" style="height: 48px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 13px; font-weight: 600">Mode de paiement habituel</span>
+      <div role="group" aria-label="Mode de paiement" style="display: flex; flex-wrap: wrap; gap: 8px">
+        <sc-for list="{{pays}}" as="p" hint-placeholder-count="5">
+          <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}">{{p.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="ncf" style="font-size: 13px; font-weight: 600">Adresse de facturation</label>
+      <textarea id="ncf" rows="2" placeholder="Rue, quartier, ville" style="box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 12px 14px; font-family: inherit; font-size: 15px; color: #0E0E1A; resize: vertical"></textarea>
+    </div>
+
+    <label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #3F3F50; min-height: 32px; cursor: pointer">
+      <input type="checkbox" checked="{{same}}" onChange="{{toggleSame}}" style="width: 20px; height: 20px; accent-color: #5B3FE6; margin: 0">Adresse de livraison identique
+    </label>
+    <sc-if value="{{notSame}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="ncl" style="font-size: 13px; font-weight: 600">Adresse de livraison</label>
+        <textarea id="ncl" rows="2" placeholder="Rue, quartier, ville" style="box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 12px 14px; font-family: inherit; font-size: 15px; color: #0E0E1A; resize: vertical"></textarea>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding-top: 18px; border-top: 1px solid #F0F0F4">
+      <a href="Web-Clients.dc.html" style="height: 48px; padding: 0 20px; border-radius: 24px; display: flex; align-items: center; text-decoration: none; color: #0E0E1A; font-weight: 600; font-size: 14px; border: 1px solid #E2E2EA">Annuler</a>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <a href="Web-NouvelleFacture.dc.html" style="height: 48px; padding: 0 18px; border-radius: 24px; display: flex; align-items: center; text-decoration: none; color: #FFFFFF; font-weight: 700; font-size: 14px; background: #0E0E1A">Enregistrer et facturer</a>
+        <button type="button" onClick="{{save}}" style="height: 48px; padding: 0 22px; border-radius: 24px; border: 0; font-family: inherit; font-weight: 700; font-size: 14px; color: #FFFFFF; cursor: pointer; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.35)">Enregistrer le client</button>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const name = s.name != null ? s.name : 'Boutique Le Plateau';
+const pay = s.pay || 'Virement';
+const same = s.same !== false;
+const tried = !!s.tried;
+const empty = !name.trim();
+const words = name.trim().split(/\s+/).filter(Boolean);
+const ini = words.length ? (words[0][0] + (words[1] ? words[1][0] : '')).toUpperCase() : '?';
+const base = 'height: 50px; box-sizing: border-box; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A; ';
+return {
+name, ini,
+setName: (e) => this.setState({ name: e.target.value, saved: false }),
+showErr: tried && empty,
+nameInvalid: tried && empty ? 'true' : 'false',
+nameStyle: base + (tried && empty ? 'border: 2px solid #D92D20' : 'border: 1px solid #E2E2EA'),
+pays: ['Espèces', 'Mobile Money', 'Virement', 'Chèque', 'Carte bancaire'].map((l) => ({
+label: l, pressed: l === pay ? 'true' : 'false',
+style: 'min-height: 42px; padding: 0 16px; border-radius: 21px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (l === pay ? 'background: #0E0E1A; color: #FFFFFF; border: 1px solid #0E0E1A' : 'background: #FFFFFF; color: #3F3F50; border: 1px solid #E2E2EA'),
+pick: () => this.setState({ pay: l })
+})),
+same, notSame: !same,
+toggleSame: () => this.setState({ same: !same }),
+saved: !!s.saved && !empty,
+save: () => this.setState(empty ? { tried: true, saved: false } : { tried: true, saved: true })
+};
+}
+}
+</script>
+</body>
+</html>

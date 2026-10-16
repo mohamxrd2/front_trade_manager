@@ -508,16 +508,6 @@ api.interceptors.response.use(
     // de messages ; 422 validation : objet { champ: [messages] })
     const errorDetails = responseBody?.errors
 
-    // TEMP DEBUG — à retirer une fois le flow EMAIL_NOT_VERIFIED validé en prod
-    if (errorCode) {
-      console.log('🔍 [lib/api.ts] code métier détecté dans le body de réponse:', {
-        status,
-        errorCode,
-        errorData,
-        rawBody: responseBody,
-      })
-    }
-
     // ========================================================================
     // RETRY AUTOMATIQUE POUR LES ERREURS RÉSEAU/TIMEOUT
     // ========================================================================
@@ -581,6 +571,10 @@ api.interceptors.response.use(
           '/settings',
           '/onboarding',
           '/account',
+          // (billing) : absents jusqu'ici — une session expirée sur /invoices
+          // ou /clients ne déclenchait pas la redirection auto vers /login.
+          '/invoices',
+          '/clients',
         ]
 
         const isProtectedRoute = protectedRoutes.some((route) =>

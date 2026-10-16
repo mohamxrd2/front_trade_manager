@@ -67,20 +67,36 @@ export async function exchangeSocialAuthCode(provider: SocialAuthProvider, code:
   }
 }
 
-export type SocialAuthErrorCode = 'invalid_provider' | 'email_not_shared' | 'social_auth_failed'
+export type SocialAuthErrorCode =
+  | 'invalid_provider'
+  | 'email_not_shared'
+  | 'social_auth_failed'
+  | 'social_auth_cancelled'
 
 const SOCIAL_AUTH_ERROR_MESSAGES: Record<SocialAuthErrorCode, string> = {
   invalid_provider: "Ce fournisseur de connexion n'est pas supporté",
   email_not_shared: "Ton compte doit partager une adresse email pour te connecter",
   social_auth_failed: 'La connexion a échoué, réessaie',
+  social_auth_cancelled: 'Connexion annulée',
+}
+
+const PROVIDER_LABELS: Record<SocialAuthProvider, string> = {
+  google: 'Google',
+  facebook: 'Facebook',
 }
 
 /**
- * Traduit le code d'erreur renvoyé par {FRONTEND_URL}/login?error=<code> en message lisible.
- * Retourne null pour un code absent ou inconnu (pas de message spécifique dans ce cas).
+ * Traduit le code d'erreur renvoyé par {FRONTEND_URL}/login?error=<code>
+ * (optionnellement accompagné de &provider=<google|facebook>, pour
+ * personnaliser le message d'annulation — « Connexion Google annulée »)
+ * en message lisible. Retourne null pour un code absent ou inconnu.
  */
-export function getSocialAuthErrorMessage(code: string | null): string | null {
+export function getSocialAuthErrorMessage(code: string | null, provider?: string | null): string | null {
   if (!code) return null
+
+  if (code === 'social_auth_cancelled' && provider && provider in PROVIDER_LABELS) {
+    return `Connexion ${PROVIDER_LABELS[provider as SocialAuthProvider]} annulée`
+  }
 
   if (code in SOCIAL_AUTH_ERROR_MESSAGES) {
     return SOCIAL_AUTH_ERROR_MESSAGES[code as SocialAuthErrorCode]

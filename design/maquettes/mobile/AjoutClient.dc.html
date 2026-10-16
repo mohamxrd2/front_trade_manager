@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Nouveau client</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FE6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F3F7; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; overflow: hidden">
+  <div style="padding: 56px 20px 12px; display: flex; align-items: center; gap: 12px">
+    <a href="Factures.dc.html" aria-label="Retour" style="width: 44px; height: 44px; border-radius: 22px; background: #FFFFFF; border: 1px solid #ECECF2; display: flex; align-items: center; justify-content: center; color: #0E0E1A"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></a>
+    <h1 style="flex: 1; margin: 0; font-weight: 700; font-size: 22px; letter-spacing: -0.01em">Nouveau client</h1>
+    <a href="Factures.dc.html" style="font-size: 14px; font-weight: 600; text-decoration: none; padding: 12px 0; color: #4B4B5C">Annuler</a>
+  </div>
+
+  <div style="flex: 1; overflow-y: auto; padding: 4px 20px 128px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0">
+      <span style="width: 76px; height: 76px; border-radius: 38px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-weight: 800; font-size: 24px; background: radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8); box-shadow: 0 10px 24px rgba(75,47,214,0.35)">{{ini}}</span>
+      <span style="font-size: 13px; color: #6B6B7B">Il sera proposé dans vos factures</span>
+    </div>
+
+    <sc-if value="{{saved}}" hint-placeholder-val="{{ false }}">
+      <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: #E3F5EA; color: #0B6B39; font-size: 14px; font-weight: 600"><span style="width: 24px; height: 24px; border-radius: 12px; background: #0B8A43; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px">✓</span>Client ajouté</div>
+    </sc-if>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="mcn" style="font-size: 13px; font-weight: 600">Nom complet ou raison sociale <span style="color: #A3213A">*</span></label>
+      <input id="mcn" value="{{name}}" onInput="{{setName}}" placeholder="Ex. Mme Kouassi Aya" aria-invalid="{{nameInvalid}}" style="{{nameStyle}}">
+      <sc-if value="{{showErr}}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; color: #A3213A; font-weight: 600">Le nom du client est obligatoire.</span></sc-if>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="mct" style="font-size: 13px; font-weight: 600">Téléphone</label>
+      <input id="mct" type="tel" placeholder="+225 07 00 00 00 00" style="height: 52px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="mce" style="font-size: 13px; font-weight: 600">E-mail</label>
+      <input id="mce" type="email" placeholder="client@exemple.ci" style="height: 52px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A">
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 13px; font-weight: 600">Mode de paiement habituel</span>
+      <div role="group" aria-label="Mode de paiement" style="display: flex; flex-wrap: wrap; gap: 8px">
+        <sc-for list="{{pays}}" as="p" hint-placeholder-count="5">
+          <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}">{{p.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <label for="mcf" style="font-size: 13px; font-weight: 600">Adresse de facturation</label>
+      <textarea id="mcf" rows="2" placeholder="Rue, quartier, ville" style="box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 12px 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A; resize: vertical"></textarea>
+    </div>
+
+    <label style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: #FFFFFF; border: 1px solid #ECECF2; font-size: 14px; font-weight: 600; cursor: pointer; min-height: 44px; box-sizing: border-box">
+      <input type="checkbox" checked="{{same}}" onChange="{{toggleSame}}" style="width: 22px; height: 22px; accent-color: #5B3FE6; margin: 0">Adresse de livraison identique
+    </label>
+    <sc-if value="{{notSame}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <label for="mcl" style="font-size: 13px; font-weight: 600">Adresse de livraison</label>
+        <textarea id="mcl" rows="2" placeholder="Rue, quartier, ville" style="box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 12px 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A; resize: vertical"></textarea>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="position: absolute; left: 14px; right: 14px; bottom: 22px; border-radius: 32px; padding: 8px; box-sizing: border-box; display: flex; gap: 8px; background: linear-gradient(180deg, rgba(255,255,255,0.66), rgba(255,255,255,0.36)); backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); border: 1px solid rgba(255,255,255,0.8); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), inset 0 -1px 1px rgba(255,255,255,0.35), 0 14px 34px rgba(17,17,80,0.18), 0 2px 6px rgba(17,17,80,0.08)">
+    <a href="NouvelleFacture.dc.html" style="flex: 1; height: 52px; border-radius: 26px; display: flex; align-items: center; justify-content: center; text-decoration: none; color: #0E0E1A; font-weight: 700; font-size: 14px; background: rgba(255,255,255,0.85)">Et facturer</a>
+    <button type="button" onClick="{{save}}" style="flex: 1.4; height: 52px; border-radius: 26px; border: 0; font-family: inherit; font-weight: 700; font-size: 15px; color: #FFFFFF; cursor: pointer; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.3)">Enregistrer</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const name = s.name != null ? s.name : 'Mme Kouassi Aya';
+const pay = s.pay || 'Mobile Money';
+const same = s.same !== false;
+const tried = !!s.tried;
+const empty = !name.trim();
+const words = name.trim().split(/\s+/).filter((w) => w && !/^(m\.|mme|mlle)$/i.test(w));
+const ini = words.length ? (words[0][0] + (words[1] ? words[1][0] : '')).toUpperCase() : '?';
+const base = 'height: 52px; box-sizing: border-box; border-radius: 14px; padding: 0 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A; ';
+return {
+name, ini,
+setName: (e) => this.setState({ name: e.target.value, saved: false }),
+showErr: tried && empty,
+nameInvalid: tried && empty ? 'true' : 'false',
+nameStyle: base + (tried && empty ? 'border: 2px solid #D92D20' : 'border: 1px solid #E2E2EA'),
+pays: ['Espèces', 'Mobile Money', 'Virement', 'Chèque', 'Carte'].map((l) => ({
+label: l, pressed: l === pay ? 'true' : 'false',
+style: 'min-height: 42px; padding: 0 16px; border-radius: 21px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; ' + (l === pay ? 'background: #0E0E1A; color: #FFFFFF; border: 1px solid #0E0E1A' : 'background: #FFFFFF; color: #3F3F50; border: 1px solid #E2E2EA'),
+pick: () => this.setState({ pay: l })
+})),
+same, notSame: !same,
+toggleSame: () => this.setState({ same: !same }),
+saved: !!s.saved && !empty,
+save: () => this.setState(empty ? { tried: true, saved: false } : { tried: true, saved: true })
+};
+}
+}
+</script>
+</body>
+</html>

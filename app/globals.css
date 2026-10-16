@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../design/waelly-theme.css";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
@@ -6,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", "Helvetica Neue", sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -44,25 +45,25 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.147 0.004 49.25);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.147 0.004 49.25);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.147 0.004 49.25);
-  --primary: oklch(0.216 0.006 56.043);
-  --primary-foreground: oklch(0.985 0.001 106.423);
-  --secondary: oklch(0.97 0.001 106.424);
-  --secondary-foreground: oklch(0.216 0.006 56.043);
-  --muted: oklch(0.97 0.001 106.424);
-  --muted-foreground: oklch(0.553 0.013 58.071);
-  --accent: oklch(0.97 0.001 106.424);
-  --accent-foreground: oklch(0.216 0.006 56.043);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.923 0.003 48.717);
-  --input: oklch(0.923 0.003 48.717);
-  --ring: oklch(0.709 0.01 56.259);
+  --radius: 14px;
+  --background: #F3F3F7;
+  --foreground: #0E0E1A;
+  --card: #FFFFFF;
+  --card-foreground: #0E0E1A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0E0E1A;
+  --primary: #5B3FE6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEEAFE;
+  --secondary-foreground: #3A20B8;
+  --muted: #F3F3F7;
+  --muted-foreground: #6B6B7B;
+  --accent: #F4F1FF;
+  --accent-foreground: #3A20B8;
+  --destructive: #D92D20;
+  --border: #ECECF2;
+  --input: #E2E2EA;
+  --ring: #5B3FE6;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -79,24 +80,24 @@
 }
 
 .dark {
-  --background: oklch(0.147 0.004 49.25);
-  --foreground: oklch(0.985 0.001 106.423);
-  --card: oklch(0.216 0.006 56.043);
-  --card-foreground: oklch(0.985 0.001 106.423);
-  --popover: oklch(0.216 0.006 56.043);
-  --popover-foreground: oklch(0.985 0.001 106.423);
-  --primary: oklch(0.923 0.003 48.717);
-  --primary-foreground: oklch(0.216 0.006 56.043);
-  --secondary: oklch(0.268 0.007 34.298);
-  --secondary-foreground: oklch(0.985 0.001 106.423);
-  --muted: oklch(0.268 0.007 34.298);
-  --muted-foreground: oklch(0.709 0.01 56.259);
-  --accent: oklch(0.268 0.007 34.298);
-  --accent-foreground: oklch(0.985 0.001 106.423);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.553 0.013 58.071);
+  --background: #0B0B16;
+  --foreground: #F2F2F8;
+  --card: #15152A;
+  --card-foreground: #F2F2F8;
+  --popover: #15152A;
+  --popover-foreground: #F2F2F8;
+  --primary: #8C74FF;
+  --primary-foreground: #0B0B16;
+  --secondary: #24204A;
+  --secondary-foreground: #DCD4FF;
+  --muted: #1B1B33;
+  --muted-foreground: #A3A3B8;
+  --accent: #24204A;
+  --accent-foreground: #DCD4FF;
+  --destructive: #FF6B6B;
+  --border: #26263F;
+  --input: #2E2E4A;
+  --ring: #8C74FF;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -122,105 +123,67 @@
 }
 
 /* ============================================================================
-   STYLES NPROGRESS - Barre de progression intelligente (vert boutons)
+   STYLES NPROGRESS — Barre de progression Waelly (design/DESIGN.md)
+   Couleurs pilotées par --progress-from/via/to/glow (design/waelly-theme.css),
+   jamais écrites en dur ici.
    ============================================================================ */
 
 #nprogress {
   pointer-events: none;
+  /* Au-dessus de tout : barre du bas en verre (z-40) et modales/dialogs. */
   z-index: 99999;
 }
 
-/* Barre principale - Gradient vert comme les boutons */
 #nprogress .bar {
   position: fixed !important;
   z-index: 99999 !important;
-  top: 0 !important;
+  /* Respecte l'encoche (notch) sur mobile plutôt que de se coller sous elle. */
+  top: env(safe-area-inset-top, 0px) !important;
   left: 0 !important;
   width: 100% !important;
   height: 3px !important;
-  
-  /* Gradient vert identique aux boutons (green-500 → green-600) */
+
   background: linear-gradient(
     90deg,
-    #22c55e 0%,
-    #16a34a 100%
+    var(--progress-from) 0%,
+    var(--progress-via) 50%,
+    var(--progress-to) 100%
   ) !important;
-  
-  /* Animation fluide */
+
+  /* Coins arrondis côté droit uniquement (bord gauche = bord de l'écran) */
+  border-radius: 0 2px 2px 0 !important;
+
   transition: width 0.2s ease-out, opacity 0.2s ease !important;
-  
-  /* Ombre verte subtile pour profondeur */
-  box-shadow: 
-    0 0 10px rgba(34, 197, 94, 0.6),
-    0 0 5px rgba(22, 163, 74, 0.4) !important;
 }
 
-/* Mode sombre - vert légèrement plus lumineux */
-.dark #nprogress .bar {
-  background: linear-gradient(
-    90deg,
-    #4ade80 0%,
-    #22c55e 100%
-  ) !important;
-  
-  box-shadow: 
-    0 0 12px rgba(74, 222, 128, 0.7),
-    0 0 6px rgba(34, 197, 94, 0.5) !important;
-}
-
-/* Effet de lueur verte à l'extrémité */
 #nprogress .peg {
   display: block !important;
   position: absolute !important;
   right: 0 !important;
-  width: 120px !important;
+  width: 100px !important;
   height: 100% !important;
   opacity: 1 !important;
-  
-  /* Lueur verte */
-  box-shadow: 
-    0 0 15px rgba(34, 197, 94, 0.9),
-    0 0 8px rgba(22, 163, 74, 0.7),
-    0 0 4px rgba(74, 222, 128, 0.5) !important;
-  
-  /* Légère rotation pour effet dynamique */
-  transform: rotate(2deg) translate(1px, -2px) !important;
+  box-shadow: var(--progress-glow) !important;
 }
 
-.dark #nprogress .peg {
-  box-shadow: 
-    0 0 18px rgba(74, 222, 128, 0.9),
-    0 0 10px rgba(34, 197, 94, 0.7),
-    0 0 5px rgba(134, 239, 172, 0.5) !important;
-}
-
-/* Masquer le spinner (on utilise uniquement la barre) */
+/* Pas de spinner : showSpinner:false côté JS, ceinture-bretelles ici. */
 #nprogress .spinner {
   display: none !important;
 }
 
-/* Animation pulse subtile pendant le chargement */
-@keyframes nprogress-pulse {
-  0%, 100% {
-    opacity: 1;
+/* prefers-reduced-motion : pas de glissement/transform, juste un fondu. */
+@media (prefers-reduced-motion: reduce) {
+  #nprogress .bar {
+    transition: opacity 0.15s linear !important;
   }
-  50% {
-    opacity: 0.85;
+  #nprogress .peg {
+    box-shadow: none !important;
   }
 }
 
-#nprogress .bar {
-  animation: nprogress-pulse 1.5s ease-in-out infinite !important;
-}
-
-/* Responsive - barre légèrement plus épaisse sur mobile pour visibilité */
 @media (max-width: 640px) {
   #nprogress .bar {
     height: 4px !important;
-  }
-  
-  #nprogress .peg {
-    width: 80px !important;
   }
 }
 
@@ -340,5 +303,65 @@
   @page {
     margin: 1.5cm;
     size: A4;
+  }
+}
+
+/* Secousse des cases OTP sur code incorrect (components/auth/otp-input.tsx) —
+   désactivée sous prefers-reduced-motion via le variant motion-safe:. */
+@keyframes otp-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+
+/* ============================================================================
+   Page de présentation (components/landing/*) — boucles continues en CSS pur
+   (flottement, pointillés animés, pulsation) : volontairement hors de
+   framer-motion, qui gère seulement les révélations ponctuelles (one-shot).
+   Une boucle CSS ne consomme pas de temps JS par frame — le bon choix pour
+   un mouvement infini, garde 60fps sur mobile moyen.
+   ========================================================================= */
+@keyframes wl-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes wl-dash {
+  to { stroke-dashoffset: -48; }
+}
+@keyframes wl-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(91, 63, 230, 0.5); }
+  100% { box-shadow: 0 0 0 16px rgba(91, 63, 230, 0); }
+}
+
+.wl-float { animation: wl-float 6s ease-in-out infinite; }
+.wl-float2 { animation: wl-float 7s ease-in-out infinite; animation-delay: 1.2s; }
+.wl-float3 { animation: wl-float 5.5s ease-in-out infinite; animation-delay: 0.6s; }
+.wl-arc { stroke-dasharray: 6 6; animation: wl-dash 2.4s linear infinite; }
+.wl-pin { animation: wl-pulse 2.2s ease-out infinite; }
+
+.wl-card-hover {
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wl-btn-hover {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (hover: hover) {
+  .wl-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 22px 50px rgba(17, 17, 80, 0.12);
+  }
+  .wl-btn-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 30px rgba(75, 47, 214, 0.42);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wl-float, .wl-float2, .wl-float3, .wl-arc, .wl-pin {
+    animation: none !important;
+  }
+  .wl-card-hover:hover, .wl-btn-hover:hover {
+    transform: none !important;
   }
 }

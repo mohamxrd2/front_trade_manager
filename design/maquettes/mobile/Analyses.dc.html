@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Analyses</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FE6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F3F7; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; overflow: hidden">
+  <div style="flex: 1; overflow-y: auto; padding: 56px 20px 112px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Analyses</h1>
+        <span style="font-size: 13px; color: #6B6B7B">{{rangeText}}</span>
+      </div>
+      <button type="button" onClick="{{openCustom}}" aria-label="Choisir des dates" style="min-height: 44px; padding: 0 14px; border-radius: 22px; border: 0; background: #FFFFFF; box-shadow: 0 2px 10px rgba(17,17,80,0.06); font-family: inherit; font-size: 13px; font-weight: 600; color: #0E0E1A; display: flex; align-items: center; gap: 8px; cursor: pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Dates</button>
+    </div>
+
+    <div role="group" aria-label="Période" style="display: flex; gap: 8px; overflow-x: auto; margin: 0 -20px; padding: 0 20px 2px">
+      <sc-for list="{{periods}}" as="p" hint-placeholder-count="6">
+        <button type="button" onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}">{{p.label}}</button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{isCustom}}" hint-placeholder-val="{{ false }}">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 18px; padding: 12px">
+        <div style="display: flex; flex-direction: column; gap: 6px"><label for="du" style="font-size: 12px; font-weight: 600; color: #6B6B7B">Du</label><input id="du" type="date" value="2026-09-15" style="height: 44px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 12px; padding: 0 10px; font-family: inherit; font-size: 14px; color: #0E0E1A; background: #F3F3F7"></div>
+        <div style="display: flex; flex-direction: column; gap: 6px"><label for="au" style="font-size: 12px; font-weight: 600; color: #6B6B7B">Au</label><input id="au" type="date" value="2026-10-15" style="height: 44px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 12px; padding: 0 10px; font-family: inherit; font-size: 14px; color: #0E0E1A; background: #F3F3F7"></div>
+      </div>
+    </sc-if>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; color: #6B6B7B; font-weight: 600">{{k.label}}</span>
+          <span style="font-weight: 700; font-size: 20px">{{k.value}}</span>
+          <span style="{{k.deltaStyle}}">{{k.delta}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700">Tendance des ventes</h2>
+        <span style="font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 16px; border: 1px solid #E2E2EA">{{periodLabel}}</span>
+      </div>
+      <span style="font-size: 13px; color: #4B4B5C"><span style="color: #0B8A43; font-weight: 700">{{trendDelta}}</span> {{trendText}}</span>
+      <div style="position: relative">
+        <svg viewBox="0 0 320 150" width="320" height="150" role="img" aria-label="{{chartAria}}" style="display: block; width: 100%; height: auto">
+          <defs><linearGradient id="aga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6A4CF0" stop-opacity="0.30"></stop><stop offset="1" stop-color="#6A4CF0" stop-opacity="0"></stop></linearGradient></defs>
+          <text x="0" y="24" font-size="10" fill="#6B6B7B" font-family="Plus Jakarta Sans, sans-serif">{{y3}}</text>
+          <text x="0" y="64" font-size="10" fill="#6B6B7B" font-family="Plus Jakarta Sans, sans-serif">{{y2}}</text>
+          <text x="0" y="104" font-size="10" fill="#6B6B7B" font-family="Plus Jakarta Sans, sans-serif">{{y1}}</text>
+          <text x="0" y="144" font-size="10" fill="#6B6B7B" font-family="Plus Jakarta Sans, sans-serif">0</text>
+          <line x1="34" y1="20" x2="320" y2="20" stroke="#ECECF2" stroke-dasharray="3 4"></line>
+          <line x1="34" y1="60" x2="320" y2="60" stroke="#ECECF2" stroke-dasharray="3 4"></line>
+          <line x1="34" y1="100" x2="320" y2="100" stroke="#ECECF2" stroke-dasharray="3 4"></line>
+          <line x1="34" y1="140" x2="320" y2="140" stroke="#ECECF2" stroke-dasharray="3 4"></line>
+          <path d="{{area}}" fill="url(#aga)"></path>
+          <path d="{{line}}" fill="none" stroke="#5B3FE6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+          <circle cx="{{dotX}}" cy="{{dotY}}" r="6" fill="#FFFFFF" stroke="#5B3FE6" stroke-width="3"></circle>
+          <rect x="{{tipX}}" y="{{tipY}}" width="84" height="24" rx="12" fill="#FFFFFF" stroke="#E2E2EA"></rect>
+          <text x="{{tipTextX}}" y="{{tipTextY}}" font-size="11" font-weight="700" fill="#0E0E1A" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif">{{tipValue}}</text>
+        </svg>
+        <div style="position: relative; height: 18px; margin-top: 4px">
+          <sc-for list="{{xLabels}}" as="x" hint-placeholder-count="6">
+            <span style="{{x.style}}">{{x.label}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 700">Répartition des ventes</h2>
+      <div style="display: flex; align-items: center; gap: 16px">
+        <div role="img" aria-label="Robes et boubous 46 %, tissus 28 %, accessoires 17 %, chemises 9 %" style="position: relative; width: 128px; height: 128px; flex-shrink: 0; border-radius: 64px; background: conic-gradient(#2A1A9E 0 46%, #6A4CF0 46% 74%, #A58CFF 74% 91%, #DCD4FF 91% 100%)">
+          <div style="position: absolute; inset: 20px; border-radius: 50%; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-weight: 700; font-size: 15px">{{caShort}}</span><span style="font-size: 11px; color: #6B6B7B">Total ventes</span></div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 9px; font-size: 13px">
+          <div style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #2A1A9E"></span><span style="flex: 1">Robes &amp; boubous</span><span style="font-weight: 700">46 %</span></div>
+          <div style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #6A4CF0"></span><span style="flex: 1">Tissus</span><span style="font-weight: 700">28 %</span></div>
+          <div style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #A58CFF"></span><span style="flex: 1">Accessoires</span><span style="font-weight: 700">17 %</span></div>
+          <div style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 5px; background: #DCD4FF; box-shadow: inset 0 0 0 1px #B9ACF5"></span><span style="flex: 1">Chemises</span><span style="font-weight: 700">9 %</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700">Transactions de la période</h2>
+        <span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #EEEAFE; color: #3A20B8">{{txCount}}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <div style="border-radius: 14px; padding: 10px 12px; background: #E3F5EA; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #0B6B39; font-weight: 600">Entrées</span><span style="font-weight: 700; font-size: 15px; color: #0B6B39">{{inSum}}</span></div>
+        <div style="border-radius: 14px; padding: 10px 12px; background: #FDE8EC; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #A3213A; font-weight: 600">Sorties</span><span style="font-weight: 700; font-size: 15px; color: #A3213A">{{outSum}}</span></div>
+      </div>
+      <div role="group" aria-label="Type de transaction" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; background: #F3F3F7; padding: 4px; border-radius: 22px">
+        <sc-for list="{{types}}" as="t" hint-placeholder-count="3">
+          <button type="button" onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="{{t.style}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column">
+        <sc-for list="{{tx}}" as="r" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F0F0F4">
+            <span style="{{r.icon}}">{{r.sign}}</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.title}}</span>
+              <span style="font-size: 12px; color: #6B6B7B">{{r.meta}}</span>
+            </span>
+            <span style="{{r.amtStyle}}">{{r.amt}}</span>
+          </div>
+        </sc-for>
+        <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+          <span style="padding: 20px 0; text-align: center; font-size: 14px; color: #6B6B7B">Aucune transaction sur cette période.</span>
+        </sc-if>
+      </div>
+      <sc-if value="{{hasMore}}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{toggleAll}}" style="min-height: 46px; border-radius: 23px; border: 1px solid #E2E2EA; background: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 700; color: #3A20B8; cursor: pointer">{{moreLabel}}</button>
+      </sc-if>
+    </div>
+  </div>
+
+  <nav aria-label="Navigation principale" style="position: absolute; left: 14px; right: 14px; bottom: 22px; height: 72px; border-radius: 36px; padding: 6px; box-sizing: border-box; display: flex; gap: 2px; align-items: stretch; background: linear-gradient(180deg, rgba(255,255,255,0.66), rgba(255,255,255,0.36)); backdrop-filter: blur(22px) saturate(180%); -webkit-backdrop-filter: blur(22px) saturate(180%); border: 1px solid rgba(255,255,255,0.8); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), inset 0 -1px 1px rgba(255,255,255,0.35), 0 14px 34px rgba(17,17,80,0.18), 0 2px 6px rgba(17,17,80,0.08)">
+    <a href="Main.dc.html" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3F3F50; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Accueil</a>
+    <a href="Stock.dc.html" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3F3F50; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"></path><path d="M3 8l9 5 9-5M12 13v8"></path></svg>Stock</a>
+    <a href="Portefeuille.dc.html" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3F3F50; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"></rect><path d="M3 10h18M16 15h2"></path></svg>Portefeuille</a>
+    <a href="Factures.dc.html" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3F3F50; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Factures</a>
+    <a href="Analyses.dc.html" aria-current="page" style="flex: 1 1 0; min-width: 0; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; font-size: 11px; letter-spacing: -0.01em; white-space: nowrap; color: #3A20B8; font-weight: 700; background: linear-gradient(180deg, rgba(106,76,240,0.20), rgba(106,76,240,0.08)); box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), inset 0 0 0 1px rgba(106,76,240,0.16)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"></path></svg>Analyses</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const p = s.p || '30';
+const type = s.type || 'all';
+const showAll = !!s.all;
+const fmt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+const short = (n) => n >= 1000000 ? String(Math.round(n / 100000) / 10).replace('.', ',') + ' M' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n);
+const months = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const today = new Date(2026, 9, 15);
+const dayLabel = (ago) => { const d = new Date(today); d.setDate(d.getDate() - ago); return d.getDate() + ' ' + months[d.getMonth()]; };
+
+const P = {
+today: { label: 'Aujourd’hui', days: 0, range: 'Jeudi 15 octobre 2026', delta: '↑ 9 %', text: 'par rapport à hier',
+  vals: [0, 25000, 36000, 36000, 61000, 86000], xl: ['8h', '10h', '12h', '14h', '16h', '18h'],
+  kpi: [['Chiffre d’affaires', '86 000', '↑ 9 % vs hier', true], ['Bénéfice net', '77 500', '↑ 6 %', true], ['Panier moyen', '28 700', '↑ 4 %', true], ['Ventes', '3', '+1', true]], ca: 86000 },
+'7': { label: '7 jours', days: 6, range: '9 → 15 octobre 2026', delta: '↑ 12 %', text: 'par rapport à la semaine dernière',
+  vals: [140000, 190000, 120000, 230000, 205000, 270000, 312000], xl: ['Ven', 'Sam', 'Dim', 'Lun', 'Mar', 'Mer', 'Jeu'],
+  kpi: [['Chiffre d’affaires', '486 000', '↑ 12 % vs sem. préc.', true], ['Bénéfice net', '312 500', '↑ 8 %', true], ['Panier moyen', '24 300', '↓ 3 %', false], ['Ventes', '20', '+4', true]], ca: 486000 },
+'30': { label: '30 jours', days: 29, range: '16 sept. → 15 oct. 2026', delta: '↑ 18 %', text: 'par rapport au mois dernier',
+  vals: [310000, 420000, 380000, 520000, 486000], xl: ['S1', 'S2', 'S3', 'S4', 'S5'],
+  kpi: [['Chiffre d’affaires', '1 860 000', '↑ 18 % vs mois préc.', true], ['Bénéfice net', '1 245 000', '↑ 21 %', true], ['Panier moyen', '27 400', '↑ 5 %', true], ['Ventes', '68', '+9', true]], ca: 1860000 },
+'90': { label: '3 mois', days: 89, range: '17 juil. → 15 oct. 2026', delta: '↑ 22 %', text: 'par rapport au trimestre précédent',
+  vals: [1000000, 1350000, 1550000, 1860000], xl: ['Juil.', 'Août', 'Sept.', 'Oct.'],
+  kpi: [['Chiffre d’affaires', '4 760 000', '↑ 22 % vs trim. préc.', true], ['Bénéfice net', '3 020 000', '↑ 19 %', true], ['Panier moyen', '26 900', '↑ 3 %', true], ['Ventes', '177', '+31', true]], ca: 4760000 },
+'365': { label: '12 mois', days: 364, range: 'Oct. 2025 → oct. 2026', delta: '↑ 34 %', text: 'par rapport à l’année précédente',
+  vals: [1100000, 1400000, 900000, 1000000, 1200000, 1050000, 950000, 1100000, 1000000, 1350000, 1550000, 1860000], xl: ['N', 'D', 'J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O'],
+  kpi: [['Chiffre d’affaires', '17,4 M', '↑ 34 % vs an préc.', true], ['Bénéfice net', '10,9 M', '↑ 29 %', true], ['Panier moyen', '25 800', '↑ 2 %', true], ['Ventes', '674', '+152', true]], ca: 17400000 }
+};
+P.custom = Object.assign({}, P['30'], { label: 'Personnalisé', range: '15 sept. → 15 oct. 2026' });
+const cur = P[p];
+
+// chart
+const vals = cur.vals;
+const max = Math.max.apply(null, vals);
+const steps = [100000, 300000, 600000, 2000000, 3000000];
+let ymax = steps.find((v) => v >= max) || max;
+const X0 = 44, X1 = 306, Y0 = 140, YT = 20;
+const pts = vals.map((v, i) => [X0 + (X1 - X0) * i / (vals.length - 1), Y0 - (Y0 - YT) * v / ymax]);
+let d = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+for (let i = 0; i < pts.length - 1; i++) {
+  const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+  const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+  const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+  d += ' C ' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ', ' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ', ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+}
+const last = pts[pts.length - 1];
+const tipY = last[1] < 44 ? last[1] + 12 : last[1] - 36;
+
+// transactions
+const all = [
+  [0, 'Robe wax · Taille M', 'sale', 25000, '14:32'], [0, 'Transport marchandises', 'exp', 8500, '11:05'],
+  [0, 'Sac en raphia ×2', 'sale', 36000, '10:20'], [1, 'Boubou brodé · L', 'sale', 45000, '17:48'],
+  [1, 'Électricité boutique', 'exp', 32000, '09:12'], [3, 'Chemise bazin · M', 'sale', 22000, '10:02'],
+  [5, 'Foulard soie ×3', 'sale', 21000, '16:15'], [9, 'Achat tissu wax', 'exp', 180000, '15:20'],
+  [12, 'Robe wax · Taille S ×3', 'sale', 75000, '11:40'], [18, 'Loyer boutique', 'exp', 150000, '09:00'],
+  [24, 'Pagne wax ×4', 'sale', 60000, '13:10'], [40, 'Hôtel Assinie Beach', 'sale', 275000, '10:30'],
+  [65, 'Machine à coudre', 'exp', 220000, '14:00'], [120, 'Atelier Yopougon', 'sale', 190000, '12:25'],
+  [200, 'Commande bazin', 'exp', 300000, '08:45']
+];
+const inPeriod = all.filter((t) => t[0] <= cur.days);
+const shown = inPeriod.filter((t) => type === 'all' || t[2] === type);
+const list = showAll ? shown : shown.slice(0, 5);
+const sumIn = inPeriod.filter((t) => t[2] === 'sale').reduce((a, t) => a + t[3], 0);
+const sumOut = inPeriod.filter((t) => t[2] === 'exp').reduce((a, t) => a + t[3], 0);
+
+const chipOn = 'background: #0E0E1A; color: #FFFFFF; border: 1px solid #0E0E1A';
+const chipOff = 'background: #FFFFFF; color: #3F3F50; border: 1px solid #E2E2EA';
+const segOn = 'min-height: 40px; border-radius: 20px; border: 0; background: #FFFFFF; color: #0E0E1A; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(17,17,80,0.1)';
+const segOff = 'min-height: 40px; border-radius: 20px; border: 0; background: transparent; color: #4B4B5C; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer';
+const order = ['today', '7', '30', '90', '365', 'custom'];
+
+return {
+  isCustom: p === 'custom',
+  openCustom: () => this.setState({ p: 'custom', all: false }),
+  rangeText: cur.range,
+  periodLabel: cur.label,
+  periods: order.map((id) => ({
+    label: P[id].label, pressed: id === p ? 'true' : 'false',
+    style: 'flex-shrink: 0; min-height: 40px; padding: 0 16px; border-radius: 20px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; ' + (id === p ? chipOn : chipOff),
+    pick: () => this.setState({ p: id, all: false })
+  })),
+  kpis: cur.kpi.map(([label, value, delta, up]) => ({ label, value, delta, deltaStyle: 'font-size: 12px; font-weight: 700; color: ' + (up ? '#0B8A43' : '#D92D20') })),
+  trendDelta: cur.delta, trendText: cur.text,
+  chartAria: 'Évolution des ventes sur ' + cur.label.toLowerCase() + ', dernière valeur ' + fmt(vals[vals.length - 1]) + ' FCFA',
+  y3: short(ymax), y2: short(ymax * 2 / 3), y1: short(ymax / 3),
+  line: d, area: d + ' L ' + X1 + ' ' + Y0 + ' L ' + X0 + ' ' + Y0 + ' Z',
+  dotX: last[0].toFixed(1), dotY: last[1].toFixed(1),
+  tipX: (last[0] - 88).toFixed(1), tipY: tipY.toFixed(1),
+  tipTextX: (last[0] - 46).toFixed(1), tipTextY: (tipY + 16).toFixed(1),
+  tipValue: fmt(vals[vals.length - 1]),
+  xLabels: cur.xl.map((l, i) => ({
+    label: l,
+    style: 'position: absolute; top: 0; transform: translateX(-50%); font-size: 11px; white-space: nowrap; left: ' + ((X0 + (X1 - X0) * i / (cur.xl.length - 1)) / 320 * 100).toFixed(2) + '%; ' + (i === cur.xl.length - 1 ? 'color: #0E0E1A; font-weight: 700' : 'color: #6B6B7B')
+  })),
+  caShort: short(cur.ca),
+  txCount: inPeriod.length + (inPeriod.length > 1 ? ' opérations' : ' opération'),
+  inSum: '+' + fmt(sumIn) + ' F', outSum: '−' + fmt(sumOut) + ' F',
+  types: [['all', 'Tout'], ['sale', 'Ventes'], ['exp', 'Dépenses']].map(([id, label]) => ({
+    label, pressed: id === type ? 'true' : 'false', style: id === type ? segOn : segOff,
+    pick: () => this.setState({ type: id, all: false })
+  })),
+  tx: list.map(([ago, title, k, amt, time]) => ({
+    title, sign: k === 'sale' ? '+' : '−',
+    meta: (ago === 0 ? 'Aujourd’hui' : ago === 1 ? 'Hier' : dayLabel(ago)) + ' · ' + time + ' · ' + (k === 'sale' ? 'Vente' : 'Dépense'),
+    amt: (k === 'sale' ? '+' : '−') + fmt(amt),
+    icon: 'width: 40px; height: 40px; flex-shrink: 0; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; ' + (k === 'sale' ? 'background: #E3F5EA; color: #0B6B39' : 'background: #FDE8EC; color: #D92D20'),
+    amtStyle: 'font-weight: 700; font-size: 14px; white-space: nowrap; color: ' + (k === 'sale' ? '#0B8A43' : '#D92D20')
+  })),
+  empty: shown.length === 0,
+  hasMore: shown.length > 5,
+  moreLabel: showAll ? 'Réduire' : 'Voir les ' + shown.length + ' transactions',
+  toggleAll: () => this.setState({ all: !showAll })
+};
+}
+}
+</script>
+</body>
+</html>

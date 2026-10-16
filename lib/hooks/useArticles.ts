@@ -1,74 +1,72 @@
-import useSWR from 'swr'
+import { useQuery } from '@tanstack/react-query'
+import { keys } from '@/lib/query-keys'
 import { getArticles, getUserStats, getArticleById, type Article, type UserStats } from '../services/articles'
 
 /**
- * Hook personnalisé pour récupérer les statistiques utilisateur
- * Utilise SWR pour la mise en cache et la revalidation automatique
- * 
- * @returns { stats, error, isLoading, isValidating, mutate }
+ * Hook personnalisé pour récupérer les statistiques utilisateur.
+ * Migré de SWR vers TanStack Query (cache unique de l'app, voir
+ * lib/query-client.ts) — la forme retournée reste identique pour ne pas
+ * casser les composants qui consomment déjà ce hook.
  */
 export function useUserStats() {
-  const { data, error, isLoading, isValidating, mutate } = useSWR<UserStats, Error>(
-    '/api/user',
-    getUserStats
-  )
+  const { data, error, isLoading, isFetching, refetch } = useQuery<UserStats, Error>({
+    queryKey: keys.userStats.all,
+    queryFn: getUserStats,
+  })
 
   return {
     stats: data,
-    error,
+    error: error ?? null,
     isLoading,
-    isValidating,
-    mutate,
+    isValidating: isFetching,
+    mutate: refetch,
   }
 }
 
 /**
- * Hook personnalisé pour récupérer la liste des articles
- * Utilise SWR pour la mise en cache et la revalidation automatique
- * 
- * @returns { articles, error, isLoading, isValidating, mutate }
+ * Hook personnalisé pour récupérer la liste des articles.
+ * Migré de SWR vers TanStack Query — voir lib/hooks/useCache.ts pour les
+ * invalidations (invalidateArticles, invalidateAll) déclenchées après une
+ * mutation (ajout/modif/suppression d'article, vente, dépense…).
  */
 export function useArticles() {
-  const { data, error, isLoading, isValidating, mutate } = useSWR<Article[], Error>(
-    '/api/articles',
-    getArticles
-  )
+  const { data, error, isLoading, isFetching, refetch } = useQuery<Article[], Error>({
+    queryKey: keys.products.list(),
+    queryFn: getArticles,
+  })
 
   // Garantir qu'on retourne toujours un tableau
   const articles: Article[] = Array.isArray(data) ? data : []
 
   return {
     articles,
-    error,
+    error: error ?? null,
     isLoading,
-    isValidating,
-    mutate,
+    isValidating: isFetching,
+    mutate: refetch,
   }
 }
 
 /**
- * Hook personnalisé pour récupérer un article spécifique par son ID
- * 
+ * Hook personnalisé pour récupérer un article spécifique par son ID.
+ *
  * @param id - L'ID de l'article (peut être null/undefined pour désactiver la requête)
- * @returns { article, error, isLoading, mutate }
  */
 export function useArticle(id: string | number | null | undefined) {
-  const { data, error, isLoading, mutate } = useSWR<Article, Error>(
-    id ? `/api/articles/${id}` : null, // Clé SWR (null désactive la requête)
-    id ? () => getArticleById(id) : null, // Fonction fetcher
-    {
-      revalidateOnFocus: false, // Ne pas revalider automatiquement pour un article spécifique
-      dedupingInterval: 10000, // Dédoublonner les requêtes pendant 10 secondes
-      errorRetryCount: 2, // Réessayer 2 fois en cas d'erreur
-      errorRetryInterval: 1000, // Attendre 1 seconde entre les tentatives
-    }
-  )
+  const { data, error, isLoading, refetch } = useQuery<Article, Error>({
+    queryKey: keys.products.detail(String(id ?? '')),
+    queryFn: () => getArticleById(id as string | number),
+    enabled: id !== null && id !== undefined,
+    // Équivalent du `revalidateOnFocus: false` + dedupingInterval de la
+    // version SWR : une fiche article déjà ouverte n'a pas besoin de se
+    // rafraîchir au focus de la fenêtre.
+    refetchOnWindowFocus: false,
+  })
 
   return {
     article: data,
-    error,
+    error: error ?? null,
     isLoading,
-    mutate,
+    mutate: refetch,
   }
 }
-

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Nouvel article</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#4B2FD6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; padding: 20px; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; background: radial-gradient(700px 480px at 0% 0%, rgba(106,76,240,0.22), rgba(106,76,240,0) 70%), radial-gradient(800px 560px at 100% 10%, rgba(58,58,240,0.14), rgba(58,58,240,0) 70%), #F1F2F7">
+<div style="max-width: 1480px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+  <div style="flex: 1 1 240px; min-width: 0"><dc-import name="WebSidebar" active="stock" hint-size="100%,820px"></dc-import></div>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; padding: 8px 4px">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <nav aria-label="Fil d'Ariane" style="display: flex; gap: 8px; font-size: 13px; color: #6B6B7B"><a href="Web-Stock.dc.html" style="text-decoration: none; font-weight: 600">Stock</a><span aria-hidden="true">/</span><span>Nouvel article</span></nav>
+        <h1 style="margin: 0; font-weight: 700; font-size: 28px; letter-spacing: -0.02em">Ajouter un article</h1>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px">
+        <a href="Web-Stock.dc.html" style="height: 48px; padding: 0 18px; border-radius: 24px; display: flex; align-items: center; text-decoration: none; font-weight: 600; font-size: 14px; color: #0E0E1A; background: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.95)">Annuler</a>
+        <a href="Web-Stock.dc.html" style="height: 48px; padding: 0 22px; border-radius: 24px; display: flex; align-items: center; text-decoration: none; font-weight: 700; font-size: 14px; color: #FFFFFF; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.35)">Enregistrer l'article</a>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+      <div style="flex: 3 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+        <section style="background: #FFFFFF; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+          <h2 style="margin: 0; font-size: 18px; font-weight: 700">Informations</h2>
+          <div style="display: flex; flex-wrap: wrap; gap: 18px; align-items: stretch">
+            <button type="button" style="flex: 0 0 180px; min-height: 180px; border-radius: 22px; border: 1.5px dashed #C9BDFB; background: #F4F1FF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; font-family: inherit; color: #3A20B8; cursor: pointer; padding: 12px">
+              <span style="width: 48px; height: 48px; border-radius: 24px; background: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><circle cx="9" cy="10" r="2"></circle><path d="m21 16-5-5-9 9"></path></svg></span>
+              <span style="font-weight: 700; font-size: 14px">Ajouter une photo</span>
+              <span style="font-size: 12px; color: #4B4B5C; text-align: center">Glisser une image ou cliquer</span>
+            </button>
+            <div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; flex-direction: column; gap: 8px"><label for="wn" style="font-size: 13px; font-weight: 600">Nom de l'article</label><input id="wn" value="Robe wax" style="height: 50px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 14px">
+                <div style="display: flex; flex-direction: column; gap: 8px"><label for="wp" style="font-size: 13px; font-weight: 600">Prix de vente (F)</label><input id="wp" inputmode="numeric" value="25 000" style="height: 50px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 14px; font-family: inherit; font-size: 15px; color: #0E0E1A"></div>
+                <div style="display: flex; flex-direction: column; gap: 8px"><label for="wc" style="font-size: 13px; font-weight: 600">Catégorie</label><select id="wc" style="height: 50px; min-width: 0; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 12px; font-family: inherit; font-size: 15px; color: #0E0E1A; background: #FFFFFF"><option>Robes & boubous</option><option>Tissus</option><option>Accessoires</option><option>Chemises</option><option>+ Nouvelle catégorie</option></select></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section style="background: #FFFFFF; border-radius: 26px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 18px rgba(17,17,80,0.05)">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+            <div style="display: flex; flex-direction: column; gap: 2px"><h2 style="margin: 0; font-size: 18px; font-weight: 700">Stock</h2><span style="font-size: 13px; color: #6B6B7B">{{typeHelp}}</span></div>
+            <div role="group" aria-label="Type d'article" style="display: flex; gap: 4px; padding: 4px; border-radius: 22px; background: #F3F3F7">
+              <button type="button" onClick="{{setSimple}}" aria-pressed="{{simpleOn}}" style="{{simpleStyle}}">Simple</button>
+              <button type="button" onClick="{{setVar}}" aria-pressed="{{varOn}}" style="{{varStyle}}">À variations</button>
+            </div>
+          </div>
+
+          <sc-if value="{{isSimple}}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 18px; background: #F6F5FB">
+              <span style="font-weight: 600; font-size: 14px">Quantité initiale</span>
+              <span style="display: flex; align-items: center; gap: 6px">
+                <button type="button" onClick="{{decQty}}" aria-label="Diminuer" style="width: 42px; height: 42px; border-radius: 21px; border: 1px solid #E2E2EA; background: #FFFFFF; font-size: 18px; font-weight: 700; color: #0E0E1A; cursor: pointer">−</button>
+                <span aria-live="polite" style="width: 40px; text-align: center; font-weight: 800; font-size: 18px">{{qty}}</span>
+                <button type="button" onClick="{{incQty}}" aria-label="Augmenter" style="width: 42px; height: 42px; border-radius: 21px; border: 0; background: #5B3FE6; font-size: 18px; font-weight: 700; color: #FFFFFF; cursor: pointer">+</button>
+              </span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{isVar}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 10px">
+              <div style="overflow-x: auto; border: 1px solid #ECECF2; border-radius: 18px">
+                <table style="width: 100%; min-width: 480px; border-collapse: collapse; font-size: 14px">
+                  <thead><tr style="text-align: left; color: #6B6B7B; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; background: #F6F5FB"><th style="padding: 10px 12px; font-weight: 600">Photo</th><th style="padding: 10px 12px; font-weight: 600">Variation</th><th style="padding: 10px 12px; font-weight: 600">Quantité</th><th style="padding: 10px 12px"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Actions</span></th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{vars}}" as="v" hint-placeholder-count="3">
+                      <tr style="border-top: 1px solid #F0F0F4">
+                        <td style="padding: 8px 12px"><button type="button" aria-label="Photo de la variation {{v.name}}" style="width: 40px; height: 40px; border-radius: 12px; border: 1px dashed #C9BDFB; background: #F4F1FF; color: #5B3FE6; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 700">+</button></td>
+                        <td style="padding: 8px 12px"><input aria-label="Nom de la variation" value="{{v.name}}" style="width: 100%; min-width: 140px; height: 42px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 12px; padding: 0 12px; font-family: inherit; font-size: 14px; color: #0E0E1A"></td>
+                        <td style="padding: 8px 12px"><span style="display: flex; align-items: center; gap: 4px"><button type="button" onClick="{{v.dec}}" aria-label="Diminuer" style="width: 34px; height: 34px; border-radius: 17px; border: 1px solid #E2E2EA; background: #FFFFFF; font-weight: 700; color: #0E0E1A; cursor: pointer">−</button><span style="width: 30px; text-align: center; font-weight: 700">{{v.q}}</span><button type="button" onClick="{{v.inc}}" aria-label="Augmenter" style="width: 34px; height: 34px; border-radius: 17px; border: 0; background: #5B3FE6; font-weight: 700; color: #FFFFFF; cursor: pointer">+</button></span></td>
+                        <td style="padding: 8px 12px; text-align: right"><button type="button" onClick="{{v.remove}}" aria-label="Supprimer la variation" style="min-height: 36px; padding: 0 12px; border-radius: 18px; border: 1px solid #F3C7CF; background: #FFFFFF; font-family: inherit; font-weight: 600; font-size: 13px; color: #A3213A; cursor: pointer">Retirer</button></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+              <button type="button" onClick="{{addVar}}" style="align-self: flex-start; min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px dashed #A58CFF; background: transparent; font-family: inherit; font-weight: 700; font-size: 14px; color: #3A20B8; cursor: pointer">+ Ajouter une variation</button>
+            </div>
+          </sc-if>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid #F0F0F4">
+            <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 14px">Alerte stock faible</span><span style="font-size: 13px; color: #6B6B7B">Une notification est envoyée sous ce seuil</span></span>
+            <span style="display: flex; align-items: center; gap: 6px">
+              <button type="button" onClick="{{decSeuil}}" aria-label="Diminuer le seuil" style="width: 40px; height: 40px; border-radius: 20px; border: 1px solid #E2E2EA; background: #FFFFFF; font-size: 18px; font-weight: 700; color: #0E0E1A; cursor: pointer">−</button>
+              <span aria-live="polite" style="width: 32px; text-align: center; font-weight: 800; font-size: 16px">{{seuil}}</span>
+              <button type="button" onClick="{{incSeuil}}" aria-label="Augmenter le seuil" style="width: 40px; height: 40px; border-radius: 20px; border: 1px solid #E2E2EA; background: #FFFFFF; font-size: 18px; font-weight: 700; color: #0E0E1A; cursor: pointer">+</button>
+            </span>
+          </div>
+        </section>
+      </div>
+
+      <aside aria-label="Aperçu" style="flex: 2 1 320px; min-width: 0; border-radius: 26px; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.78), rgba(255,255,255,0.5)); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border: 1px solid rgba(255,255,255,0.9); box-shadow: inset 0 1px 1px rgba(255,255,255,0.95), 0 20px 50px rgba(17,17,80,0.10)">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700">Aperçu dans le stock</h2>
+        <div style="background: #FFFFFF; border-radius: 22px; padding: 12px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 6px 20px rgba(17,17,80,0.08)">
+          <span style="height: 150px; border-radius: 16px; background: linear-gradient(145deg, #EEEAFE, #D9D0FF); color: #4B2FD6; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 26px">RW</span>
+          <span style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 0 4px"><span style="font-weight: 700; font-size: 16px">Robe wax</span><span style="font-weight: 800; font-size: 16px">25 000 F</span></span>
+          <span style="padding: 0 4px; font-size: 13px; color: #6B6B7B">Robes & boubous · {{typeLabel}}</span>
+          <sc-if value="{{isVar}}" hint-placeholder-val="{{ true }}">
+            <span style="display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px"><sc-for list="{{vars}}" as="v" hint-placeholder-count="3"><span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #F3F3F7; color: #3F3F50">{{v.name}} · {{v.q}}</span></sc-for></span>
+          </sc-if>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+          <div style="border-radius: 18px; padding: 14px; color: #FFFFFF; display: flex; flex-direction: column; gap: 4px; background: radial-gradient(120% 120% at 100% 100%, #3A3AF0 0%, #1717A0 40%, #0A0A4A 85%)"><span style="font-size: 12px; color: #C8C8F0">Stock initial</span><span style="font-weight: 800; font-size: 20px">{{totalLabel}}</span></div>
+          <div style="border-radius: 18px; padding: 14px; background: #FFFFFF; display: flex; flex-direction: column; gap: 4px"><span style="font-size: 12px; color: #6B6B7B">Valeur</span><span style="font-weight: 800; font-size: 20px">{{valueLabel}}</span></div>
+        </div>
+        <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #4B4B5C">Après l'enregistrement, l'article apparaît dans le stock et peut être vendu ou ajouté à une facture.</p>
+      </aside>
+    </div>
+  </main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const type = s.type || 'var';
+const qty = s.qty == null ? 10 : s.qty;
+const seuil = s.seuil == null ? 5 : s.seuil;
+const vars = s.vars || [{ id: 1, name: 'Taille S', q: 6 }, { id: 2, name: 'Taille M', q: 8 }, { id: 3, name: 'Taille L', q: 4 }];
+const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+const upd = (id, d) => this.setState({ vars: vars.map((v) => v.id === id ? Object.assign({}, v, { q: Math.max(0, v.q + d) }) : v) });
+const nextId = vars.reduce((m, v) => Math.max(m, v.id), 0) + 1;
+const total = type === 'var' ? vars.reduce((t, v) => t + v.q, 0) : qty;
+const on = 'min-height: 40px; padding: 0 18px; border-radius: 20px; border: 0; background: #FFFFFF; color: #0E0E1A; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(17,17,80,0.1)';
+const off = 'min-height: 40px; padding: 0 18px; border-radius: 20px; border: 0; background: transparent; color: #4B4B5C; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer';
+return {
+isSimple: type === 'simple', isVar: type === 'var',
+simpleOn: type === 'simple' ? 'true' : 'false', varOn: type === 'var' ? 'true' : 'false',
+simpleStyle: type === 'simple' ? on : off, varStyle: type === 'var' ? on : off,
+setSimple: () => this.setState({ type: 'simple' }), setVar: () => this.setState({ type: 'var' }),
+typeHelp: type === 'var' ? 'Plusieurs déclinaisons (tailles, couleurs…), chacune avec sa quantité et sa photo.' : 'Un seul modèle, une seule quantité.',
+typeLabel: type === 'var' ? vars.length + ' variation(s)' : 'Simple',
+qty, incQty: () => this.setState({ qty: qty + 1 }), decQty: () => this.setState({ qty: Math.max(0, qty - 1) }),
+seuil, incSeuil: () => this.setState({ seuil: seuil + 1 }), decSeuil: () => this.setState({ seuil: Math.max(0, seuil - 1) }),
+vars: vars.map((v) => ({ name: v.name, q: v.q, inc: () => upd(v.id, 1), dec: () => upd(v.id, -1), remove: () => this.setState({ vars: vars.filter((x) => x.id !== v.id) }) })),
+addVar: () => this.setState({ vars: vars.concat([{ id: nextId, name: 'Taille XL', q: 0 }]) }),
+totalLabel: total + (total > 1 ? ' pièces' : ' pièce'),
+valueLabel: fmt(total * 25000) + ' F'
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Waelly — Nouvelle vente</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5B3FE6}a:hover{color:#3A20B8}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F3F7; color: #0E0E1A; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; overflow: hidden">
+  <div style="padding: 56px 20px 16px; display: flex; flex-direction: column; gap: 18px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <a href="Main.dc.html" aria-label="Fermer" style="width: 44px; height: 44px; border-radius: 22px; background: #FFFFFF; border: 1px solid #ECECF2; display: flex; align-items: center; justify-content: center; color: #0E0E1A"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+      <h1 style="margin: 0; font-family: 'Plus Jakarta Sans', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 22px">Nouvelle opération</h1>
+    </div>
+    <div role="group" aria-label="Type d'opération" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; background: #E7E7EE; padding: 4px; border-radius: 14px">
+      <button type="button" onClick="{{setSale}}" aria-pressed="{{saleOn}}" style="{{saleTab}}">Vente</button>
+      <button type="button" onClick="{{setExp}}" aria-pressed="{{expOn}}" style="{{expTab}}">Dépense</button>
+    </div>
+  </div>
+
+  <div style="flex: 1; overflow-y: auto; padding: 4px 20px 20px; display: flex; flex-direction: column; gap: 20px">
+    <sc-if value="{{isSale}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 20px">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 13px; font-weight: 600">Article</span>
+          <button type="button" style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 1px solid #E2E2EA; border-radius: 16px; padding: 10px 12px; font-family: inherit; text-align: left; cursor: pointer; color: #0E0E1A">
+            <span style="width: 44px; height: 44px; border-radius: 12px; background: #EEEAFE; color: #5B3FE6; display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700">RW</span>
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700; font-size: 15px">Robe wax</span><span style="font-size: 13px; color: #6B6B7B">25 000 FCFA · 18 en stock</span></span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B6B7B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <span style="font-size: 13px; font-weight: 600">Variation</span>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+            <sc-for list="{{vars}}" as="v" hint-placeholder-count="4">
+              <button type="button" onClick="{{v.pick}}" aria-pressed="{{v.pressed}}" style="{{v.style}}"><span style="font-weight: 700; font-size: 15px">{{v.label}}</span><span style="font-size: 11px">{{v.stock}}</span></button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 16px; padding: 10px 12px 10px 16px">
+          <span style="font-size: 14px; font-weight: 600">Quantité</span>
+          <div style="display: flex; align-items: center; gap: 6px">
+            <button type="button" onClick="{{dec}}" aria-label="Diminuer" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #E2E2EA; background: #F3F3F7; color: #0E0E1A; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+            <span aria-live="polite" style="width: 40px; text-align: center; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 20px">{{qty}}</span>
+            <button type="button" onClick="{{inc}}" aria-label="Augmenter" style="width: 44px; height: 44px; border-radius: 12px; border: 0; background: #5B3FE6; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+          </div>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 12px; background: #FFFFFF; border: 1px solid #ECECF2; border-radius: 16px; padding: 14px 16px; cursor: pointer; min-height: 44px; box-sizing: border-box">
+          <input type="checkbox" style="width: 22px; height: 22px; accent-color: #5B3FE6; margin: 0">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600; font-size: 14px">Générer une facture</span><span style="font-size: 12px; color: #6B6B7B">La vente sera liée automatiquement</span></span>
+        </label>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isExp}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <label for="lib" style="font-size: 13px; font-weight: 600">Libellé</label>
+          <input id="lib" placeholder="Ex. Transport, loyer, électricité" style="height: 52px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <label for="mt" style="font-size: 13px; font-weight: 600">Montant (FCFA)</label>
+          <input id="mt" inputmode="numeric" placeholder="0" style="height: 64px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 16px; font-size: 28px; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif; background: #FFFFFF; color: #0E0E1A">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <label for="dt" style="font-size: 13px; font-weight: 600">Date</label>
+          <input id="dt" type="date" value="2026-10-15" style="height: 52px; box-sizing: border-box; border: 1px solid #E2E2EA; border-radius: 14px; padding: 0 16px; font-size: 16px; font-family: inherit; background: #FFFFFF; color: #0E0E1A">
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="padding: 16px 20px 30px; background: #FFFFFF; border-top: 1px solid #ECECF2; display: flex; flex-direction: column; gap: 12px">
+    <sc-if value="{{isSale}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <span style="font-size: 14px; color: #6B6B7B; font-weight: 600">Total</span>
+        <span style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 26px">{{total}} <span style="font-size: 14px; color: #6B6B7B">FCFA</span></span>
+      </div>
+    </sc-if>
+    <a href="Main.dc.html" style="height: 54px; border-radius: 27px; background: radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%); box-shadow: 0 8px 20px rgba(75,47,214,0.3); color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; text-decoration: none">{{cta}}</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+const s = this.state || {};
+const mode = s.mode || 'sale';
+const v = s.v || 'M';
+const qty = s.qty || 1;
+const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+const tabOn = 'min-height: 44px; border-radius: 11px; border: 0; background: #FFFFFF; color: #0E0E1A; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(23,32,28,0.12)';
+const tabOff = 'min-height: 44px; border-radius: 11px; border: 0; background: transparent; color: #6B6B7B; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer';
+const opts = [['S', 6], ['M', 7], ['L', 3], ['XL', 2]];
+return {
+isSale: mode === 'sale', isExp: mode === 'exp',
+saleOn: mode === 'sale' ? 'true' : 'false', expOn: mode === 'exp' ? 'true' : 'false',
+saleTab: mode === 'sale' ? tabOn : tabOff, expTab: mode === 'exp' ? tabOn : tabOff,
+setSale: () => this.setState({ mode: 'sale' }), setExp: () => this.setState({ mode: 'exp' }),
+vars: opts.map(([l, n]) => ({
+label: l, stock: n + ' dispo', pressed: l === v ? 'true' : 'false',
+style: 'height: 60px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-family: inherit; cursor: pointer; ' + (l === v ? 'background: #5B3FE6; color: #FFFFFF; border: 1px solid #5B3FE6' : 'background: #FFFFFF; color: #0E0E1A; border: 1px solid #E2E2EA'),
+pick: () => this.setState({ v: l })
+})),
+qty: qty,
+inc: () => this.setState({ qty: qty + 1 }),
+dec: () => this.setState({ qty: Math.max(1, qty - 1) }),
+total: fmt(qty * 25000),
+cta: mode === 'sale' ? 'Enregistrer la vente' : 'Enregistrer la dépense'
+};
+}
+}
+</script>
+</body>
+</html>

@@ -95,6 +95,8 @@ export interface AnalyticsTransaction {
   name: string
   type: 'sale' | 'expense'
   amount: number
+  /** Quantité d'unités vendues (colonne `quantity` de la table transactions) — peut être nulle pour une dépense ou une vente sans article lié. */
+  quantity: number | null
   created_at: string
   article?: {
     id: string

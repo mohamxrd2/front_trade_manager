@@ -43,6 +43,15 @@ export function useSocialAuthCallback(provider: SocialAuthProvider) {
     exchangeStarted.current = true
 
     const code = searchParams.get('code')
+    const providerError = searchParams.get('error')
+
+    // L'utilisateur a cliqué « Annuler » sur la page de consentement du
+    // provider : ce n'est pas un échec technique, Google/Facebook renvoient
+    // error=access_denied (RFC 6749 §4.1.2.1) plutôt qu'un code.
+    if (providerError === 'access_denied') {
+      router.replace(`/login?error=social_auth_cancelled&provider=${provider}`)
+      return
+    }
 
     if (!code) {
       router.replace('/login?error=social_auth_failed')

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { FullPageSpinner } from '@/components/ui/full-page-spinner'
 import { isSilentError } from '@/lib/utils/error-handler'
 import { checkOnboarding } from '@/lib/services/onboarding'
 
@@ -16,8 +16,10 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const verifyOnboarding = async () => {
-      // Ne pas vérifier si on est déjà sur la page d'onboarding
-      if (pathname === '/onboarding') {
+      // Ne pas vérifier si on est déjà sur une page d'onboarding (toutes
+      // commencent par /onboarding : /onboarding, /onboarding/entreprise,
+      // /onboarding/preferences)
+      if (pathname.startsWith('/onboarding')) {
         setIsChecking(false)
         return
       }
@@ -36,9 +38,11 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
       try {
         // Vérifier l'état d'onboarding
         const status = await checkOnboarding()
-        
-        if (!status.is_complete) {
-          // Rediriger vers l'onboarding si pas complété
+
+        // 'skipped' : l'utilisateur a choisi d'accéder au reste de l'app
+        // sans compléter son profil — ne pas le renvoyer de force vers
+        // /onboarding à chaque page, seul 'pending' doit encore y rediriger.
+        if (status.onboarding_status === 'pending') {
           setNeedsOnboarding(true)
           router.push('/onboarding')
         } else {
@@ -71,11 +75,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
 
   // Ne pas afficher le contenu pendant la vérification
   if (isChecking || needsOnboarding) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    )
+    return <FullPageSpinner />
   }
 
   return <>{children}</>

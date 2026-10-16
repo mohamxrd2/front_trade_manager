@@ -745,16 +745,21 @@ export async function addStock(articleId: string | number, quantity: number): Pr
  * @param articleId - L'ID de l'article
  * @returns Objet contenant l'historique, le résumé et les infos article
  */
-export async function getStockHistory(articleId: string | number): Promise<{
+export async function getStockHistory(
+  articleId: string | number,
+  params?: { page?: number; perPage?: number }
+): Promise<{
   history: StockHistoryEntry[]
   summary: StockHistorySummary
   article: { id: string; name: string; current_quantity: number } | null
+  pagination: { current_page: number; per_page: number; total: number; last_page: number } | null
 }> {
   try {
     const response = await api.get<StockHistoryResponse>(
-      `/api/articles/${articleId}/stock-history`
+      `/api/articles/${articleId}/stock-history`,
+      { params: { page: params?.page ?? 1, per_page: params?.perPage ?? 20 } }
     )
-    
+
     if (process.env.NODE_ENV !== 'production') {
       console.debug('📦 Stock history API response:', response.data)
     }
@@ -770,11 +775,12 @@ export async function getStockHistory(articleId: string | number): Promise<{
       return {
         history: [],
         summary: { total_replenished: 0, replenishment_count: 0 },
-        article: null
+        article: null,
+        pagination: null
       }
     }
 
-    const { history, summary, article } = responseData.data
+    const { history, summary, article, pagination } = responseData.data
     
     // Trier par date décroissante (plus récent en premier)
     const sortedHistory = [...(history || [])].sort((a, b) => {
@@ -792,7 +798,8 @@ export async function getStockHistory(articleId: string | number): Promise<{
     return {
       history: sortedHistory,
       summary: summary || { total_replenished: 0, replenishment_count: 0 },
-      article: article || null
+      article: article || null,
+      pagination: pagination || null
     }
   } catch (error: unknown) {
     const axiosError = error as AxiosError<{ message?: string }>
@@ -810,7 +817,8 @@ export async function getStockHistory(articleId: string | number): Promise<{
       return {
         history: [],
         summary: { total_replenished: 0, replenishment_count: 0 },
-        article: null
+        article: null,
+        pagination: null
       }
     }
 
@@ -835,7 +843,8 @@ export async function getStockHistory(articleId: string | number): Promise<{
     return {
       history: [],
       summary: { total_replenished: 0, replenishment_count: 0 },
-      article: null
+      article: null,
+      pagination: null
     }
   }
 }
