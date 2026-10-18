@@ -527,9 +527,14 @@ export default function NewTransactionPage() {
                 </Link>
               </div>
             ) : null}
+            {/* Desktop seulement : sur mobile, la barre d'action fixe en bas
+                de page (lg:hidden) est déjà l'unique bouton de soumission —
+                un second bouton ici créerait un CTA en double, et la carte
+                paraît "cassée" (grand vide avant la barre fixe) sur les
+                écrans hauts (ex. iPhone 16 Pro Max). */}
             <Button
               variant="primary"
-              className="h-14 rounded-full text-base"
+              className="hidden h-14 rounded-full text-base lg:flex"
               onClick={handleSaleSubmit}
               disabled={submittingSale || !selectedArticle || overStock}
             >
@@ -568,9 +573,11 @@ export default function NewTransactionPage() {
                 className="h-[60px] rounded-tile border border-line-strong px-4 text-[28px] font-extrabold text-ink lg:h-[72px] lg:text-[34px]"
               />
             </div>
+            {/* Desktop seulement : voir le commentaire équivalent sur le
+                bouton "Encaisser" ci-dessus — même raison. */}
             <Button
               variant="primary"
-              className="self-end rounded-full px-6"
+              className="hidden self-end rounded-full px-6 lg:flex"
               onClick={handleExpenseSubmit}
               disabled={submittingExpense}
             >
