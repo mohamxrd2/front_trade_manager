@@ -39,6 +39,11 @@ export const TAB_BAR_HIDDEN_ON: RegExp[] = [
   /^\/products\/[^/]+$/,
   /^\/wallet\/new$/,
   /^\/clients\/[^/]+$/,
+  // /invoices/new ET /invoices/<id> : la barre flottante couvrait les
+  // boutons d'action (PDF, Dupliquer, Marquer payée) en bas de page, qui ne
+  // sont pas dans une barre fixe propre à cet écran comme sur les autres
+  // pages de détail (ex. /products/<id>).
+  /^\/invoices\/[^/]+$/,
   /^\/settings$/,
   /^\/collaborators$/,
   /^\/notifications$/,
