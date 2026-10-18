@@ -1,8 +1,11 @@
 'use client'
 
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
 import { LazyMotion, MotionConfig, domAnimation } from 'motion/react'
 
 import { Navbar } from '@/components/landing/navbar'
+import { useAuth } from '@/contexts/AuthContext'
 
 /**
  * Layout du groupe (marketing) — route "/" : aucun menu latéral ni barre du
@@ -11,8 +14,24 @@ import { Navbar } from '@/components/landing/navbar'
  * (pas de drag/layout avancé ici) ; MotionConfig reducedMotion="user"
  * applique prefers-reduced-motion à TOUTES les animations motion de la page
  * sans avoir à vérifier useReducedMotion() dans chaque composant.
+ *
+ * Redirection « déjà connecté » : contrairement à AuthRoute (login/signup),
+ * pas de spinner bloquant pendant la vérification — la page de présentation
+ * doit rester rapide au premier rendu pour les visiteurs anonymes (la
+ * grande majorité). Un utilisateur déjà connecté qui ouvre "/" voit la page
+ * de présentation une fraction de seconde puis est redirigé vers
+ * /dashboard dès que l'état d'authentification est connu.
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth()
+  const router = useRouter()
+
+  React.useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.replace('/dashboard')
+    }
+  }, [isAuthenticated, loading, router])
+
   return (
     <LazyMotion features={domAnimation} strict>
       <MotionConfig reducedMotion="user">
