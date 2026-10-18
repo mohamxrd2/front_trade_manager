@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { ChevronLeft, Loader2, Phone, Plus, X } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { useUserStats } from '@/lib/hooks/useArticles'
 import { keys } from '@/lib/query-keys'
 import {
   getCollaborators,
@@ -297,6 +298,14 @@ function CollaboratorFormFields({
 export default function CollaboratorsPage() {
   const { user, checkAuth } = useAuth()
   const queryClient = useQueryClient()
+  // user.wallet (contexte d'auth) n'est chargé qu'une fois à l'ouverture de
+  // l'app et n'est jamais invalidé après une vente/dépense ailleurs — le
+  // montant du gérant restait figé tant qu'on ne rechargeait pas la page.
+  // useUserStats() lit le même endpoint (GET /api/user) mais via le cache
+  // TanStack Query, déjà invalidé après chaque transaction (voir
+  // invalidateUserStats(), appelé par wallet/new) : même source fraîche que
+  // le Solde du tableau de bord.
+  const { stats: userStats } = useUserStats()
 
   const { data: collaborators, isLoading } = useQuery({
     queryKey: keys.collaborators.all,
@@ -455,7 +464,7 @@ export default function CollaboratorsPage() {
       role: 'Gérant · propriétaire',
       phone: null,
       share: companyShare,
-      amount: Number(user.wallet ?? 0),
+      amount: Number(userStats?.wallet ?? user.wallet ?? 0),
       image: user.profile_image ?? null,
     }
     const collabMembers: Member[] = (collaborators ?? []).map((c) => ({
@@ -471,7 +480,7 @@ export default function CollaboratorsPage() {
       collaborator: c,
     }))
     return [owner, ...collabMembers]
-  }, [user, collaborators, roleOverrides, companyShare])
+  }, [user, collaborators, roleOverrides, companyShare, userStats])
 
   const shareAria = members.map((m) => `${m.name} ${formatShare(m.share)}`).join(', ')
   const isEmpty = !isLoading && members.length <= 1
