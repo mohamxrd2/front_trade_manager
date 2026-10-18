@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { AlertCircle, ArrowLeft } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
 
 import {
   getInvoiceById,
@@ -198,7 +198,7 @@ export default function InvoiceDetailPage() {
           disabled={generatingPdf}
           className="flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-bold text-ink disabled:opacity-60"
         >
-          {generatingPdf ? '…' : 'PDF'}
+          {generatingPdf ? <Loader2 className="size-4 animate-spin" /> : 'PDF'}
         </button>
         <button
           type="button"
