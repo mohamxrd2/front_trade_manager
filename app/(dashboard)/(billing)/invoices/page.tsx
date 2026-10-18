@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
 import { toast } from 'sonner'
-import { AlertCircle, Download, Plus, Search, Users } from 'lucide-react'
+import { AlertCircle, Download, Loader2, Plus, Search, Users } from 'lucide-react'
 
 import {
   getInvoiceDashboard,
@@ -403,7 +403,7 @@ export default function InvoicesPage() {
         disabled={generatingPdf}
         className="flex min-h-[46px] items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-bold text-ink disabled:opacity-60"
       >
-        {generatingPdf ? '…' : 'PDF'}
+        {generatingPdf ? <Loader2 className="size-4 animate-spin" /> : 'PDF'}
       </button>
       <button
         type="button"
