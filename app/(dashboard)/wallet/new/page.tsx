@@ -544,10 +544,10 @@ export default function NewTransactionPage() {
         </div>
       ) : (
         <div className="flex flex-wrap items-start gap-5">
-          <Card className="flex flex-[3_1_480px] flex-col gap-4 rounded-panel">
+          <Card className="flex min-w-0 flex-[3_1_480px] flex-col gap-4 rounded-panel">
             <h2 className="text-lg font-bold text-ink">Détails de la dépense</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
+              <div className="flex min-w-0 flex-col gap-2">
                 <label htmlFor="expense-name" className="text-[13px] font-semibold text-ink">
                   Libellé
                 </label>
@@ -556,11 +556,11 @@ export default function NewTransactionPage() {
                   value={expenseName}
                   onChange={(e) => setExpenseName(e.target.value)}
                   placeholder="Ex. Transport, loyer, électricité"
-                  className="h-[50px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+                  className="h-[50px] w-full min-w-0 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
                 />
               </div>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
               <label htmlFor="expense-amount" className="text-[13px] font-semibold text-ink">
                 Montant ({currency})
               </label>
@@ -570,7 +570,7 @@ export default function NewTransactionPage() {
                 onChange={(e) => setExpenseAmount(e.target.value)}
                 inputMode="numeric"
                 placeholder="0"
-                className="h-[60px] rounded-tile border border-line-strong px-4 text-[28px] font-extrabold text-ink lg:h-[72px] lg:text-[34px]"
+                className="h-[60px] w-full min-w-0 rounded-tile border border-line-strong px-4 text-[28px] font-extrabold text-ink lg:h-[72px] lg:text-[34px]"
               />
             </div>
             {/* Desktop seulement : voir le commentaire équivalent sur le
