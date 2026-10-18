@@ -193,7 +193,7 @@ export default function DashboardPage() {
   const { t } = useTranslation()
   const { currency } = useCurrency()
   const { unreadCount } = useNotifications()
-  const [period, setPeriod] = React.useState<PeriodType>('30')
+  const [period, setPeriod] = React.useState<PeriodType>('today')
   const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null)
 
   // Calculé uniquement après le montage : dayjs() dépend de l'horloge au
