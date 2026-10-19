@@ -14,6 +14,9 @@ export interface Variation {
   article_id: string
   name: string
   quantity: number
+  price: number
+  cost_price?: number | null
+  low_stock_threshold?: number | null
   image?: string | null
   sold_quantity: number
   remaining_quantity: number
@@ -30,6 +33,8 @@ export interface CreateVariationPayload {
   article_id: string
   name: string
   quantity: number
+  price: number
+  cost_price?: number | null
   image?: string | null
 }
 
@@ -165,7 +170,9 @@ export async function createVariation(payload: CreateVariationPayload): Promise<
       throw validationError
     }
 
-    // Erreur 400 : Article non variable, variation existe déjà, quantité dépasse le total
+    // Erreur 400 : Article non variable, ou nom de variation déjà utilisé
+    // (il n'y a plus de plafond "quantité dépasse le total de l'article" —
+    // une variation peut être ajoutée à tout moment, sans limite).
     if (axiosError.response?.status === 400) {
       const message = axiosError.response.data?.message || 'Erreur lors de la création de la variation'
       throw new Error(message)
@@ -204,6 +211,8 @@ export async function createVariation(payload: CreateVariationPayload): Promise<
 export interface UpdateVariationPayload {
   name: string
   quantity: number
+  price: number
+  cost_price?: number | null
   image?: string | null
 }
 
@@ -255,7 +264,7 @@ export async function updateVariation(id: string | number, payload: UpdateVariat
       throw validationError
     }
 
-    // Erreur 400 : Nom déjà utilisé, quantité dépasse le total
+    // Erreur 400 : Nom déjà utilisé (plus de plafond lié à la quantité)
     if (axiosError.response?.status === 400) {
       const message = axiosError.response.data?.message || 'Erreur lors de la modification de la variation'
       throw new Error(message)
@@ -295,29 +304,66 @@ export async function updateVariation(id: string | number, payload: UpdateVariat
 }
 
 /**
- * Supprime une variation
- * 
+ * Erreur levée quand l'archivage est refusé car la variation contient
+ * encore du stock — le composant appelant peut lire `remainingQuantity`
+ * pour construire sa boîte de confirmation, puis rappeler
+ * `deleteVariation(id, { confirm: true })`.
+ */
+export class VariationHasStockError extends Error {
+  remainingQuantity: number
+
+  constructor(message: string, remainingQuantity: number) {
+    super(message)
+    this.name = 'VariationHasStockError'
+    this.remainingQuantity = remainingQuantity
+  }
+}
+
+/**
+ * Supprime (ou archive) une variation.
+ *
+ * Si elle contient encore du stock, l'appel est refusé avec
+ * VariationHasStockError tant que `confirm: true` n'est pas passé — le
+ * frontend doit alors afficher une confirmation nommant la quantité et sa
+ * valeur avant de rappeler avec confirm: true.
+ *
  * @param id - L'ID de la variation à supprimer
+ * @param options.confirm - Confirme l'archivage malgré le stock restant
  * @returns Message de succès
+ * @throws VariationHasStockError si refusé pour stock restant sans confirmation
  * @throws Erreur si la requête échoue (404, 403, 500, etc.)
  */
-export async function deleteVariation(id: string | number): Promise<{ success: boolean; message: string }> {
+export async function deleteVariation(
+  id: string | number,
+  options?: { confirm?: boolean }
+): Promise<{ success: boolean; message: string }> {
   try {
-    const response = await api.delete<ApiResponse<unknown>>(`/api/variations/${id}`)
-    
+    const response = await api.delete<ApiResponse<unknown> & { remaining_quantity?: number }>(
+      `/api/variations/${id}`,
+      options?.confirm ? { params: { confirm: true } } : undefined
+    )
+
     if (process.env.NODE_ENV !== 'production') {
       console.debug('✅ Variation supprimée avec succès:', {
         id,
         message: response.data.message,
       })
     }
-    
+
     return {
       success: response.data.success || true,
       message: response.data.message || 'Variation supprimée avec succès',
     }
   } catch (error: unknown) {
-    const axiosError = error as AxiosError<ApiResponse<unknown>>
+    const axiosError = error as AxiosError<ApiResponse<unknown> & { remaining_quantity?: number }>
+
+    // Erreur 422 avec remaining_quantity : stock restant, confirmation requise.
+    if (axiosError.response?.status === 422 && typeof axiosError.response.data?.remaining_quantity === 'number') {
+      throw new VariationHasStockError(
+        axiosError.response.data?.message || 'Cette variation contient encore du stock',
+        axiosError.response.data.remaining_quantity
+      )
+    }
 
     // Erreur 404 : Variation non trouvée
     if (axiosError.response?.status === 404) {

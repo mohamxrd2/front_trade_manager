@@ -622,6 +622,18 @@ api.interceptors.response.use(
     }
 
     // ========================================================================
+    // CLIENT OBSOLÈTE (422 : variation_id manquant sur un article variable)
+    // ========================================================================
+    // Ne peut arriver qu'avec un bundle JS antérieur à l'introduction des
+    // variations (onglet resté ouvert depuis avant un déploiement, etc.) —
+    // le frontend à jour envoie toujours variation_id. Notification globale
+    // (indépendante de la page/action en cours), même pattern que
+    // `auth:unauthorized` ci-dessous.
+    if (status === 422 && errorCode === 'STALE_CLIENT_MISSING_VARIATION' && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('stale-client-detected', { detail: { message: errorMessage } }))
+    }
+
+    // ========================================================================
     // GESTION ERREUR 403 (FORBIDDEN)
     // ========================================================================
     if (status === 403) {

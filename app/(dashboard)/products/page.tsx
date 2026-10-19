@@ -17,6 +17,22 @@ const formatAmount = (value: number): string =>
 
 const initials = (name: string): string => name.slice(0, 2).toUpperCase()
 
+/** "15 000 F" si prix unique, "15 000 – 25 000 F" pour un article variable à prix multiples. */
+const priceRangeLabel = (article: { type: string; sale_price: number; price_max?: number | null }): string => {
+  if (article.type !== 'variable' || !article.price_max || article.price_max === article.sale_price) {
+    return `${formatAmount(article.sale_price)} F`
+  }
+  return `${formatAmount(article.sale_price)} – ${formatAmount(article.price_max)} F`
+}
+
+/**
+ * Stock faible si l'agrégat article l'indique, OU si au moins une variation
+ * est elle-même sous son seuil — l'agrégat seul peut masquer une variation
+ * en tension quand les autres compensent dans la moyenne.
+ */
+const isLowStock = (article: { low_stock: boolean; variations?: { low_stock: boolean }[] }): boolean =>
+  article.low_stock || (article.variations?.some((v) => v.low_stock) ?? false)
+
 const THUMB_TINTS = [
   { bg: 'bg-brand-100', text: 'text-brand-700' },
   { bg: 'bg-info-bg', text: 'text-info' },
@@ -43,14 +59,14 @@ export default function ProductsPage() {
   const isLoading = isLoadingStats || isLoadingArticles
   const error = statsError || articlesError
 
-  const lowStockCount = articles.filter((a) => a.low_stock).length
+  const lowStockCount = articles.filter((a) => isLowStock(a)).length
 
   const filteredArticles = React.useMemo(() => {
     return articles.filter((article) => {
       const matchesSearch = article.name.toLowerCase().includes(search.trim().toLowerCase())
       const matchesFilter =
         filter === 'all' ||
-        (filter === 'low' && article.low_stock) ||
+        (filter === 'low' && isLowStock(article)) ||
         (filter === 'variable' && article.type === 'variable') ||
         (filter === 'simple' && article.type === 'simple')
       return matchesSearch && matchesFilter
@@ -199,18 +215,20 @@ export default function ProductsPage() {
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="truncate text-[15px] font-bold text-ink">{article.name}</span>
                 <span className="text-[13px] text-subtle">
-                  {article.type === 'simple' ? 'Simple' : 'Variable'}
+                  {article.type === 'simple'
+                    ? 'Simple'
+                    : `${article.remaining_quantity} en stock · ${article.variations?.length ?? 0} variations`}
                 </span>
               </span>
               <span className="flex flex-col items-end gap-1">
-                <span className="text-sm font-bold text-ink">{formatAmount(article.sale_price)} F</span>
-                {article.low_stock ? (
+                <span className="text-sm font-bold text-ink">{priceRangeLabel(article)}</span>
+                {isLowStock(article) ? (
                   <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
-                    {article.remaining_quantity} restants
+                    {article.type === 'simple' ? `${article.remaining_quantity} restants` : 'Stock faible'}
                   </span>
-                ) : (
+                ) : article.type === 'simple' ? (
                   <span className="text-xs font-semibold text-subtle">{article.remaining_quantity} en stock</span>
-                )}
+                ) : null}
               </span>
             </Link>
           ))
@@ -264,6 +282,7 @@ export default function ProductsPage() {
                 paginatedArticles.map((article, i) => {
                   const total = article.sold_quantity + article.remaining_quantity
                   const barPercent = total > 0 ? Math.min(100, Math.round((article.remaining_quantity / total) * 100)) : 0
+                  const lowStock = isLowStock(article)
                   return (
                     <tr key={article.id} className="border-t border-divider">
                       <td className="px-2 py-2.5">
@@ -277,17 +296,20 @@ export default function ProductsPage() {
                         </Link>
                       </td>
                       <td className="px-2 py-2.5 text-ink-2">
-                        {article.type === 'simple' ? 'Simple' : 'Variable'}
+                        {article.type === 'simple' ? 'Simple' : `Variable · ${article.variations?.length ?? 0}`}
                       </td>
                       <td className="whitespace-nowrap px-2 py-2.5 font-bold text-ink">
-                        {formatAmount(article.sale_price)} F
+                        {priceRangeLabel(article)}
                       </td>
                       <td className="min-w-[150px] px-2 py-2.5">
                         <span className="flex flex-col gap-1.5">
-                          <span className="font-semibold text-ink">{article.remaining_quantity} en stock</span>
+                          <span className="font-semibold text-ink">
+                            {article.remaining_quantity} en stock
+                            {article.type === 'variable' ? ` · ${article.variations?.length ?? 0} variations` : ''}
+                          </span>
                           <span className="block h-[5px] rounded-full bg-divider">
                             <span
-                              className={`block h-full rounded-full ${article.low_stock ? 'bg-danger-dot' : 'bg-brand-500'}`}
+                              className={`block h-full rounded-full ${lowStock ? 'bg-danger-dot' : 'bg-brand-500'}`}
                               style={{ width: `${barPercent}%` }}
                             />
                           </span>
@@ -296,10 +318,10 @@ export default function ProductsPage() {
                       <td className="px-2 py-2.5">
                         <span
                           className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${
-                            article.low_stock ? 'bg-danger-bg text-danger-strong' : 'bg-success-bg text-success-strong'
+                            lowStock ? 'bg-danger-bg text-danger-strong' : 'bg-success-bg text-success-strong'
                           }`}
                         >
-                          {article.low_stock ? 'Stock faible' : 'Disponible'}
+                          {lowStock ? 'Stock faible' : 'Disponible'}
                         </span>
                       </td>
                       <td className="px-2 py-2.5 text-right">

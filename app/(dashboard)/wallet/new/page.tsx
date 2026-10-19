@@ -15,6 +15,7 @@ import { keys } from '@/lib/query-keys'
 import { isSilentError } from '@/lib/utils/error-handler'
 import { useCurrency } from '@/lib/utils/currency'
 import { Button, Card, SegmentedControl } from '@/components/waelly'
+import { VariationPicker } from '@/components/products'
 
 const formatAmount = (value: number): string =>
   new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
@@ -116,18 +117,23 @@ export default function NewTransactionPage() {
     : (selectedArticle?.remaining_quantity ?? 0)
 
   const overStock = quantity > availableQuantity
-  const unitPriceNum = unitPrice === '' ? (selectedArticle?.sale_price ?? 0) : parseFloat(unitPrice)
+  const unitPriceNum =
+    unitPrice === '' ? (selectedVariation?.price ?? selectedArticle?.sale_price ?? 0) : parseFloat(unitPrice)
   const total = quantity * (isNaN(unitPriceNum) ? 0 : unitPriceNum)
 
   const pickArticle = (article: Article) => {
     setSelectedArticleId(String(article.id))
-    setSelectedVariationId(article.variations?.[0]?.id ?? null)
-    setUnitPrice(String(article.sale_price))
+    const firstVariation = article.variations?.[0] ?? null
+    setSelectedVariationId(firstVariation?.id ?? null)
+    // Le prix par défaut d'une ligne variable est celui DE LA VARIATION
+    // choisie, jamais le prix (min/max) de l'article.
+    setUnitPrice(String(firstVariation ? firstVariation.price : article.sale_price))
     setQuantity(1)
   }
 
   const pickVariation = (variation: Variation) => {
     setSelectedVariationId(variation.id)
+    setUnitPrice(String(variation.price))
     setQuantity(1)
   }
 
@@ -144,6 +150,10 @@ export default function NewTransactionPage() {
   const handleSaleSubmit = async () => {
     if (!selectedArticle) {
       toast.error('Sélectionnez un article')
+      return
+    }
+    if (selectedArticle.variations?.length && !selectedVariation) {
+      toast.error('Sélectionnez une variation')
       return
     }
     if (quantity > availableQuantity) {
@@ -202,7 +212,14 @@ export default function NewTransactionPage() {
         try {
           await createInvoice({
             client_id: clientId,
-            items: [{ article_id: String(selectedArticle.id), quantity, unit_price: unitPriceNum }],
+            items: [
+              {
+                article_id: String(selectedArticle.id),
+                variation_id: selectedVariation?.id,
+                quantity,
+                unit_price: unitPriceNum,
+              },
+            ],
             due_date: dayjs().add(7, 'day').format('YYYY-MM-DD'),
             theme: 'modern',
           })
@@ -343,39 +360,12 @@ export default function NewTransactionPage() {
 
             {/* --- 2. Variation / 3. Quantité --- */}
             <Card className="flex flex-col gap-4.5 rounded-panel">
-              {selectedArticle?.variations?.length ? (
-                <div className="flex flex-col gap-2.5">
-                  <h2 className="text-lg font-bold text-ink">
-                    <span className="text-brand-300">2.</span> Variation
-                  </h2>
-                  <div className="flex flex-wrap gap-2.5">
-                    {selectedArticle.variations.map((variation) => {
-                      const active = variation.id === selectedVariationId
-                      const empty = variation.remaining_quantity === 0
-                      return (
-                        <button
-                          key={variation.id}
-                          type="button"
-                          aria-pressed={active}
-                          onClick={() => pickVariation(variation)}
-                          className={`flex min-w-[92px] flex-col items-center justify-center gap-0.5 rounded-tile px-3.5 py-2.5 text-sm font-bold ${
-                            active
-                              ? 'bg-brand-500 text-white'
-                              : empty
-                                ? 'border border-dashed border-line-strong bg-canvas text-subtle'
-                                : 'border border-line-strong bg-surface text-ink'
-                          }`}
-                        >
-                          {variation.name}
-                          <span className={`text-xs font-normal ${active ? 'text-brand-100' : empty ? 'text-danger-strong' : 'text-subtle'}`}>
-                            {empty ? 'Épuisé' : `${variation.remaining_quantity} dispo`}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ) : null}
+              <VariationPicker
+                variations={selectedArticle?.variations ?? []}
+                selectedVariationId={selectedVariationId}
+                onSelect={pickVariation}
+                stepLabel="2."
+              />
 
               <div className="flex flex-wrap items-end gap-6">
                 <div className="flex flex-col gap-2.5">

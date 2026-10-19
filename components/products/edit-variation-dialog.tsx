@@ -15,6 +15,7 @@ import type { Article } from '@/lib/services/articles'
 const variationSchema = z.object({
   name: z.string().min(1, "Le nom est requis").max(255, "Le nom ne peut pas dépasser 255 caractères"),
   quantity: z.string().min(1, "La quantité est requise"),
+  price: z.string().min(1, "Le prix est requis"),
 })
 
 interface EditVariationDialogProps {
@@ -27,7 +28,6 @@ interface EditVariationDialogProps {
 
 export function EditVariationDialog({
   variation,
-  article,
   open,
   onClose,
   onSuccess,
@@ -37,11 +37,13 @@ export function EditVariationDialog({
   const form = useForm<{
     name: string
     quantity: string
+    price: string
   }>({
     resolver: zodResolver(variationSchema),
     defaultValues: {
       name: '',
       quantity: '',
+      price: '',
     },
   })
 
@@ -50,35 +52,32 @@ export function EditVariationDialog({
       form.reset({
         name: variation.name,
         quantity: String(variation.quantity),
+        price: String(variation.price),
       })
     }
   }, [variation, open, form])
 
-  // Calculer la quantité disponible pour cette variation
-  const totalOtherVariationsQuantity = article.variations
-    ?.filter(v => v.id !== variation?.id)
-    .reduce((sum, v) => sum + v.quantity, 0) || 0
-  const availableQuantity = article.quantity - totalOtherVariationsQuantity
-
-  const onSubmit = async (data: { name: string; quantity: string }) => {
+  const onSubmit = async (data: { name: string; quantity: string; price: string }) => {
     if (!variation) return
 
     setLoading(true)
     try {
       const quantityNum = parseInt(data.quantity, 10)
-      if (isNaN(quantityNum) || quantityNum < 1) {
-        toast.error('La quantité doit être supérieure à 0')
+      if (isNaN(quantityNum) || quantityNum < 0) {
+        toast.error('La quantité doit être positive ou nulle')
         return
       }
 
-      if (quantityNum > availableQuantity) {
-        toast.error(`La quantité dépasse la quantité disponible. Quantité disponible: ${availableQuantity}`)
+      const priceNum = parseFloat(data.price)
+      if (isNaN(priceNum) || priceNum <= 0) {
+        toast.error('Le prix doit être supérieur à 0')
         return
       }
 
       const payload: UpdateVariationPayload = {
         name: data.name,
         quantity: quantityNum,
+        price: priceNum,
       }
 
       const updatedVariation = await updateVariation(variation.id, payload)
@@ -89,7 +88,7 @@ export function EditVariationDialog({
       onClose()
     } catch (error: unknown) {
       const errorObj = error as { message?: string; validationErrors?: Record<string, string[]> }
-      
+
       if (errorObj.validationErrors) {
         const firstError = Object.values(errorObj.validationErrors)[0]
         toast.error(firstError?.[0] || 'Erreur de validation')
@@ -127,16 +126,27 @@ export function EditVariationDialog({
             <Input
               id="variation-quantity"
               type="number"
-              min="1"
-              max={availableQuantity}
-              placeholder="Ex: 20 pieces"
+              min="0"
+              placeholder="Ex: 20"
               {...form.register('quantity')}
             />
-            <p className="text-sm text-muted-foreground">
-              Quantité disponible : {availableQuantity}
-            </p>
             {form.formState.errors.quantity && (
               <p className="text-sm text-red-500">{form.formState.errors.quantity.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="variation-price">Prix de vente *</Label>
+            <Input
+              id="variation-price"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Ex: 15000"
+              {...form.register('price')}
+            />
+            {form.formState.errors.price && (
+              <p className="text-sm text-red-500">{form.formState.errors.price.message}</p>
             )}
           </div>
 
@@ -153,4 +163,3 @@ export function EditVariationDialog({
     </Dialog>
   )
 }
-

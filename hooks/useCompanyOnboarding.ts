@@ -115,10 +115,26 @@ export function useCompanyOnboarding(
         router.replace(onboardingRoute)
       }
     } catch (err) {
-      console.error('Error fetching onboarding status:', err)
-      setError(err instanceof Error ? err : new Error('Erreur lors de la vérification'))
-      // En cas d'erreur, on considère que l'onboarding n'est pas nécessaire
-      setStatus({ needs_onboarding: false, missing_fields: [] })
+      const status = (err as { status?: number }).status
+
+      // 404 "Aucune entreprise associée à votre compte" : un état normal
+      // (ex. juste après l'inscription, avant l'onboarding), pas une erreur
+      // à signaler — c'est précisément ce que ce hook sert à détecter.
+      // Les deux champs sont à fournir puisqu'il n'y a même pas encore
+      // d'entreprise du tout.
+      if (status === 404) {
+        setStatus({ needs_onboarding: true, missing_fields: ['logo', 'email'] })
+
+        if (redirectIfNeeded) {
+          router.replace(onboardingRoute)
+        }
+      } else {
+        console.error('Error fetching onboarding status:', err)
+        setError(err instanceof Error ? err : new Error('Erreur lors de la vérification'))
+        // En cas d'erreur inattendue (réseau, 500...), on considère que
+        // l'onboarding n'est pas nécessaire pour ne pas bloquer l'utilisateur.
+        setStatus({ needs_onboarding: false, missing_fields: [] })
+      }
     } finally {
       setIsLoading(false)
     }

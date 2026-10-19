@@ -60,6 +60,7 @@ export interface InvoiceItem {
   id: string
   invoice_id: string
   article_id: string
+  variation_id?: string | null
   name_snapshot: string
   quantity: number
   unit_price: string // API returns string
@@ -111,6 +112,8 @@ export interface CreateInvoicePayload {
   client_id: string
   items: Array<{
     article_id: string
+    /** Obligatoire quand l'article est de type "variable". */
+    variation_id?: string
     quantity: number
     unit_price?: number
     discount_percent?: number

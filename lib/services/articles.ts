@@ -24,13 +24,18 @@ export interface UserStats {
 }
 
 /**
- * Variation d'article
+ * Variation d'article — porte désormais son propre prix et sa propre
+ * quantité ; un article variable n'a plus de quantité/prix saisis
+ * directement (cache calculé côté backend).
  */
 export interface Variation {
   id: string
   article_id: string
   name: string
   quantity: number
+  price: number
+  cost_price?: number | null
+  low_stock_threshold?: number | null
   image?: string | null
   sold_quantity: number
   remaining_quantity: number
@@ -47,6 +52,9 @@ export interface Article {
   id: number
   name: string
   sale_price: number
+  /** Prix maximum parmi les variations — avec sale_price (minimum), définit
+   * la plage affichée pour un article variable ("15 000 – 25 000 F"). */
+  price_max?: number | null
   quantity: number
   type: 'simple' | 'variable'
   image?: string | null
@@ -61,24 +69,59 @@ export interface Article {
 }
 
 /**
- * Payload pour créer un article
+ * Une variation à créer en même temps que l'article (création atomique).
  */
-export interface ArticlePayload {
+export interface VariationInput {
   name: string
+  quantity: number
+  price: number
+  cost_price?: number | null
+}
+
+/**
+ * Payload pour créer un article simple
+ */
+export interface SimpleArticlePayload {
+  name: string
+  type: 'simple'
   sale_price: number
   quantity: number
-  type: 'simple' | 'variable'
   image?: string | null
 }
 
 /**
- * Payload pour modifier un article
+ * Payload pour créer un article variable — pas de quantity/sale_price au
+ * niveau article : tout vient des variations (une seule requête atomique).
  */
-export interface UpdateArticlePayload {
+export interface VariableArticlePayload {
+  name: string
+  type: 'variable'
+  variations: VariationInput[]
+  image?: string | null
+}
+
+export type ArticlePayload = SimpleArticlePayload | VariableArticlePayload
+
+/**
+ * Payload pour modifier un article simple (quantity/sale_price éditables).
+ */
+export interface UpdateSimpleArticlePayload {
   name: string
   sale_price: number
   quantity: number
+  image?: string | null
 }
+
+/**
+ * Payload pour modifier un article variable — JAMAIS quantity ni sale_price
+ * (cache calculé depuis les variations, rejeté/ignoré côté backend sinon).
+ */
+export interface UpdateVariableArticlePayload {
+  name: string
+  image?: string | null
+}
+
+export type UpdateArticlePayload = UpdateSimpleArticlePayload | UpdateVariableArticlePayload
 
 /**
  * Réponse de création d'article
@@ -616,11 +659,13 @@ export interface StockHistoryEntry {
   id: string
   user_id: string
   article_id: string
+  variation_id?: string | null
   quantity_added: number
   note: string | null
   created_at: string
   updated_at: string
   user: StockHistoryUser
+  variation?: { id: string; name: string } | null
 }
 
 /**
@@ -655,35 +700,55 @@ export interface StockHistoryResponse {
 }
 
 /**
- * Payload pour ajouter du stock
+ * Payload pour ajouter du stock. variation_id est obligatoire pour un
+ * article variable (le stock n'existe qu'au niveau de la variation) —
+ * omis pour un article simple.
  */
 export interface AddStockPayload {
   quantity: number
+  variation_id?: string
 }
 
 /**
- * Ajoute du stock à un article
- * 
+ * Réponse de l'ajout de stock — inclut la variation mise à jour quand
+ * variation_id a été fourni.
+ */
+export interface AddStockResponse {
+  article: Article
+  variation: Variation | null
+  added_quantity: number
+  new_quantity: number
+}
+
+/**
+ * Ajoute du stock à un article (ou à l'une de ses variations).
+ *
  * @param articleId - L'ID de l'article
  * @param quantity - La quantité à ajouter (doit être >= 1)
- * @returns L'article mis à jour
+ * @param variationId - Obligatoire pour un article variable
+ * @returns L'article (et la variation le cas échéant) mis à jour
  * @throws Erreur si la requête échoue (422 validation, 401 non authentifié, 500 serveur)
  */
-export async function addStock(articleId: string | number, quantity: number): Promise<Article> {
+export async function addStock(
+  articleId: string | number,
+  quantity: number,
+  variationId?: string
+): Promise<AddStockResponse> {
   try {
-    const response = await api.post<{ success: boolean; message: string; data: Article }>(
+    const response = await api.post<{ success: boolean; message: string; data: AddStockResponse }>(
       `/api/articles/${articleId}/add-stock`,
-      { quantity }
+      variationId ? { quantity, variation_id: variationId } : { quantity }
     )
-    
+
     if (process.env.NODE_ENV !== 'production') {
       console.debug('✅ Stock ajouté avec succès:', {
         articleId,
+        variationId,
         quantity,
-        newTotal: response.data.data.quantity,
+        newQuantity: response.data.data.new_quantity,
       })
     }
-    
+
     return response.data.data
   } catch (error: unknown) {
     const axiosError = error as AxiosError<{ 

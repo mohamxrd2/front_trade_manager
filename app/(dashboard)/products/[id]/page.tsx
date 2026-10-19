@@ -19,7 +19,13 @@ import {
 
 import { useArticle } from '@/lib/hooks/useArticles'
 import { updateArticle, deleteArticle, addStock } from '@/lib/services/articles'
-import { createVariation, getVariations, deleteVariation, type Variation } from '@/lib/services/variations'
+import {
+  createVariation,
+  getVariations,
+  deleteVariation,
+  VariationHasStockError,
+  type Variation,
+} from '@/lib/services/variations'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { useCurrency } from '@/lib/utils/currency'
 import { useSettings } from '@/contexts/SettingsContext'
@@ -68,16 +74,13 @@ const TYPE_OPTIONS = [
  *   possible, il ne soumet rien.
  * - Pas de téléversement d'image d'article dans l'API actuelle : le bloc
  *   photo reste un espace réservé statique.
- * - Le réapprovisionnement (addStock) agit uniquement au niveau de
- *   l'article, jamais d'une variation précise (aucun endpoint dédié) : pas
- *   de sélecteur de variation dans le bloc "Réapprovisionner".
- * - L'historique de réapprovisionnement n'enregistre pas les variations
- *   concernées (aucune colonne en base) : on affiche la note libre saisie
- *   lors de l'ajout, le cas échéant, à la place des tailles fictives de la
- *   maquette.
  * - "Vendus (30 j)" / "CA généré (30 j)" sont calculés côté client à partir
  *   de GET /api/transactions (pas de filtre serveur par article ni par
  *   date) : aucun nouvel endpoint n'a été inventé.
+ * - Un article variable n'a ni quantité ni prix propres : quantity/sale_price
+ *   ne sont JAMAIS envoyés sur PUT /api/articles/{id} pour ce type (seuls
+ *   name/image le sont) — le total et la plage de prix affichés viennent
+ *   entièrement des variations.
  */
 export default function ProductDetailPage() {
   const params = useParams()
@@ -91,7 +94,7 @@ export default function ProductDetailPage() {
   const [variations, setVariations] = React.useState<Variation[]>([])
   const [loadingVariations, setLoadingVariations] = React.useState(false)
   const [addVariationOpen, setAddVariationOpen] = React.useState(false)
-  const [variationForm, setVariationForm] = React.useState({ name: '', quantity: '' })
+  const [variationForm, setVariationForm] = React.useState({ name: '', quantity: '', price: '' })
   const [submittingVariation, setSubmittingVariation] = React.useState(false)
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
@@ -101,6 +104,12 @@ export default function ProductDetailPage() {
   const [editVariationDialogOpen, setEditVariationDialogOpen] = React.useState(false)
   const [deleteVariationDialogOpen, setDeleteVariationDialogOpen] = React.useState(false)
   const [variationToDelete, setVariationToDelete] = React.useState<Variation | null>(null)
+  const [variationStockWarning, setVariationStockWarning] = React.useState<{ remaining: number; value: number } | null>(null)
+  const [deletingVariation, setDeletingVariation] = React.useState(false)
+
+  const [restockingVariation, setRestockingVariation] = React.useState<Variation | null>(null)
+  const [variationRestockQty, setVariationRestockQty] = React.useState(10)
+  const [restockingVariationBusy, setRestockingVariationBusy] = React.useState(false)
 
   const [stockHistoryRefreshKey, setStockHistoryRefreshKey] = React.useState(0)
   const [restockQty, setRestockQty] = React.useState(10)
@@ -113,6 +122,8 @@ export default function ProductDetailPage() {
   const [savingInfo, setSavingInfo] = React.useState(false)
 
   const [transactions, setTransactions] = React.useState<Transaction[]>([])
+
+  const isVariable = article?.type === 'variable'
 
   // Ne se resynchronise que sur un changement d'article réel (navigation
   // vers un autre id), pas sur chaque revalidation SWR du même article —
@@ -156,9 +167,6 @@ export default function ProductDetailPage() {
     }
   }, [productId, article?.type, fetchVariations])
 
-  const totalVariationsQuantity = variations.reduce((sum, v) => sum + v.quantity, 0)
-  const availableQuantityForVariations = (article?.quantity || 0) - totalVariationsQuantity
-
   const last30Days = React.useMemo(() => {
     const cutoff = dayjs().subtract(30, 'day')
     const relevant = transactions.filter(
@@ -172,20 +180,36 @@ export default function ProductDetailPage() {
 
   const lowStockThreshold = settings?.low_stock_threshold ?? 80
 
+  const priceLabel = React.useMemo(() => {
+    if (!article) return ''
+    if (!isVariable) return `${formatAmount(article.sale_price)} ${currency}`
+    const min = article.sale_price
+    const max = article.price_max ?? article.sale_price
+    return min === max ? `${formatAmount(min)} ${currency}` : `${formatAmount(min)} – ${formatAmount(max)} ${currency}`
+  }, [article, isVariable, currency])
+
   const handleSaveInfo = async () => {
     if (!article) return
-    const priceNum = parseFloat(salePrice)
     if (!name.trim()) {
       toast.error('Le nom est requis')
       return
     }
-    if (isNaN(priceNum) || priceNum < 0) {
-      toast.error('Le prix doit être supérieur ou égal à 0')
-      return
-    }
+
     setSavingInfo(true)
     try {
-      await updateArticle(article.id, { name: name.trim(), sale_price: priceNum, quantity: article.quantity })
+      if (article.type === 'simple') {
+        const priceNum = parseFloat(salePrice)
+        if (isNaN(priceNum) || priceNum < 0) {
+          toast.error('Le prix doit être supérieur ou égal à 0')
+          setSavingInfo(false)
+          return
+        }
+        await updateArticle(article.id, { name: name.trim(), sale_price: priceNum, quantity: article.quantity })
+      } else {
+        // Un article variable n'a pas de prix/quantité propres : jamais
+        // envoyés ici, ils resteraient ignorés côté backend de toute façon.
+        await updateArticle(article.id, { name: name.trim() })
+      }
       toast.success('Article enregistré')
       await mutateArticle()
       await Promise.all([invalidateArticles(), invalidateUserStats()])
@@ -229,29 +253,56 @@ export default function ProductDetailPage() {
     }
   }
 
+  const handleRestockVariation = async () => {
+    if (!article || !restockingVariation) return
+    setRestockingVariationBusy(true)
+    try {
+      await addStock(article.id, variationRestockQty, restockingVariation.id)
+      toast.success(`${variationRestockQty} pièce(s) ajoutée(s) à ${restockingVariation.name}`)
+      setStockHistoryRefreshKey((k) => k + 1)
+      setRestockingVariation(null)
+      setVariationRestockQty(10)
+      await mutateArticle()
+      await fetchVariations()
+      await Promise.all([invalidateArticles(), invalidateUserStats()])
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Échec de l'ajout de stock")
+    } finally {
+      setRestockingVariationBusy(false)
+    }
+  }
+
   const handleAddVariationSubmit = async () => {
     if (!variationForm.name.trim()) {
       toast.error('Le nom est requis')
       return
     }
     const quantityNum = parseInt(variationForm.quantity, 10)
-    if (isNaN(quantityNum) || quantityNum <= 0) {
-      toast.error('La quantité doit être positive')
+    if (isNaN(quantityNum) || quantityNum < 0) {
+      toast.error('La quantité doit être positive ou nulle')
+      return
+    }
+    const priceNum = parseFloat(variationForm.price)
+    if (isNaN(priceNum) || priceNum <= 0) {
+      toast.error('Le prix doit être supérieur à 0')
       return
     }
     if (!article) return
-    if (quantityNum > availableQuantityForVariations) {
-      toast.error(`Quantité disponible : ${availableQuantityForVariations}`)
-      return
-    }
     setSubmittingVariation(true)
     try {
-      await createVariation({ article_id: String(article.id), name: variationForm.name, quantity: quantityNum, image: null })
+      await createVariation({
+        article_id: String(article.id),
+        name: variationForm.name,
+        quantity: quantityNum,
+        price: priceNum,
+        image: null,
+      })
       toast.success('Variation ajoutée')
-      setVariationForm({ name: '', quantity: '' })
+      setVariationForm({ name: '', quantity: '', price: '' })
       setAddVariationOpen(false)
       await mutateArticle()
       await fetchVariations()
+      await Promise.all([invalidateArticles(), invalidateUserStats()])
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Erreur lors de la création')
     } finally {
@@ -268,18 +319,36 @@ export default function ProductDetailPage() {
     toast.success('Variation modifiée')
   }
 
-  const handleDeleteVariation = async () => {
+  const openDeleteVariationDialog = (variation: Variation) => {
+    setVariationToDelete(variation)
+    setVariationStockWarning(null)
+    setDeleteVariationDialogOpen(true)
+  }
+
+  const handleDeleteVariation = async (confirm = false) => {
     if (!variationToDelete) return
+    setDeletingVariation(true)
     try {
-      await deleteVariation(variationToDelete.id)
+      await deleteVariation(variationToDelete.id, confirm ? { confirm: true } : undefined)
       setVariations(variations.filter((v) => v.id !== variationToDelete.id))
       await mutateArticle()
       await fetchVariations()
-      toast.success('Variation supprimée')
+      await Promise.all([invalidateArticles(), invalidateUserStats()])
+      toast.success('Variation archivée')
       setDeleteVariationDialogOpen(false)
       setVariationToDelete(null)
+      setVariationStockWarning(null)
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Erreur lors de la suppression')
+      if (err instanceof VariationHasStockError) {
+        setVariationStockWarning({
+          remaining: err.remainingQuantity,
+          value: err.remainingQuantity * variationToDelete.price,
+        })
+      } else {
+        toast.error((err as Error).message || 'Erreur lors de la suppression')
+      }
+    } finally {
+      setDeletingVariation(false)
     }
   }
 
@@ -347,8 +416,8 @@ export default function ProductDetailPage() {
             </span>
             <h1 className="text-[28px] font-bold tracking-tight text-ink">{article.name}</h1>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl font-bold text-ink">{formatAmount(article.sale_price)}</span>
-              <span className="text-sm font-semibold text-subtle">{currency} / pièce</span>
+              <span className="text-xl font-bold text-ink">{priceLabel}</span>
+              {!isVariable ? <span className="text-sm font-semibold text-subtle">/ pièce</span> : null}
             </div>
           </div>
 
@@ -369,7 +438,16 @@ export default function ProductDetailPage() {
 
           {article.type === 'variable' ? (
             <div className="flex flex-col gap-2.5">
-              <h2 className="text-lg font-bold text-ink">Variations</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-ink">Variations</h2>
+                <button
+                  type="button"
+                  onClick={() => setAddVariationOpen(true)}
+                  className="text-[13px] font-bold text-brand-700"
+                >
+                  + Ajouter
+                </button>
+              </div>
               {loadingVariations ? (
                 <p className="text-sm text-subtle">Chargement…</p>
               ) : variations.length === 0 ? (
@@ -384,13 +462,27 @@ export default function ProductDetailPage() {
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-soft text-[13px] font-bold text-ink">
                         {variation.name.slice(0, 2).toUpperCase()}
                       </span>
-                      <span className="flex-1 text-sm font-semibold text-ink">{variation.name}</span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-sm font-semibold text-ink">{variation.name}</span>
+                        <span className="text-xs text-subtle">{formatAmount(variation.price)} {currency}</span>
+                      </span>
                       {variation.low_stock ? (
                         <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
                           Faible
                         </span>
                       ) : null}
                       <span className="text-sm font-bold text-ink">{variation.remaining_quantity}</span>
+                      <button
+                        type="button"
+                        aria-label={`Réapprovisionner ${variation.name}`}
+                        onClick={() => {
+                          setRestockingVariation(variation)
+                          setVariationRestockQty(10)
+                        }}
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink"
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -406,8 +498,11 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2.5 border-t border-line bg-surface p-5 pb-7 lg:hidden">
-        <Button variant="secondary" onClick={() => setMobileRestockOpen(true)}>
-          Réapprovisionner
+        <Button
+          variant="secondary"
+          onClick={() => (isVariable ? setAddVariationOpen(true) : setMobileRestockOpen(true))}
+        >
+          {isVariable ? 'Gérer les variations' : 'Réapprovisionner'}
         </Button>
         <Button variant="primary" asChild>
           <Link href={sellHref}>Vendre</Link>
@@ -486,15 +581,21 @@ export default function ProductDetailPage() {
               <Label htmlFor="article-price" className="text-[13px] font-semibold text-ink">
                 Prix de vente ({currency})
               </Label>
-              <Input
-                id="article-price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={salePrice}
-                onChange={(e) => setSalePrice(e.target.value)}
-                className="h-12 rounded-field"
-              />
+              {article.type === 'simple' ? (
+                <Input
+                  id="article-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={salePrice}
+                  onChange={(e) => setSalePrice(e.target.value)}
+                  className="h-12 rounded-field"
+                />
+              ) : (
+                <span className="flex h-12 items-center rounded-field border border-line-strong bg-surface-soft px-4 text-sm font-semibold text-ink-2">
+                  {priceLabel}
+                </span>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label className="text-[13px] font-semibold text-ink">Seuil d&apos;alerte</Label>
@@ -551,10 +652,11 @@ export default function ProductDetailPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[460px] border-collapse text-sm">
+                  <table className="w-full min-w-[560px] border-collapse text-sm">
                     <thead>
                       <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
                         <th className="px-2 py-2">Variation</th>
+                        <th className="px-2 py-2">Prix</th>
                         <th className="px-2 py-2">Quantité</th>
                         <th className="px-2 py-2">Statut</th>
                         <th className="px-2 py-2 text-right">Action</th>
@@ -571,12 +673,26 @@ export default function ProductDetailPage() {
                               {variation.name}
                             </span>
                           </td>
+                          <td className="px-2 py-2.5 font-semibold text-ink">
+                            {formatAmount(variation.price)} {currency}
+                          </td>
                           <td className="px-2 py-2.5 font-bold text-ink">{variation.remaining_quantity}</td>
                           <td className="px-2 py-2.5">
                             <StatusBadge status={variation.low_stock ? 'stock-faible' : 'disponible'} />
                           </td>
                           <td className="px-2 py-2.5 text-right">
                             <span className="inline-flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRestockingVariation(variation)
+                                  setVariationRestockQty(10)
+                                }}
+                                className="inline-flex min-h-9 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink"
+                              >
+                                <Plus className="mr-1.5 size-3.5" />
+                                Réapprovisionner
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -590,11 +706,8 @@ export default function ProductDetailPage() {
                               </button>
                               <button
                                 type="button"
-                                aria-label="Supprimer la variation"
-                                onClick={() => {
-                                  setVariationToDelete(variation)
-                                  setDeleteVariationDialogOpen(true)
-                                }}
+                                aria-label="Archiver la variation"
+                                onClick={() => openDeleteVariationDialog(variation)}
                                 className="inline-flex size-9 items-center justify-center rounded-full border border-danger-border text-danger-strong"
                               >
                                 <X className="size-3.5" />
@@ -611,46 +724,47 @@ export default function ProductDetailPage() {
           ) : null}
 
           <div className="flex flex-wrap items-start gap-5">
-            {/* --- Réapprovisionner (niveau article uniquement, voir note en tête de fichier) --- */}
-            <Card className="glass-panel flex flex-[1_1_300px] flex-col gap-3">
-              <CardTitle>Réapprovisionner</CardTitle>
-              <div className="flex items-center justify-between gap-2.5">
-                <span className="text-[13px] font-semibold text-ink">Quantité ajoutée</span>
-                <span className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    aria-label="Diminuer"
-                    onClick={() => setRestockQty((q) => Math.max(1, q - 1))}
-                    className="flex size-10 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
-                  >
-                    <Minus className="size-4" />
-                  </button>
-                  <input
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                    aria-label="Quantité à réapprovisionner"
-                    value={restockQty}
-                    onChange={(e) => {
-                      const next = parseInt(e.target.value, 10)
-                      setRestockQty(Number.isNaN(next) || next < 1 ? 1 : next)
-                    }}
-                    className="w-14 rounded-lg border border-line-strong bg-surface text-center text-lg font-bold text-ink outline-none focus:border-brand-500"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Augmenter"
-                    onClick={() => setRestockQty((q) => q + 1)}
-                    className="flex size-10 items-center justify-center rounded-full bg-brand-500 font-bold text-white"
-                  >
-                    <Plus className="size-4" />
-                  </button>
-                </span>
-              </div>
-              <Button variant="black" onClick={handleRestock} disabled={restocking}>
-                {restocking ? 'Ajout…' : `Ajouter ${restockQty} pièce(s) au stock`}
-              </Button>
-            </Card>
+            {!isVariable ? (
+              <Card className="glass-panel flex flex-[1_1_300px] flex-col gap-3">
+                <CardTitle>Réapprovisionner</CardTitle>
+                <div className="flex items-center justify-between gap-2.5">
+                  <span className="text-[13px] font-semibold text-ink">Quantité ajoutée</span>
+                  <span className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      aria-label="Diminuer"
+                      onClick={() => setRestockQty((q) => Math.max(1, q - 1))}
+                      className="flex size-10 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
+                    >
+                      <Minus className="size-4" />
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      aria-label="Quantité à réapprovisionner"
+                      value={restockQty}
+                      onChange={(e) => {
+                        const next = parseInt(e.target.value, 10)
+                        setRestockQty(Number.isNaN(next) || next < 1 ? 1 : next)
+                      }}
+                      className="w-14 rounded-lg border border-line-strong bg-surface text-center text-lg font-bold text-ink outline-none focus:border-brand-500"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Augmenter"
+                      onClick={() => setRestockQty((q) => q + 1)}
+                      className="flex size-10 items-center justify-center rounded-full bg-brand-500 font-bold text-white"
+                    >
+                      <Plus className="size-4" />
+                    </button>
+                  </span>
+                </div>
+                <Button variant="black" onClick={handleRestock} disabled={restocking}>
+                  {restocking ? 'Ajout…' : `Ajouter ${restockQty} pièce(s) au stock`}
+                </Button>
+              </Card>
+            ) : null}
 
             {/* --- Historique --- */}
             <Card className="flex flex-[1_1_300px] flex-col gap-1.5">
@@ -673,17 +787,23 @@ export default function ProductDetailPage() {
               <Label htmlFor="mobile-article-name">Nom</Label>
               <Input id="mobile-article-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="mobile-article-price">Prix de vente ({currency})</Label>
-              <Input
-                id="mobile-article-price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={salePrice}
-                onChange={(e) => setSalePrice(e.target.value)}
-              />
-            </div>
+            {article.type === 'simple' ? (
+              <div className="space-y-2">
+                <Label htmlFor="mobile-article-price">Prix de vente ({currency})</Label>
+                <Input
+                  id="mobile-article-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={salePrice}
+                  onChange={(e) => setSalePrice(e.target.value)}
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Prix : {priceLabel} (calculé depuis les variations — modifiable variation par variation).
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setMobileEditOpen(false)}>
                 Annuler
@@ -703,7 +823,7 @@ export default function ProductDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* --- Modale mobile : réapprovisionner --- */}
+      {/* --- Modale mobile : réapprovisionner (article simple) --- */}
       <Dialog open={mobileRestockOpen} onOpenChange={setMobileRestockOpen}>
         <DialogContent>
           <DialogHeader>
@@ -755,6 +875,56 @@ export default function ProductDetailPage() {
         </DialogContent>
       </Dialog>
 
+      {/* --- Modale : réapprovisionner une variation précise --- */}
+      <Dialog
+        open={restockingVariation !== null}
+        onOpenChange={(open) => {
+          if (!open) setRestockingVariation(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Réapprovisionner {restockingVariation?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-between gap-2.5">
+            <span className="text-[13px] font-semibold text-ink">Quantité ajoutée</span>
+            <span className="flex items-center gap-1.5">
+              <button
+                type="button"
+                aria-label="Diminuer"
+                onClick={() => setVariationRestockQty((q) => Math.max(1, q - 1))}
+                className="flex size-10 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
+              >
+                <Minus className="size-4" />
+              </button>
+              <input
+                type="number"
+                min={1}
+                inputMode="numeric"
+                aria-label="Quantité à réapprovisionner"
+                value={variationRestockQty}
+                onChange={(e) => {
+                  const next = parseInt(e.target.value, 10)
+                  setVariationRestockQty(Number.isNaN(next) || next < 1 ? 1 : next)
+                }}
+                className="w-14 rounded-lg border border-line-strong bg-surface text-center text-lg font-bold text-ink outline-none focus:border-brand-500"
+              />
+              <button
+                type="button"
+                aria-label="Augmenter"
+                onClick={() => setVariationRestockQty((q) => q + 1)}
+                className="flex size-10 items-center justify-center rounded-full bg-brand-500 font-bold text-white"
+              >
+                <Plus className="size-4" />
+              </button>
+            </span>
+          </div>
+          <Button variant="black" disabled={restockingVariationBusy} onClick={handleRestockVariation}>
+            {restockingVariationBusy ? 'Ajout…' : `Ajouter ${variationRestockQty} pièce(s)`}
+          </Button>
+        </DialogContent>
+      </Dialog>
+
       {/* --- Modale : ajouter une variation --- */}
       <Dialog open={addVariationOpen} onOpenChange={setAddVariationOpen}>
         <DialogContent>
@@ -776,21 +946,28 @@ export default function ProductDetailPage() {
               <Input
                 id="variation-quantity"
                 type="number"
-                min="1"
-                max={availableQuantityForVariations}
+                min="0"
                 value={variationForm.quantity}
                 onChange={(e) => setVariationForm({ ...variationForm, quantity: e.target.value })}
               />
-              <p className="text-sm text-muted-foreground">
-                Quantité disponible : {availableQuantityForVariations}
-              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="variation-price">Prix de vente ({currency})</Label>
+              <Input
+                id="variation-price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={variationForm.price}
+                onChange={(e) => setVariationForm({ ...variationForm, price: e.target.value })}
+              />
             </div>
             <div className="flex justify-end gap-2">
               <Button
                 variant="secondary"
                 onClick={() => {
                   setAddVariationOpen(false)
-                  setVariationForm({ name: '', quantity: '' })
+                  setVariationForm({ name: '', quantity: '', price: '' })
                 }}
               >
                 Annuler
@@ -816,17 +993,32 @@ export default function ProductDetailPage() {
         />
       ) : null}
 
-      <AlertDialog open={deleteVariationDialogOpen} onOpenChange={setDeleteVariationDialogOpen}>
+      <AlertDialog
+        open={deleteVariationDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteVariationDialogOpen(open)
+          if (!open) {
+            setVariationToDelete(null)
+            setVariationStockWarning(null)
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer cette variation ?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {variationStockWarning ? 'Cette variation contient encore du stock' : 'Archiver cette variation ?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {variationToDelete?.name} sera définitivement supprimée.
+              {variationStockWarning
+                ? `${variationToDelete?.name} contient encore ${variationStockWarning.remaining} unité(s), pour une valeur de ${formatAmount(variationStockWarning.value)} ${currency}. Confirmez-vous l'archivage malgré tout ?`
+                : `${variationToDelete?.name} sera archivée (ou supprimée si elle n'a aucune vente/facture liée).`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteVariation}>Supprimer</AlertDialogAction>
+            <AlertDialogCancel disabled={deletingVariation}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleDeleteVariation(!!variationStockWarning)} disabled={deletingVariation}>
+              {deletingVariation ? '…' : variationStockWarning ? "Confirmer l'archivage" : 'Archiver'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

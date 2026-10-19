@@ -11,7 +11,6 @@ import { toast } from 'sonner'
 import { ArrowLeft, Image as ImageIcon, Minus, Plus, X } from 'lucide-react'
 
 import { addArticle } from '@/lib/services/articles'
-import { createVariation } from '@/lib/services/variations'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { useCurrency } from '@/lib/utils/currency'
 import { useSettings } from '@/contexts/SettingsContext'
@@ -30,26 +29,71 @@ const TYPE_OPTIONS = [
 const newArticleSchema = z
   .object({
     name: z.string().min(2, "Le nom est obligatoire (2 caractères minimum)"),
-    sale_price: z
-      .string()
-      .min(1, 'Le prix est obligatoire')
-      .refine((v) => !Number.isNaN(parseFloat(v)) && parseFloat(v) > 0, 'Le prix doit être supérieur à 0'),
     type: z.enum(['simple', 'variable']),
+    // Article simple uniquement.
+    sale_price: z.string(),
     quantity: z.string(),
+    // Article variable uniquement : pré-remplit le prix des NOUVELLES lignes,
+    // n'est jamais envoyé à l'API (un article variable n'a pas de prix propre).
+    default_price: z.string(),
     variations: z.array(
       z.object({
         name: z.string().min(1, 'Le nom est obligatoire'),
         quantity: z.string(),
+        price: z.string(),
       })
     ),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'simple') {
+      const price = parseFloat(data.sale_price)
+      if (data.sale_price.trim() === '' || Number.isNaN(price) || price <= 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sale_price'], message: 'Le prix doit être supérieur à 0' })
+      }
       const q = parseInt(data.quantity, 10)
       if (data.quantity.trim() === '' || Number.isNaN(q) || q < 0) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['quantity'], message: 'La quantité doit être positive ou nulle' })
       }
+      return
     }
+
+    if (data.variations.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['variations'], message: 'Ajoutez au moins une variation' })
+    }
+
+    const seenNames = new Map<string, number>()
+    data.variations.forEach((variation, index) => {
+      const normalized = variation.name.trim().toLowerCase()
+      if (normalized) {
+        if (seenNames.has(normalized)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['variations', index, 'name'],
+            message: 'Ce nom est déjà utilisé par une autre variation',
+          })
+        } else {
+          seenNames.set(normalized, index)
+        }
+      }
+
+      const q = parseInt(variation.quantity, 10)
+      if (variation.quantity.trim() === '' || Number.isNaN(q) || q < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['variations', index, 'quantity'],
+          message: 'Quantité invalide',
+        })
+      }
+
+      const p = parseFloat(variation.price)
+      if (variation.price.trim() === '' || Number.isNaN(p) || p <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['variations', index, 'price'],
+          message: 'Le prix doit être supérieur à 0',
+        })
+      }
+    })
   })
 
 type NewArticleFormValues = z.infer<typeof newArticleSchema>
@@ -69,9 +113,9 @@ type NewArticleFormValues = z.infer<typeof newArticleSchema>
  * - Le "seuil d'alerte" n'est pas un champ par article (réglage global,
  *   user_settings.low_stock_threshold) : affiché en lecture seule avec un
  *   lien vers /settings, sans stepper, comme demandé.
- * - Création d'un article variable = POST /api/articles (quantity = somme
- *   des variations) puis une boucle de POST /api/variations : aucun
- *   endpoint ne crée un article et ses variations en un seul appel.
+ * - Un article variable n'a ni quantité ni prix propres : chaque variation
+ *   porte les siens. Une seule requête POST /api/articles avec variations[]
+ *   crée l'article et toutes ses variations de façon atomique.
  */
 export default function NewArticlePage() {
   const router = useRouter()
@@ -79,6 +123,7 @@ export default function NewArticlePage() {
   const { settings } = useSettings()
 
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null)
+  const [quickAddValue, setQuickAddValue] = React.useState('')
   const photoWarnedRef = React.useRef(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
@@ -90,7 +135,14 @@ export default function NewArticlePage() {
     formState: { errors, isSubmitting },
   } = useForm<NewArticleFormValues>({
     resolver: zodResolver(newArticleSchema),
-    defaultValues: { name: '', sale_price: '', type: 'simple', quantity: '0', variations: [] },
+    defaultValues: {
+      name: '',
+      type: 'simple',
+      sale_price: '',
+      quantity: '0',
+      default_price: '',
+      variations: [],
+    },
   })
 
   const { fields, append, remove } = useFieldArray({ control, name: 'variations' })
@@ -99,16 +151,36 @@ export default function NewArticlePage() {
   const salePriceStr = watch('sale_price')
   const type = watch('type')
   const quantityStr = watch('quantity')
+  const defaultPriceStr = watch('default_price')
   const variationsWatch = watch('variations')
 
   const priceNum = parseFloat(salePriceStr) || 0
   const qtySimple = parseInt(quantityStr || '0', 10) || 0
+
+  const variationPrices = variationsWatch.map((v) => parseFloat(v.price)).filter((p) => !Number.isNaN(p) && p > 0)
+  const priceMin = variationPrices.length > 0 ? Math.min(...variationPrices) : 0
+  const priceMax = variationPrices.length > 0 ? Math.max(...variationPrices) : 0
+
   const total =
     type === 'variable'
       ? variationsWatch.reduce((sum, v) => sum + (parseInt(v.quantity || '0', 10) || 0), 0)
       : qtySimple
-  const stockValue = total * priceNum
+  const stockValue =
+    type === 'variable'
+      ? variationsWatch.reduce((sum, v) => {
+          const q = parseInt(v.quantity || '0', 10) || 0
+          const p = parseFloat(v.price) || 0
+          return sum + q * p
+        }, 0)
+      : total * priceNum
   const lowStockThreshold = settings?.low_stock_threshold ?? 80
+
+  const priceRangeLabel =
+    variationPrices.length === 0
+      ? '—'
+      : priceMin === priceMax
+        ? `${formatAmount(priceMin)} F`
+        : `${formatAmount(priceMin)} – ${formatAmount(priceMax)} F`
 
   const warnPhotoUnavailable = () => {
     if (!photoWarnedRef.current) {
@@ -131,26 +203,37 @@ export default function NewArticlePage() {
   const handleTypeChange = (next: string) => {
     setValue('type', next as 'simple' | 'variable')
     if (next === 'variable' && fields.length === 0) {
-      append({ name: '', quantity: '0' })
+      append({ name: '', quantity: '0', price: defaultPriceStr || '' })
     }
   }
 
+  const addVariationRow = () => {
+    append({ name: '', quantity: '0', price: defaultPriceStr || '' })
+  }
+
+  // "Créer plusieurs variations d'un coup" : taper "S, M, L, XL" puis Entrée
+  // crée 4 lignes, chacune pré-remplie avec le prix par défaut.
+  const handleQuickAddKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const names = quickAddValue
+      .split(',')
+      .map((n) => n.trim())
+      .filter(Boolean)
+    if (names.length === 0) return
+    names.forEach((n) => append({ name: n, quantity: '0', price: defaultPriceStr || '' }))
+    setQuickAddValue('')
+  }
+
   const onSubmit = async (data: NewArticleFormValues) => {
-    const priceValue = parseFloat(data.sale_price)
-
-    if (data.type === 'variable' && data.variations.length === 0) {
-      toast.error('Ajoutez au moins une variation')
-      return
-    }
-
     try {
       if (data.type === 'simple') {
         const qty = parseInt(data.quantity, 10) || 0
         const article = await addArticle({
           name: data.name.trim(),
-          sale_price: priceValue,
-          quantity: qty,
           type: 'simple',
+          sale_price: parseFloat(data.sale_price),
+          quantity: qty,
           image: null,
         })
         toast.success('Article ajouté')
@@ -159,37 +242,21 @@ export default function NewArticlePage() {
         return
       }
 
-      const totalQty = data.variations.reduce((sum, v) => sum + (parseInt(v.quantity, 10) || 0), 0)
+      // Création atomique : une seule requête, l'article et ses variations
+      // sont créés ensemble côté backend (DB::transaction) — si une
+      // variation échoue (ex. doublon détecté en base), rien n'est créé.
       const article = await addArticle({
         name: data.name.trim(),
-        sale_price: priceValue,
-        quantity: totalQty,
         type: 'variable',
+        variations: data.variations.map((v) => ({
+          name: v.name.trim(),
+          quantity: parseInt(v.quantity, 10) || 0,
+          price: parseFloat(v.price),
+        })),
         image: null,
       })
 
-      const failedNames: string[] = []
-      for (const variation of data.variations) {
-        try {
-          await createVariation({
-            article_id: String(article.id),
-            name: variation.name.trim(),
-            quantity: parseInt(variation.quantity, 10) || 0,
-            image: null,
-          })
-        } catch {
-          failedNames.push(variation.name.trim())
-        }
-      }
-
-      if (failedNames.length > 0) {
-        toast.error(
-          `Article créé, mais ${failedNames.length} variation(s) n'ont pas pu être enregistrée(s) : ${failedNames.join(', ')}`
-        )
-      } else {
-        toast.success('Article ajouté')
-      }
-
+      toast.success('Article ajouté')
       await Promise.all([invalidateArticles(), invalidateUserStats()])
       router.push(`/products/${article.id}`)
     } catch (err: unknown) {
@@ -237,7 +304,9 @@ export default function NewArticlePage() {
       )}
       <span className="flex items-baseline justify-between gap-2 px-1">
         <span className="truncate text-[15px] font-bold text-ink">{name.trim() || "Nom de l'article"}</span>
-        <span className="shrink-0 text-[15px] font-extrabold text-ink">{formatAmount(priceNum)} F</span>
+        <span className="shrink-0 text-[15px] font-extrabold text-ink">
+          {type === 'variable' ? priceRangeLabel : `${formatAmount(priceNum)} F`}
+        </span>
       </span>
       <span className="px-1 text-[13px] text-subtle">
         {type === 'variable' ? `${fields.length} variation(s)` : 'Simple'}
@@ -258,7 +327,7 @@ export default function NewArticlePage() {
   const stockTiles = (
     <div className="grid grid-cols-2 gap-2.5">
       <div className="flex flex-col gap-1 rounded-tile bg-hero p-3.5 text-white">
-        <span className="text-xs text-navy-text">Stock initial</span>
+        <span className="text-xs text-navy-text">Stock total</span>
         <span className="text-lg font-extrabold">
           {total} pièce{total > 1 ? 's' : ''}
         </span>
@@ -267,6 +336,12 @@ export default function NewArticlePage() {
         <span className="text-xs text-subtle">Valeur</span>
         <span className="text-lg font-extrabold text-ink">{formatAmount(stockValue)} F</span>
       </div>
+      {type === 'variable' ? (
+        <div className="col-span-2 flex items-center justify-between rounded-tile border border-line bg-surface p-3.5">
+          <span className="text-xs text-subtle">Prix</span>
+          <span className="text-sm font-extrabold text-ink">{priceRangeLabel}</span>
+        </div>
+      ) : null}
     </div>
   )
 
@@ -279,6 +354,43 @@ export default function NewArticlePage() {
       <Link href="/settings#low-stock-threshold" className="shrink-0 text-[13px] font-bold text-brand-700">
         Modifier dans les paramètres
       </Link>
+    </div>
+  )
+
+  const quickAddRow = (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="quick-add-variations" className="text-xs font-semibold text-ink-2">
+        Créer plusieurs variations d&apos;un coup
+      </label>
+      <input
+        id="quick-add-variations"
+        value={quickAddValue}
+        onChange={(e) => setQuickAddValue(e.target.value)}
+        onKeyDown={handleQuickAddKeyDown}
+        placeholder="Ex. S, M, L, XL puis Entrée"
+        className="h-11 rounded-field border border-dashed border-brand-300 bg-brand-50 px-3.5 text-sm text-ink placeholder:text-ink-3"
+      />
+    </div>
+  )
+
+  const defaultPriceField = (
+    <div className="flex flex-col gap-2">
+      <label htmlFor="default-price" className="text-[13px] font-semibold text-ink">
+        Prix par défaut ({currency}) <span className="font-normal text-subtle">— optionnel</span>
+      </label>
+      <Controller
+        control={control}
+        name="default_price"
+        render={({ field }) => (
+          <input
+            id="default-price"
+            inputMode="numeric"
+            placeholder="Pré-remplit le prix des nouvelles variations"
+            {...field}
+            className="h-11 rounded-field border border-line-strong px-3.5 text-sm text-ink placeholder:text-ink-3"
+          />
+        )}
+      />
     </div>
   )
 
@@ -330,25 +442,6 @@ export default function NewArticlePage() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="m-article-price" className="text-[13px] font-semibold text-ink">
-            Prix de vente ({currency})
-          </label>
-          <Controller
-            control={control}
-            name="sale_price"
-            render={({ field }) => (
-              <input
-                id="m-article-price"
-                inputMode="numeric"
-                {...field}
-                className="h-[52px] rounded-field border border-line-strong px-3.5 text-base text-ink"
-              />
-            )}
-          />
-          {errors.sale_price ? <p className="text-xs text-danger-strong">{errors.sale_price.message}</p> : null}
-        </div>
-
-        <div className="flex flex-col gap-2">
           <span className="text-[13px] font-semibold text-ink">Type d&apos;article</span>
           <SegmentedControl
             options={TYPE_OPTIONS}
@@ -358,134 +451,182 @@ export default function NewArticlePage() {
           />
           <span className="text-xs text-subtle">
             {type === 'variable'
-              ? 'Plusieurs déclinaisons (tailles, couleurs…), chacune avec sa quantité.'
-              : 'Un seul modèle, une seule quantité.'}
+              ? 'Plusieurs déclinaisons (tailles, couleurs…), chacune avec sa quantité et son prix.'
+              : 'Un seul modèle, une seule quantité, un seul prix.'}
           </span>
         </div>
 
         {type === 'simple' ? (
-          <div className="flex items-center justify-between gap-3 rounded-tile border border-line bg-surface p-3.5">
-            <span className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold text-ink">Quantité en stock</span>
-              <span className="text-xs text-subtle">Quantité de départ</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <button
-                type="button"
-                aria-label="Diminuer"
-                onClick={() => setValue('quantity', String(Math.max(0, qtySimple - 1)))}
-                className="flex size-11 items-center justify-center rounded-full border border-line-strong bg-canvas text-lg font-bold text-ink"
-              >
-                <Minus className="size-4" />
-              </button>
+          <>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="m-article-price" className="text-[13px] font-semibold text-ink">
+                Prix de vente ({currency})
+              </label>
               <Controller
                 control={control}
-                name="quantity"
+                name="sale_price"
                 render={({ field }) => (
                   <input
-                    type="number"
-                    min={0}
+                    id="m-article-price"
                     inputMode="numeric"
-                    aria-label="Quantité en stock"
                     {...field}
-                    className="w-10 rounded-lg border border-line-strong bg-surface text-center text-lg font-extrabold text-ink outline-none focus:border-brand-500"
+                    className="h-[52px] rounded-field border border-line-strong px-3.5 text-base text-ink"
                   />
                 )}
               />
-              <button
-                type="button"
-                aria-label="Augmenter"
-                onClick={() => setValue('quantity', String(qtySimple + 1))}
-                className="flex size-11 items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white"
-              >
-                <Plus className="size-4" />
-              </button>
-            </span>
-          </div>
+              {errors.sale_price ? <p className="text-xs text-danger-strong">{errors.sale_price.message}</p> : null}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-tile border border-line bg-surface p-3.5">
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold text-ink">Quantité en stock</span>
+                <span className="text-xs text-subtle">Quantité de départ</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-label="Diminuer"
+                  onClick={() => setValue('quantity', String(Math.max(0, qtySimple - 1)))}
+                  className="flex size-11 items-center justify-center rounded-full border border-line-strong bg-canvas text-lg font-bold text-ink"
+                >
+                  <Minus className="size-4" />
+                </button>
+                <Controller
+                  control={control}
+                  name="quantity"
+                  render={({ field }) => (
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      aria-label="Quantité en stock"
+                      {...field}
+                      className="w-10 rounded-lg border border-line-strong bg-surface text-center text-lg font-extrabold text-ink outline-none focus:border-brand-500"
+                    />
+                  )}
+                />
+                <button
+                  type="button"
+                  aria-label="Augmenter"
+                  onClick={() => setValue('quantity', String(qtySimple + 1))}
+                  className="flex size-11 items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white"
+                >
+                  <Plus className="size-4" />
+                </button>
+              </span>
+            </div>
+          </>
         ) : (
           <div className="flex flex-col gap-2.5">
+            {defaultPriceField}
+            {quickAddRow}
             <div className="flex items-baseline justify-between">
               <span className="text-[13px] font-semibold text-ink">Variations</span>
               <span className="text-xs text-subtle">
-                {fields.length} variation(s) · {total} pièces
+                {fields.length} variation(s) · {total} pièces · {priceRangeLabel}
               </span>
             </div>
+            {errors.variations?.root || (errors.variations && !Array.isArray(errors.variations)) ? (
+              <p className="text-xs text-danger-strong">
+                {(errors.variations as unknown as { message?: string })?.message}
+              </p>
+            ) : null}
             {fields.map((field, index) => {
               const q = parseInt(variationsWatch[index]?.quantity || '0', 10) || 0
               return (
                 <div
                   key={field.id}
-                  className="flex items-center gap-2.5 rounded-tile border border-line bg-surface p-2.5"
+                  className="flex flex-col gap-2 rounded-tile border border-line bg-surface p-2.5"
                 >
-                  <button
-                    type="button"
-                    aria-label={`Photo de la variation ${index + 1}`}
-                    onClick={warnPhotoUnavailable}
-                    className="flex size-11 shrink-0 items-center justify-center rounded-tile border border-dashed border-brand-200 bg-brand-50 text-brand-500"
-                  >
-                    <Plus className="size-[18px]" strokeWidth={1.9} />
-                  </button>
-                  <Controller
-                    control={control}
-                    name={`variations.${index}.name`}
-                    render={({ field }) => (
-                      <input
-                        aria-label="Nom de la variation"
-                        placeholder="Ex. Taille M"
-                        {...field}
-                        className="h-11 min-w-0 flex-1 rounded-[12px] border border-line-strong px-2.5 text-[15px] text-ink"
-                      />
-                    )}
-                  />
-                  <span className="flex items-center">
+                  <div className="flex items-center gap-2.5">
                     <button
                       type="button"
-                      aria-label="Diminuer"
-                      onClick={() => setValue(`variations.${index}.quantity`, String(Math.max(0, q - 1)))}
-                      className="flex h-11 w-[34px] items-center justify-center text-lg font-bold text-ink-3"
+                      aria-label={`Photo de la variation ${index + 1}`}
+                      onClick={warnPhotoUnavailable}
+                      className="flex size-11 shrink-0 items-center justify-center rounded-tile border border-dashed border-brand-200 bg-brand-50 text-brand-500"
                     >
-                      −
+                      <Plus className="size-[18px]" strokeWidth={1.9} />
                     </button>
                     <Controller
                       control={control}
-                      name={`variations.${index}.quantity`}
+                      name={`variations.${index}.name`}
                       render={({ field }) => (
                         <input
-                          type="number"
-                          min={0}
-                          inputMode="numeric"
-                          aria-label="Quantité de la variation"
+                          aria-label="Nom de la variation"
+                          placeholder="Ex. Taille M"
                           {...field}
-                          className="h-9 w-10 rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
+                          className="h-11 min-w-0 flex-1 rounded-[12px] border border-line-strong px-2.5 text-[15px] text-ink"
                         />
                       )}
                     />
                     <button
                       type="button"
-                      aria-label="Augmenter"
-                      onClick={() => setValue(`variations.${index}.quantity`, String(q + 1))}
-                      className="flex h-11 w-[34px] items-center justify-center text-lg font-bold text-brand-500"
+                      aria-label="Supprimer la variation"
+                      onClick={() => remove(index)}
+                      className="flex size-11 shrink-0 items-center justify-center text-danger-strong"
                     >
-                      +
+                      <X className="size-4" />
                     </button>
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Supprimer la variation"
-                    onClick={() => remove(index)}
-                    className="flex h-11 w-9 shrink-0 items-center justify-center text-danger-strong"
-                  >
-                    <X className="size-4" />
-                  </button>
+                  </div>
+                  <div className="flex items-center gap-2.5 pl-[50px]">
+                    <span className="flex items-center">
+                      <button
+                        type="button"
+                        aria-label="Diminuer"
+                        onClick={() => setValue(`variations.${index}.quantity`, String(Math.max(0, q - 1)))}
+                        className="flex h-11 w-[34px] items-center justify-center text-lg font-bold text-ink-3"
+                      >
+                        −
+                      </button>
+                      <Controller
+                        control={control}
+                        name={`variations.${index}.quantity`}
+                        render={({ field }) => (
+                          <input
+                            type="number"
+                            min={0}
+                            inputMode="numeric"
+                            aria-label="Quantité de la variation"
+                            {...field}
+                            className="h-9 w-12 rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
+                          />
+                        )}
+                      />
+                      <button
+                        type="button"
+                        aria-label="Augmenter"
+                        onClick={() => setValue(`variations.${index}.quantity`, String(q + 1))}
+                        className="flex h-11 w-[34px] items-center justify-center text-lg font-bold text-brand-500"
+                      >
+                        +
+                      </button>
+                    </span>
+                    <Controller
+                      control={control}
+                      name={`variations.${index}.price`}
+                      render={({ field }) => (
+                        <input
+                          inputMode="numeric"
+                          aria-label="Prix de la variation"
+                          placeholder={`Prix (${currency})`}
+                          {...field}
+                          className="h-9 min-w-0 flex-1 rounded-lg border border-line-strong px-2.5 text-sm font-semibold text-ink outline-none focus:border-brand-500"
+                        />
+                      )}
+                    />
+                  </div>
                   {errors.variations?.[index]?.name ? (
-                    <p className="w-full text-xs text-danger-strong">{errors.variations[index]?.name?.message}</p>
+                    <p className="pl-[50px] text-xs text-danger-strong">{errors.variations[index]?.name?.message}</p>
+                  ) : null}
+                  {errors.variations?.[index]?.price ? (
+                    <p className="pl-[50px] text-xs text-danger-strong">{errors.variations[index]?.price?.message}</p>
                   ) : null}
                 </div>
               )
             })}
             <button
               type="button"
-              onClick={() => append({ name: '', quantity: '0' })}
+              onClick={addVariationRow}
               className="flex min-h-12 items-center justify-center rounded-full border border-dashed border-brand-300 text-sm font-bold text-brand-700"
             >
               + Ajouter une variation
@@ -505,7 +646,7 @@ export default function NewArticlePage() {
 
         <div className="glass fixed inset-x-3.5 bottom-[22px] z-30 flex items-center gap-3 rounded-[32px] p-2 pl-5">
           <span className="flex flex-1 flex-col gap-px">
-            <span className="text-xs text-ink-3">Stock initial</span>
+            <span className="text-xs text-ink-3">Stock total</span>
             <span className="text-base font-extrabold text-ink">
               {total} pièce{total > 1 ? 's' : ''}
             </span>
@@ -563,26 +704,30 @@ export default function NewArticlePage() {
                     />
                     {errors.name ? <p className="text-xs text-danger-strong">{errors.name.message}</p> : null}
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <label htmlFor="article-price" className="text-[13px] font-semibold text-ink">
-                      Prix de vente ({currency})
-                    </label>
-                    <Controller
-                      control={control}
-                      name="sale_price"
-                      render={({ field }) => (
-                        <input
-                          id="article-price"
-                          inputMode="numeric"
-                          {...field}
-                          className="h-[50px] max-w-[260px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
-                        />
-                      )}
-                    />
-                    {errors.sale_price ? (
-                      <p className="text-xs text-danger-strong">{errors.sale_price.message}</p>
-                    ) : null}
-                  </div>
+                  {type === 'simple' ? (
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor="article-price" className="text-[13px] font-semibold text-ink">
+                        Prix de vente ({currency})
+                      </label>
+                      <Controller
+                        control={control}
+                        name="sale_price"
+                        render={({ field }) => (
+                          <input
+                            id="article-price"
+                            inputMode="numeric"
+                            {...field}
+                            className="h-[50px] max-w-[260px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+                          />
+                        )}
+                      />
+                      {errors.sale_price ? (
+                        <p className="text-xs text-danger-strong">{errors.sale_price.message}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="max-w-[320px]">{defaultPriceField}</div>
+                  )}
                 </div>
               </div>
             </Card>
@@ -593,7 +738,7 @@ export default function NewArticlePage() {
                   <h2 className="text-lg font-bold text-ink">Stock</h2>
                   <span className="text-[13px] text-subtle">
                     {type === 'variable'
-                      ? 'Plusieurs déclinaisons (tailles, couleurs…), chacune avec sa quantité et sa photo.'
+                      ? 'Plusieurs déclinaisons (tailles, couleurs…), chacune avec sa quantité, son prix et sa photo.'
                       : 'Un seul modèle, une seule quantité.'}
                   </span>
                 </div>
@@ -643,13 +788,28 @@ export default function NewArticlePage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
+                  <div className="max-w-[420px]">{quickAddRow}</div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[13px] font-semibold text-ink">
+                      {fields.length} variation(s)
+                    </span>
+                    <span className="text-xs text-subtle">
+                      Stock total : {total} · Prix : {priceRangeLabel}
+                    </span>
+                  </div>
+                  {errors.variations?.root || (errors.variations && !Array.isArray(errors.variations)) ? (
+                    <p className="text-xs text-danger-strong">
+                      {(errors.variations as unknown as { message?: string })?.message}
+                    </p>
+                  ) : null}
                   <div className="overflow-x-auto rounded-tile border border-line">
-                    <table className="w-full min-w-[480px] border-collapse text-sm">
+                    <table className="w-full min-w-[560px] border-collapse text-sm">
                       <thead>
                         <tr className="bg-surface-soft text-left text-xs font-semibold uppercase tracking-wide text-subtle">
                           <th className="px-3 py-2.5">Photo</th>
                           <th className="px-3 py-2.5">Variation</th>
                           <th className="px-3 py-2.5">Quantité</th>
+                          <th className="px-3 py-2.5">Prix</th>
                           <th className="px-3 py-2.5">
                             <span className="sr-only">Actions</span>
                           </th>
@@ -725,6 +885,26 @@ export default function NewArticlePage() {
                                   </button>
                                 </span>
                               </td>
+                              <td className="px-3 py-2.5">
+                                <Controller
+                                  control={control}
+                                  name={`variations.${index}.price`}
+                                  render={({ field }) => (
+                                    <input
+                                      inputMode="numeric"
+                                      aria-label="Prix de la variation"
+                                      placeholder={currency}
+                                      {...field}
+                                      className="h-[42px] w-[120px] rounded-[12px] border border-line-strong px-3 text-sm font-semibold text-ink"
+                                    />
+                                  )}
+                                />
+                                {errors.variations?.[index]?.price ? (
+                                  <p className="mt-1 text-xs text-danger-strong">
+                                    {errors.variations[index]?.price?.message}
+                                  </p>
+                                ) : null}
+                              </td>
                               <td className="px-3 py-2.5 text-right">
                                 <button
                                   type="button"
@@ -742,7 +922,7 @@ export default function NewArticlePage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => append({ name: '', quantity: '0' })}
+                    onClick={addVariationRow}
                     className="self-start rounded-full border border-dashed border-brand-300 px-4.5 py-2.5 text-sm font-bold text-brand-700"
                   >
                     + Ajouter une variation

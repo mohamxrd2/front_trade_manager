@@ -7,6 +7,7 @@ import { SettingsProvider } from "@/contexts/SettingsContext";
 import { LanguageProvider } from "@/lib/i18n/context/LanguageContext";
 import { Toaster } from "sonner";
 import { Providers } from "@/app/providers";
+import { StaleClientListener } from "@/components/stale-client-listener";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -78,6 +79,7 @@ export default function RootLayout({
                 <Providers>
                   {children}
                   <Toaster position="bottom-right" richColors />
+                  <StaleClientListener />
                 </Providers>
               </LanguageProvider>
             </SettingsProvider>

@@ -8,7 +8,7 @@ import 'dayjs/locale/fr'
 import { toast } from 'sonner'
 import { Plus, Search, X } from 'lucide-react'
 
-import { getArticles, type Article } from '@/lib/services/articles'
+import { getArticles, type Article, type Variation } from '@/lib/services/articles'
 import { invalidateInvoices } from '@/lib/invalidate'
 import {
   getClients,
@@ -21,6 +21,7 @@ import {
 } from '@/lib/services/invoices'
 import { ClientFormDialog } from '@/components/clients/client-form-dialog'
 import { InvoicePreviewCard } from '@/components/invoices/invoice-preview-card'
+import { VariationPicker } from '@/components/products'
 import { Button, Card } from '@/components/waelly'
 
 dayjs.locale('fr')
@@ -38,6 +39,7 @@ const THEME_OPTIONS: { value: InvoiceTheme; label: string; dot: string }[] = [
 interface InvoiceLine {
   id: string
   article: Article
+  variation: Variation | null
   quantity: number
   unitPrice: number
 }
@@ -59,9 +61,10 @@ interface InvoiceLine {
  *   d'une facture après création (seul le statut peut changer ensuite), et
  *   le PDF/numéro ne sont générés qu'après la création. La maquette suppose
  *   un brouillon déjà auto-enregistré, ce qu'aucun endpoint ne permet ici.
- * - Les variations d'un article variable ne sont pas sélectionnables dans
- *   une ligne de facture : l'API de création de facture n'accepte qu'un
- *   article_id, jamais un variable_id.
+ * - Un article variable exige de choisir une variation pour chaque ligne
+ *   (même sélecteur en chips que /wallet/new, components/products/variation-picker) :
+ *   le prix par défaut proposé est celui de la variation, jamais celui
+ *   (min/max) de l'article.
  * - L'avertissement de stock insuffisant est indicatif (pas un blocage) :
  *   le stock n'est décrémenté par l'API qu'au passage au statut "payée",
  *   jamais à la création d'une facture brouillon/envoyée.
@@ -81,6 +84,9 @@ export default function NewInvoicePage() {
   const [pickerOpen, setPickerOpen] = React.useState(false)
   const [articleSearch, setArticleSearch] = React.useState('')
   const [lines, setLines] = React.useState<InvoiceLine[]>([])
+  // Article variable cliqué dans le picker, en attente du choix de variation
+  // avant de devenir une vraie ligne.
+  const [pendingVariationArticle, setPendingVariationArticle] = React.useState<Article | null>(null)
 
   const [discountMode, setDiscountMode] = React.useState<'pct' | 'amt'>('pct')
   const [discountValue, setDiscountValue] = React.useState('0')
@@ -126,13 +132,31 @@ export default function NewInvoicePage() {
     [articles, articleSearch]
   )
 
-  const addLine = (article: Article) => {
+  const addLine = (article: Article, variation: Variation | null) => {
     setLines((prev) => [
       ...prev,
-      { id: `${article.id}-${Date.now()}`, article, quantity: 1, unitPrice: article.sale_price },
+      {
+        id: `${article.id}-${variation?.id ?? 'simple'}-${Date.now()}`,
+        article,
+        variation,
+        quantity: 1,
+        unitPrice: variation ? variation.price : article.sale_price,
+      },
     ])
     setPickerOpen(false)
+    setPendingVariationArticle(null)
     setArticleSearch('')
+  }
+
+  // Un article variable exige de choisir sa variation avant de devenir une
+  // ligne (même règle que pour une vente) — un article simple est ajouté
+  // directement.
+  const handlePickArticleFromStock = (article: Article) => {
+    if (article.variations?.length) {
+      setPendingVariationArticle(article)
+      return
+    }
+    addLine(article, null)
   }
 
   const updateLineQuantity = (id: string, quantity: number) => {
@@ -186,7 +210,8 @@ export default function NewInvoicePage() {
           id: l.id,
           invoice_id: '',
           article_id: String(l.article.id),
-          name_snapshot: l.article.name,
+          variation_id: l.variation?.id ?? null,
+          name_snapshot: l.variation ? `${l.article.name} (${l.variation.name})` : l.article.name,
           quantity: l.quantity,
           unit_price: String(l.unitPrice),
           discount_percent: '0',
@@ -216,6 +241,7 @@ export default function NewInvoicePage() {
         client_id: clientId,
         items: lines.map((l) => ({
           article_id: String(l.article.id),
+          variation_id: l.variation?.id,
           quantity: l.quantity,
           unit_price: l.unitPrice,
         })),
@@ -249,38 +275,69 @@ export default function NewInvoicePage() {
 
   const articlePicker = (
     <div className="flex flex-col gap-2 rounded-tile border border-line bg-surface-soft p-3">
-      <div className="relative flex">
-        <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-subtle" />
-        <input
-          autoFocus
-          value={articleSearch}
-          onChange={(e) => setArticleSearch(e.target.value)}
-          placeholder="Rechercher un article"
-          className="h-10 w-full rounded-full border border-line bg-surface pl-9 pr-3 text-sm text-ink outline-none"
-        />
-      </div>
-      <div className="flex max-h-[240px] flex-col gap-1 overflow-y-auto">
-        {loadingArticles ? (
-          <p className="py-3 text-center text-sm text-subtle">Chargement…</p>
-        ) : filteredArticles.length === 0 ? (
-          <p className="py-3 text-center text-sm text-subtle">Aucun article</p>
-        ) : (
-          filteredArticles.map((article) => (
+      {pendingVariationArticle ? (
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-ink">{pendingVariationArticle.name}</span>
             <button
-              key={article.id}
               type="button"
-              onClick={() => addLine(article)}
-              className="flex items-center justify-between gap-2.5 rounded-tile px-2.5 py-2 text-left hover:bg-surface"
+              onClick={() => setPendingVariationArticle(null)}
+              className="text-xs font-semibold text-subtle"
             >
-              <span className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold text-ink">{article.name}</span>
-                <span className="text-xs text-subtle">{article.remaining_quantity} en stock</span>
-              </span>
-              <span className="shrink-0 text-sm font-bold text-ink">{formatAmount(article.sale_price)} F</span>
+              Changer d&apos;article
             </button>
-          ))
-        )}
-      </div>
+          </div>
+          <VariationPicker
+            variations={pendingVariationArticle.variations ?? []}
+            selectedVariationId={null}
+            onSelect={(variation) => addLine(pendingVariationArticle, variation)}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="relative flex">
+            <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-subtle" />
+            <input
+              autoFocus
+              value={articleSearch}
+              onChange={(e) => setArticleSearch(e.target.value)}
+              placeholder="Rechercher un article"
+              className="h-10 w-full rounded-full border border-line bg-surface pl-9 pr-3 text-sm text-ink outline-none"
+            />
+          </div>
+          <div className="flex max-h-[240px] flex-col gap-1 overflow-y-auto">
+            {loadingArticles ? (
+              <p className="py-3 text-center text-sm text-subtle">Chargement…</p>
+            ) : filteredArticles.length === 0 ? (
+              <p className="py-3 text-center text-sm text-subtle">Aucun article</p>
+            ) : (
+              filteredArticles.map((article) => (
+                <button
+                  key={article.id}
+                  type="button"
+                  onClick={() => handlePickArticleFromStock(article)}
+                  className="flex items-center justify-between gap-2.5 rounded-tile px-2.5 py-2 text-left hover:bg-surface"
+                >
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold text-ink">{article.name}</span>
+                    <span className="text-xs text-subtle">
+                      {article.remaining_quantity} en stock
+                      {article.variations?.length ? ` · ${article.variations.length} variations` : ''}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm font-bold text-ink">
+                    {article.variations?.length
+                      ? article.price_max && article.price_max !== article.sale_price
+                        ? `${formatAmount(article.sale_price)} – ${formatAmount(article.price_max)} F`
+                        : `${formatAmount(article.sale_price)} F`
+                      : `${formatAmount(article.sale_price)} F`}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 
@@ -303,17 +360,21 @@ export default function NewInvoicePage() {
             </thead>
             <tbody>
               {lines.map((line) => {
-                const stockWarning = line.quantity > line.article.remaining_quantity
+                const availableForLine = line.variation ? line.variation.remaining_quantity : line.article.remaining_quantity
+                const stockWarning = line.quantity > availableForLine
                 return (
                   <tr key={line.id} className="border-t border-divider align-top">
                     <td className="px-3 py-2.5">
                       <span className="flex flex-col gap-0.5">
-                        <span className="font-semibold text-ink">{line.article.name}</span>
+                        <span className="font-semibold text-ink">
+                          {line.article.name}
+                          {line.variation ? ` (${line.variation.name})` : ''}
+                        </span>
                         <span className="text-xs text-subtle">
                           Depuis le stock
                           {stockWarning ? (
                             <span className="ml-1 font-semibold text-danger-strong">
-                              · stock disponible : {line.article.remaining_quantity}
+                              · stock disponible : {availableForLine}
                             </span>
                           ) : null}
                         </span>

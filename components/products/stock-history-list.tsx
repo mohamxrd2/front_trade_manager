@@ -88,8 +88,13 @@ export function StockHistoryList({ articleId, refreshKey = 0, showUser = true }:
             className={`mt-[5px] size-[10px] shrink-0 rounded-[5px] ${DOT_COLORS[Math.min(i, DOT_COLORS.length - 1)]}`}
           />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-sm font-semibold text-ink">
+            <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-ink">
               +{entry.quantity_added} pièce{entry.quantity_added > 1 ? 's' : ''}
+              {entry.variation ? (
+                <span className="rounded-full bg-surface-soft px-2 py-0.5 text-xs font-bold text-ink-2">
+                  {entry.variation.name}
+                </span>
+              ) : null}
               {entry.note ? ` · ${entry.note}` : ''}
             </span>
             <span className="text-xs text-subtle">
