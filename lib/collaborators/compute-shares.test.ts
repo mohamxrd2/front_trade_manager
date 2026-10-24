@@ -119,6 +119,31 @@ describe('computeShares', () => {
     expect(result.every((r) => r.amount === 0)).toBe(true)
   })
 
+  test('modification d\'une part de 25 % à 30 % → le gérant perd 5 %', () => {
+    const before = computeShares({
+      base: 1_000_000,
+      collaborators: [
+        { id: 'owner', share: 0, isOwner: true },
+        { id: 'c1', share: 25, isOwner: false },
+      ],
+    })
+    const after = computeShares({
+      base: 1_000_000,
+      collaborators: [
+        { id: 'owner', share: 0, isOwner: true },
+        { id: 'c1', share: 30, isOwner: false },
+      ],
+    })
+
+    const ownerBefore = before.find((r) => r.isOwner)!
+    const ownerAfter = after.find((r) => r.isOwner)!
+
+    expect(ownerBefore.share).toBe(75)
+    expect(ownerAfter.share).toBe(70)
+    expect(ownerBefore.share - ownerAfter.share).toBe(5)
+    expect(ownerBefore.amount - ownerAfter.amount).toBe(50_000)
+  })
+
   test('sans entrée gérant dans la liste → ne renvoie que les collaborateurs (pas de crash)', () => {
     const result = computeShares({
       base: 1000,

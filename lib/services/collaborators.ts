@@ -33,6 +33,7 @@ export interface CreateCollaboratorPayload {
 export interface UpdateCollaboratorPayload {
   name?: string
   phone?: string
+  part?: number // Entre 0.01 et 99.99 ; validé côté serveur contre la somme réelle des AUTRES parts
   image?: string | null
 }
 

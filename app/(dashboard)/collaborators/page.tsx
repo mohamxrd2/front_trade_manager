@@ -49,9 +49,13 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
  *   ligne « Téléphone » ni de lien d'appel sur sa carte. « Modifier » et
  *   « Retirer » sont masqués pour cette carte (ce n'est pas un
  *   `Collaborator`, c'est le compte lui-même — rien à appeler côté API).
- * - « Part » : le backend interdit explicitement sa modification après
- *   création (422 sur PUT si le champ est présent) — le champ est donc
- *   désactivé en mode édition, avec une note explicative.
+ * - « Part » : modifiable en édition comme à l'ajout. Le plafond affiché
+ *   ("Reste disponible") et la validation (zod + superRefine) excluent la
+ *   part ACTUELLE du collaborateur en cours de modification de la somme
+ *   des autres — il peut donc reprendre sa propre part sans être bloqué
+ *   par elle-même. Le 422 serveur (somme réelle des autres parts > 100,
+ *   voir CollaboratorController::update()) reste le filet de sécurité
+ *   final en cas de modification concurrente entre deux onglets/appareils.
  */
 
 type RoleValue = 'Vendeur' | 'Associé' | 'Couturier' | 'Gestionnaire'
@@ -95,16 +99,15 @@ const collaboratorBaseSchema = z.object({
     .min(1, 'Le téléphone est requis')
     .refine(isValidPhone, 'Format attendu : +225 suivi de 10 chiffres'),
   role: z.enum(ROLE_OPTIONS as [RoleValue, ...RoleValue[]], { message: 'Le rôle est requis' }),
-  // Toujours optionnel au niveau du type (le champ est désactivé en mode
-  // édition, donc exclu de la soumission native) — la contrainte réelle
-  // (requis, 0,01-99,99 %, ≤ part disponible) n'est appliquée qu'en mode
-  // ajout, via superRefine ci-dessous.
+  // Toujours optionnel au niveau du type : la contrainte réelle (requis,
+  // 0,01-99,99 %, ≤ part disponible) est appliquée en ajout ET en édition
+  // via superRefine ci-dessous — `maxPart` est déjà "la part disponible
+  // POUR CE formulaire" (exclut les autres collaborateurs, pas celui-ci).
   part: z.coerce.number().optional(),
 })
 
-function buildSchema(mode: 'add' | 'edit', maxPart: number) {
+function buildSchema(maxPart: number) {
   return collaboratorBaseSchema.superRefine((data, ctx) => {
-    if (mode !== 'add') return
     const cap = Math.max(0.01, Math.min(99.99, maxPart))
     if (data.part === undefined || Number.isNaN(data.part)) {
       ctx.addIssue({ code: 'custom', path: ['part'], message: 'La part est requise' })
@@ -146,9 +149,7 @@ function formatAmount(n: number): string {
 function CollaboratorFormFields({
   register,
   errors,
-  mode,
   remaining,
-  currentPart,
   photoPreview,
   onPickPhoto,
   idPrefix,
@@ -156,9 +157,7 @@ function CollaboratorFormFields({
 }: {
   register: ReturnType<typeof useForm<FormValues>>['register']
   errors: ReturnType<typeof useForm<FormValues>>['formState']['errors']
-  mode: 'add' | 'edit'
   remaining: number
-  currentPart: number
   photoPreview: string | null
   onPickPhoto: (file: File) => void
   idPrefix: string
@@ -267,27 +266,22 @@ function CollaboratorFormFields({
           <input
             id={`${idPrefix}-part`}
             inputMode="numeric"
-            disabled={mode === 'edit'}
-            defaultValue={mode === 'edit' ? currentPart : undefined}
             aria-describedby={`${idPrefix}-part-help`}
-            className={`${fieldHeight} min-w-0 rounded-field border border-line-strong px-3.5 ${fieldText} text-ink disabled:bg-surface-soft disabled:text-ink-3`}
+            aria-invalid={!!errors.part}
+            className={`${fieldHeight} min-w-0 rounded-field border px-3.5 ${fieldText} text-ink ${
+              errors.part ? 'border-danger-border' : 'border-line-strong'
+            }`}
             {...register('part')}
           />
         </div>
       </div>
-      {mode === 'add' ? (
-        errors.part ? (
-          <p id={`${idPrefix}-part-help`} className="-mt-1 text-xs text-danger-strong">
-            {errors.part.message}
-          </p>
-        ) : (
-          <p id={`${idPrefix}-part-help`} className="-mt-1 text-xs text-subtle">
-            Reste à répartir : {formatShare(Math.max(0, remaining))}
-          </p>
-        )
+      {errors.part ? (
+        <p id={`${idPrefix}-part-help`} className="-mt-1 text-xs font-semibold text-danger-strong">
+          {errors.part.message}
+        </p>
       ) : (
         <p id={`${idPrefix}-part-help`} className="-mt-1 text-xs text-subtle">
-          La part ne peut pas être modifiée après la création.
+          Reste disponible : {formatShare(Math.max(0, remaining))}
         </p>
       )}
     </>
@@ -318,13 +312,22 @@ export default function CollaboratorsPage() {
 
   const editingCollaborator = (collaborators ?? []).find((c) => c.id === editingId) ?? null
   const mode: 'add' | 'edit' = editingCollaborator ? 'edit' : 'add'
-  // En mode édition, le champ Part est désactivé (non modifiable après
-  // création) : il n'affiche que sa propre valeur, pas une part "restante".
-  const remainingForEdit = editingCollaborator ? Number(editingCollaborator.part) : remainingShare
+  // Part disponible POUR CE formulaire : en édition, `remainingShare`
+  // exclut déjà la part actuelle du collaborateur qu'on modifie (elle est
+  // comptée dans "la somme de tous les collaborateurs") — on la rajoute
+  // pour obtenir "100 − somme des AUTRES", qui est le vrai plafond de cette
+  // modification (le collaborateur peut reprendre sa propre part).
+  const remainingForEdit = editingCollaborator
+    ? remainingShare + Number(editingCollaborator.part)
+    : remainingShare
 
-  const schema = React.useMemo(() => buildSchema(mode, remainingShare), [mode, remainingShare])
+  const schema = React.useMemo(() => buildSchema(remainingForEdit), [remainingForEdit])
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
+    // onChange : le message d'erreur sous "Part (%)" et la désactivation du
+    // bouton Enregistrer doivent réagir immédiatement pendant la saisie, pas
+    // seulement après une première tentative d'envoi refusée.
+    mode: 'onChange',
     defaultValues: { name: '', phone: PHONE_PREFIX, role: 'Vendeur', part: 10 },
   })
 
@@ -410,15 +413,16 @@ export default function CollaboratorsPage() {
       return
     }
 
-    // Édition
+    // Édition — superRefine garantit un `part` défini et valide à ce stade.
     const id = editingCollaborator!.id
+    const part = Number(data.part)
     queryClient.setQueryData<Collaborator[]>(keys.collaborators.all, (old = []) =>
-      old.map((c) => (c.id === id ? { ...c, name: data.name, phone: data.phone } : c))
+      old.map((c) => (c.id === id ? { ...c, name: data.name, phone: data.phone, part } : c))
     )
     setRoleOverrides((prev) => ({ ...prev, [id]: data.role }))
 
     try {
-      const updated = await updateCollaborator(id, { name: data.name, phone: data.phone })
+      const updated = await updateCollaborator(id, { name: data.name, phone: data.phone, part })
       queryClient.setQueryData<Collaborator[]>(keys.collaborators.all, (old = []) =>
         old.map((c) => (c.id === id ? updated : c))
       )
@@ -540,13 +544,14 @@ export default function CollaboratorsPage() {
     </section>
   )
 
+  // "Reste disponible" est statique : "100 − somme des parts des AUTRES
+  // collaborateurs" — pas réduit par ce qui est en train d'être tapé (le
+  // message d'erreur sous le champ s'en charge déjà si la saisie dépasse).
   const formFieldsNode = (idPrefix: string, compact: boolean) => (
     <CollaboratorFormFields
       register={form.register}
       errors={form.formState.errors}
-      mode={mode}
-      remaining={remainingShare - (Number(form.watch('part')) || 0)}
-      currentPart={remainingForEdit}
+      remaining={remainingForEdit}
       photoPreview={photoPreview}
       onPickPhoto={handlePickPhoto}
       idPrefix={idPrefix}
@@ -670,7 +675,7 @@ export default function CollaboratorsPage() {
             ) : null}
             <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
               {formFieldsNode('collab-desktop', false)}
-              <Button type="submit" variant="primary" className="h-[50px] w-full" disabled={submitting}>
+              <Button type="submit" variant="primary" className="h-[50px] w-full" disabled={submitting || !!form.formState.errors.part}>
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
                 {mode === 'edit' ? 'Enregistrer' : 'Ajouter à l’équipe'}
               </Button>
@@ -807,7 +812,7 @@ export default function CollaboratorsPage() {
           ) : null}
           <form onSubmit={onSubmit} className="mt-3.5 flex flex-col gap-3">
             {formFieldsNode('collab-mobile', true)}
-            <Button type="submit" variant="primary" className="h-[54px] w-full text-base" disabled={submitting}>
+            <Button type="submit" variant="primary" className="h-[54px] w-full text-base" disabled={submitting || !!form.formState.errors.part}>
               {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
               {mode === 'edit' ? 'Enregistrer' : 'Ajouter à l’équipe'}
             </Button>
