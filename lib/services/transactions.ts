@@ -347,20 +347,33 @@ export async function updateTransaction(
 }
 
 /**
- * Supprime une transaction (DELETE /api/transactions/{id})
+ * Supprime une transaction (DELETE /api/transactions/{id}, soft delete côté
+ * serveur — restaurable via restoreTransaction() ci-dessous).
  */
 export async function deleteTransaction(id: string): Promise<void> {
   try {
     await api.delete<ApiResponse<unknown>>(`/api/transactions/${id}`)
   } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>
-    
+    const axiosError = error as AxiosError<{ message?: string; invoice_id?: string }>
+
     if (axiosError.response?.status === 401) {
       throw new Error('Non authentifié')
     }
 
+    if (axiosError.response?.status === 403) {
+      throw new Error(axiosError.response?.data?.message || 'Non autorisé à supprimer cette transaction')
+    }
+
     if (axiosError.response?.status === 404) {
       throw new Error('Transaction non trouvée')
+    }
+
+    if (axiosError.response?.status === 422) {
+      // Vente liée à une facture payée : le serveur reste le filet de
+      // sécurité final (le frontend masque déjà le bouton Supprimer dans ce
+      // cas, voir TransactionDetailSheet / TransactionDetailsDialog), mais
+      // une facture a pu être payée entre l'ouverture de l'écran et le clic.
+      throw new Error(axiosError.response?.data?.message || 'Cette vente est liée à une facture et ne peut pas être supprimée ici.')
     }
 
     if (axiosError.response?.status === 500) {
@@ -374,6 +387,41 @@ export async function deleteTransaction(id: string): Promise<void> {
       console.error('Erreur lors de la suppression de la transaction:', error)
     }
     throw new Error('Erreur lors de la suppression de la transaction')
+  }
+}
+
+/**
+ * Restaure une transaction supprimée (POST /api/transactions/{id}/restore) —
+ * utilisé par le bouton « Annuler » du toast de suppression.
+ */
+export async function restoreTransaction(id: string): Promise<Transaction> {
+  try {
+    const response = await api.post<ApiResponse<ApiTransaction>>(`/api/transactions/${id}/restore`)
+
+    if (!response.data.data) {
+      throw new Error('Réponse API invalide')
+    }
+
+    return mapApiTransactionToTransaction(response.data.data)
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>
+
+    if (axiosError.response?.status === 401) {
+      throw new Error('Non authentifié')
+    }
+
+    if (axiosError.response?.status === 403) {
+      throw new Error(axiosError.response?.data?.message || 'Non autorisé à restaurer cette transaction')
+    }
+
+    if (axiosError.response?.status === 404) {
+      throw new Error('Transaction non trouvée')
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Erreur lors de la restauration de la transaction:', error)
+    }
+    throw new Error('Erreur lors de la restauration de la transaction')
   }
 }
 

@@ -7,9 +7,14 @@ import 'dayjs/locale/fr'
 import { toast } from 'sonner'
 import { AlertCircle, ArrowDownLeft, ArrowUpRight, Check, Download } from 'lucide-react'
 
-import { getTransactions, deleteTransaction, type Transaction } from '@/lib/services/transactions'
-import { getInvoices } from '@/lib/services/invoices'
+import { deleteTransaction, type Transaction } from '@/lib/services/transactions'
+import { useTransactionsQuery } from '@/lib/hooks/useTransactions'
+import { useInvoiceLookup } from '@/lib/hooks/useInvoiceLookup'
+import { useDeleteTransactionFlow } from '@/lib/hooks/useDeleteTransactionFlow'
+import { isDeletableFromList } from '@/lib/transactions/can-delete'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
+import { keys } from '@/lib/query-keys'
+import { useQueryClient } from '@tanstack/react-query'
 import { exportToExcel } from '@/lib/utils/export'
 import {
   AlertDialog,
@@ -21,7 +26,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Button, Card, FilterChips, Pagination, StatusBadge, TransactionDetailsDialog } from '@/components/waelly'
+import {
+  Button,
+  Card,
+  FilterChips,
+  Pagination,
+  StatusBadge,
+  TransactionDetailsDialog,
+  DeleteTransactionDialog,
+  SwipeableTransactionRow,
+  TransactionDetailSheet,
+} from '@/components/waelly'
 
 dayjs.locale('fr')
 
@@ -89,18 +104,23 @@ function transactionTitle(t: Transaction): string {
  * pour ne pas changer son rendu sur le tableau de bord qui l'utilise déjà.
  *
  * Écarts assumés :
- * - Pas d'endpoint de suppression en masse : DELETE /api/transactions/{id}
- *   est appelé une fois par opération sélectionnée (en parallèle).
+ * - Suppression en masse : toujours pas d'endpoint dédié, DELETE
+ *   /api/transactions/{id} est appelé une fois par opération sélectionnée
+ *   (en parallèle). La suppression d'UNE transaction (glissement mobile,
+ *   bottom sheet, dialog ordinateur) passe par useDeleteTransactionFlow —
+ *   soft delete + restauration via le toast "Annuler" (voir ce hook).
  * - Le numéro de facture n'est pas inclus dans GET /api/transactions : il
- *   est résolu via GET /api/invoices (déjà utilisé ailleurs), croisé
- *   localement sur invoice_id.
+ *   est résolu via useInvoiceLookup() (GET /api/invoices, déjà utilisé
+ *   ailleurs), croisé sur invoice_id — partagé avec le détail de
+ *   transaction (sheet mobile / dialog ordinateur) pour décider Supprimer
+ *   vs Voir la facture (facture payée).
  */
 export default function WalletPage() {
-  const [transactions, setTransactions] = React.useState<Transaction[]>([])
-  const [loadingTx, setLoadingTx] = React.useState(true)
-  const [txError, setTxError] = React.useState<string | null>(null)
-
-  const [invoiceMap, setInvoiceMap] = React.useState<Record<string, string>>({})
+  const queryClient = useQueryClient()
+  const { data: transactions = [], isLoading: loadingTx, error: txErrorObj, refetch: refetchTransactions } = useTransactionsQuery()
+  const txError = txErrorObj ? (txErrorObj as Error).message || 'Impossible de charger les opérations.' : null
+  const invoiceLookup = useInvoiceLookup()
+  const { requestDelete } = useDeleteTransactionFlow()
 
   const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all')
   const [period, setPeriod] = React.useState<Period>('all')
@@ -114,48 +134,34 @@ export default function WalletPage() {
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
-  const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null)
+  // États séparés mobile/ordinateur : TransactionDetailSheet (Drawer) et
+  // TransactionDetailsDialog (Dialog) sont deux overlays portal-rendues —
+  // un seul état partagé les ouvrirait TOUTES LES DEUX en même temps dès
+  // qu'une ligne est sélectionnée, quel que soit l'écran actuellement visible.
+  const [mobileDetailTransaction, setMobileDetailTransaction] = React.useState<Transaction | null>(null)
+  const [desktopDetailTransaction, setDesktopDetailTransaction] = React.useState<Transaction | null>(null)
+  // Confirmation de suppression d'UNE transaction — partagée par les deux
+  // écrans et les trois points d'entrée (glissement, sheet, dialog).
+  const [singleDeleteTarget, setSingleDeleteTarget] = React.useState<Transaction | null>(null)
+  // Ligne en cours de sortie (fondu + repli de hauteur) avant l'appel réel à
+  // useDeleteTransactionFlow — voir handleConfirmSingleDelete.
+  const [exitingRowId, setExitingRowId] = React.useState<string | null>(null)
 
-  const fetchTransactions = React.useCallback(async () => {
-    setLoadingTx(true)
-    setTxError(null)
-    try {
-      setTransactions(await getTransactions())
-    } catch (err: unknown) {
-      setTxError((err as Error).message || 'Impossible de charger les opérations.')
-    } finally {
-      setLoadingTx(false)
-    }
-  }, [])
+  const fetchTransactions = React.useCallback(() => refetchTransactions(), [refetchTransactions])
 
-  React.useEffect(() => {
-    fetchTransactions()
-  }, [fetchTransactions])
-
-  React.useEffect(() => {
-    let cancelled = false
-    const fetchAllInvoices = async () => {
-      try {
-        let current = 1
-        const map: Record<string, string> = {}
-        for (;;) {
-          const { invoices, pages } = await getInvoices({ page: current, per_page: 100 })
-          invoices.forEach((inv) => {
-            map[inv.id] = inv.invoice_number
-          })
-          if (current >= pages) break
-          current += 1
-        }
-        if (!cancelled) setInvoiceMap(map)
-      } catch {
-        // La colonne Facture retombe sur "—" si la liste des factures échoue.
-      }
-    }
-    fetchAllInvoices()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const handleConfirmSingleDelete = (transaction: Transaction) => {
+    setSingleDeleteTarget(null)
+    setExitingRowId(transaction.id)
+    // Laisse l'animation de sortie (300ms, voir SwipeableTransactionRow) se
+    // jouer avant d'envoyer la suppression réelle — négligeable pour
+    // l'utilisateur, et garde toute la logique de suppression (optimiste +
+    // retour en arrière + toast Annuler) au même endroit pour mobile ET
+    // ordinateur (useDeleteTransactionFlow).
+    setTimeout(() => {
+      requestDelete(transaction)
+      setExitingRowId(null)
+    }, 300)
+  }
 
   React.useEffect(() => {
     setPage(1)
@@ -268,7 +274,14 @@ export default function WalletPage() {
     setDeleteDialogOpen(false)
     setDeleting(false)
     await fetchTransactions()
-    await Promise.all([invalidateArticles(), invalidateUserStats()])
+    await Promise.all([
+      invalidateArticles(),
+      invalidateUserStats(),
+      queryClient.invalidateQueries({ queryKey: keys.transactions.all }),
+      queryClient.invalidateQueries({ queryKey: keys.collaborators.all }),
+      queryClient.invalidateQueries({ queryKey: keys.analytics.all }),
+      queryClient.invalidateQueries({ queryKey: keys.dashboard.all }),
+    ])
   }
 
   const handleExport = () => {
@@ -280,7 +293,7 @@ export default function WalletPage() {
       Opération: transactionTitle(t),
       Type: t.type === 'sale' ? 'Vente' : 'Dépense',
       Date: dayjs(t.date).format('DD/MM/YYYY HH:mm'),
-      Facture: t.invoice_id ? invoiceMap[t.invoice_id] || t.invoice_id : '—',
+      Facture: t.invoice_id ? invoiceLookup[t.invoice_id]?.invoice_number || t.invoice_id : '—',
       Montant: `${t.type === 'sale' ? '+' : '−'}${formatAmount(t.amount ?? 0)} F`,
     }))
     exportToExcel(rows, `waelly-portefeuille-${dayjs().format('YYYY-MM')}`, 'Portefeuille')
@@ -419,43 +432,50 @@ export default function WalletPage() {
                   {group.label}
                 </span>
                 {group.items.map((t) => (
-                  <label
+                  <SwipeableTransactionRow
                     key={t.id}
-                    onClick={mobileSelecting ? undefined : () => setSelectedTransaction(t)}
-                    className="flex min-h-11 items-center gap-3 rounded-tile border border-line bg-surface p-3.5"
+                    className="rounded-tile border border-line"
+                    exiting={exitingRowId === t.id}
+                    disabled={mobileSelecting || !isDeletableFromList(t, t.invoice_id ? invoiceLookup[t.invoice_id]?.status : undefined)}
+                    onRequestDelete={() => setSingleDeleteTarget(t)}
                   >
-                    {mobileSelecting ? (
-                      <input
-                        type="checkbox"
-                        aria-label={`Sélectionner ${transactionTitle(t)}`}
-                        checked={selectedIds.has(t.id)}
-                        onChange={() => toggleRow(t.id)}
-                        className="size-[22px] accent-brand-500"
-                      />
-                    ) : null}
-                    <span
-                      className={`flex size-10 shrink-0 items-center justify-center rounded-tile text-lg font-bold ${
-                        t.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
-                      }`}
+                    <label
+                      onClick={mobileSelecting ? undefined : () => setMobileDetailTransaction(t)}
+                      className="flex min-h-11 items-center gap-3 bg-surface p-3.5"
                     >
-                      {t.type === 'sale' ? '+' : '−'}
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="truncate text-sm font-semibold text-ink">{transactionTitle(t)}</span>
-                      <span className="truncate text-xs text-subtle">
-                        {t.type === 'sale' ? 'Vente' : 'Dépense'} ·{' '}
-                        {t.invoice_id
-                          ? `Facture ${invoiceMap[t.invoice_id] || ''}`.trim()
-                          : dayjs(t.date).format('HH:mm')}
+                      {mobileSelecting ? (
+                        <input
+                          type="checkbox"
+                          aria-label={`Sélectionner ${transactionTitle(t)}`}
+                          checked={selectedIds.has(t.id)}
+                          onChange={() => toggleRow(t.id)}
+                          className="size-[22px] accent-brand-500"
+                        />
+                      ) : null}
+                      <span
+                        className={`flex size-10 shrink-0 items-center justify-center rounded-tile text-lg font-bold ${
+                          t.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
+                        }`}
+                      >
+                        {t.type === 'sale' ? '+' : '−'}
                       </span>
-                    </span>
-                    <span
-                      className={`shrink-0 text-sm font-bold ${t.type === 'sale' ? 'text-success' : 'text-danger'}`}
-                    >
-                      {t.type === 'sale' ? '+' : '−'}
-                      {formatAmount(t.amount ?? 0)}
-                    </span>
-                  </label>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-sm font-semibold text-ink">{transactionTitle(t)}</span>
+                        <span className="truncate text-xs text-subtle">
+                          {t.type === 'sale' ? 'Vente' : 'Dépense'} ·{' '}
+                          {t.invoice_id
+                            ? `Facture ${invoiceLookup[t.invoice_id]?.invoice_number || ''}`.trim()
+                            : dayjs(t.date).format('HH:mm')}
+                        </span>
+                      </span>
+                      <span
+                        className={`shrink-0 text-sm font-bold ${t.type === 'sale' ? 'text-success' : 'text-danger'}`}
+                      >
+                        {t.type === 'sale' ? '+' : '−'}
+                        {formatAmount(t.amount ?? 0)}
+                      </span>
+                    </label>
+                  </SwipeableTransactionRow>
                 ))}
               </React.Fragment>
             ))}
@@ -608,7 +628,7 @@ export default function WalletPage() {
                       return (
                         <tr
                           key={t.id}
-                          onClick={() => setSelectedTransaction(t)}
+                          onClick={() => setDesktopDetailTransaction(t)}
                           className={`cursor-pointer border-t border-divider hover:bg-surface-soft ${checked ? 'bg-brand-50' : ''}`}
                         >
                           <td className="px-2 py-2.5">
@@ -659,7 +679,7 @@ export default function WalletPage() {
                                 onClick={(e) => e.stopPropagation()}
                                 className="font-semibold text-brand-700"
                               >
-                                {invoiceMap[t.invoice_id] || 'Voir'}
+                                {invoiceLookup[t.invoice_id]?.invoice_number || 'Voir'}
                               </Link>
                             ) : (
                               <span className="text-ink-3">—</span>
@@ -693,10 +713,30 @@ export default function WalletPage() {
 
       {deleteDialog}
 
+      <TransactionDetailSheet
+        transaction={mobileDetailTransaction}
+        onOpenChange={(open) => { if (!open) setMobileDetailTransaction(null) }}
+        invoiceEntry={mobileDetailTransaction?.invoice_id ? invoiceLookup[mobileDetailTransaction.invoice_id] : undefined}
+        onRequestDelete={(t) => {
+          setMobileDetailTransaction(null)
+          setSingleDeleteTarget(t)
+        }}
+      />
+
       <TransactionDetailsDialog
-        transaction={selectedTransaction}
-        onOpenChange={(open) => { if (!open) setSelectedTransaction(null) }}
-        invoiceNumber={selectedTransaction?.invoice_id ? invoiceMap[selectedTransaction.invoice_id] : undefined}
+        transaction={desktopDetailTransaction}
+        onOpenChange={(open) => { if (!open) setDesktopDetailTransaction(null) }}
+        invoiceEntry={desktopDetailTransaction?.invoice_id ? invoiceLookup[desktopDetailTransaction.invoice_id] : undefined}
+        onRequestDelete={(t) => {
+          setDesktopDetailTransaction(null)
+          setSingleDeleteTarget(t)
+        }}
+      />
+
+      <DeleteTransactionDialog
+        transaction={singleDeleteTarget}
+        onOpenChange={(open) => { if (!open) setSingleDeleteTarget(null) }}
+        onConfirm={handleConfirmSingleDelete}
       />
     </div>
   )

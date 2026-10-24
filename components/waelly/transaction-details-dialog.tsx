@@ -7,6 +7,8 @@ import 'dayjs/locale/fr'
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 
 import type { Transaction } from '@/lib/services/transactions'
+import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
+import { isDeletableFromList } from '@/lib/transactions/can-delete'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTitle } from '@/components/ui/dialog'
 
 dayjs.locale('fr')
@@ -24,6 +26,10 @@ interface TransactionDetailsDialogProps {
   onOpenChange: (open: boolean) => void
   /** Numéro de facture déjà résolu (ex. wallet/page.tsx a sa propre invoiceMap) — sinon un simple lien générique. */
   invoiceNumber?: string
+  /** Statut + client de la facture liée — décide Supprimer vs Voir la facture. Omis : le bouton Supprimer reste proposé (le 422 serveur reste le filet de sécurité). */
+  invoiceEntry?: InvoiceLookupEntry
+  /** Omis : pas de bouton de suppression (comportement précédent, ex. appels qui n'ont pas encore besoin de ce bouton). */
+  onRequestDelete?: (transaction: Transaction) => void
 }
 
 /**
@@ -32,13 +38,14 @@ interface TransactionDetailsDialogProps {
  * mobile comme ordinateur (la Dialog Radix centrée est déjà responsive des
  * deux côtés, pas besoin d'un Drawer séparé pour mobile).
  */
-function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber }: TransactionDetailsDialogProps) {
+function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, invoiceEntry, onRequestDelete }: TransactionDetailsDialogProps) {
   const open = transaction !== null
   if (!transaction) return null
 
   const isSale = transaction.type === 'sale'
   const title = (isSale && transaction.article_name) || transaction.name
   const unitPrice = transaction.sale_price ?? transaction.unit_price ?? null
+  const canDelete = isDeletableFromList(transaction, invoiceEntry?.status)
 
   const rows: DetailRow[] = []
   if (isSale && transaction.quantity) rows.push({ label: 'Quantité', value: transaction.quantity })
@@ -52,12 +59,15 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber }: 
     label: 'Facture',
     value: transaction.invoice_id ? (
       <Link href={`/invoices/${transaction.invoice_id}`} className="font-semibold text-brand-700">
-        {invoiceNumber || 'Voir la facture'}
+        {invoiceNumber || invoiceEntry?.invoice_number || 'Voir la facture'}
       </Link>
     ) : (
       <span className="text-ink-3">—</span>
     ),
   })
+  if (invoiceEntry?.client_name) {
+    rows.push({ label: 'Client', value: invoiceEntry.client_name })
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -97,13 +107,34 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber }: 
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="flex min-h-11 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
-          >
-            Fermer
-          </button>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="flex min-h-11 flex-1 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
+            >
+              Fermer
+            </button>
+            {onRequestDelete ? (
+              canDelete ? (
+                <button
+                  type="button"
+                  onClick={() => onRequestDelete(transaction)}
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-full border text-sm font-bold"
+                  style={{ color: '#A3213A', borderColor: '#F3C7CF' }}
+                >
+                  Supprimer
+                </button>
+              ) : (
+                <Link
+                  href={`/invoices/${transaction.invoice_id}`}
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
+                >
+                  Voir la facture
+                </Link>
+              )
+            ) : null}
+          </div>
         </DialogContent>
       </DialogPortal>
     </Dialog>

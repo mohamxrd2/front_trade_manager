@@ -34,7 +34,8 @@ import {
   getKPIs,
   type PeriodType,
 } from '@/lib/services/analytics'
-import { getTransactions, type Transaction } from '@/lib/services/transactions'
+import { type Transaction } from '@/lib/services/transactions'
+import { useTransactionsQuery } from '@/lib/hooks/useTransactions'
 import { keys } from '@/lib/query-keys'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { OnboardingSkippedBanner } from '@/components/onboarding'
@@ -247,14 +248,12 @@ export default function DashboardPage() {
     staleTime,
   })
 
-  const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery({
-    queryKey: keys.dashboard.transactions(),
-    queryFn: async () => {
-      const data = await getTransactions()
-      return data.slice(0, 5)
-    },
-    staleTime: 60 * 1000, // Dashboard/Portefeuille : 1 min
-  })
+  // Même cache que le Portefeuille (keys.transactions.list(), via
+  // useTransactionsQuery) — avant : sa propre clé keys.dashboard.transactions()
+  // avec un slice(0, 5) mis en cache séparément, donc une suppression côté
+  // Portefeuille ne se répercutait jamais ici sans rechargement de page.
+  const { data: allTransactions = [], isLoading: isLoadingTransactions } = useTransactionsQuery()
+  const transactions = React.useMemo(() => allTransactions.slice(0, 5), [allTransactions])
 
   const { articles } = useArticles()
   const lowStockArticles = React.useMemo(

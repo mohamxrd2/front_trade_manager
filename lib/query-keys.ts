@@ -33,6 +33,8 @@ export const keys = {
     list: (filters?: Record<string, unknown>) => ['invoices', 'list', filters ?? {}] as const,
     detail: (id: string) => ['invoices', 'detail', id] as const,
     dashboard: () => ['invoices', 'dashboard'] as const,
+    /** Table complète invoice_id → {numéro, statut, client} — voir useInvoiceLookup(). */
+    lookup: () => ['invoices', 'lookup'] as const,
   },
 
   clients: {
@@ -45,6 +47,15 @@ export const keys = {
     all: ['wallet'] as const,
     summary: (period?: string) => ['wallet', 'summary', period ?? 'all'] as const,
     transactions: (filters?: Record<string, unknown>) => ['wallet', 'transactions', filters ?? {}] as const,
+  },
+
+  // Liste brute GET /api/transactions — source UNIQUE pour Portefeuille ET
+  // Accueil ("Dernières opérations") : avant, chacun la refetchait dans son
+  // propre état local (ou sa propre clé), donc une suppression sur l'un ne
+  // se reflétait jamais sur l'autre sans rechargement complet de page.
+  transactions: {
+    all: ['transactions'] as const,
+    list: () => ['transactions', 'list'] as const,
   },
 
   analytics: {
