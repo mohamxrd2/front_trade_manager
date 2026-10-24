@@ -5,15 +5,14 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, Loader2, Phone, Plus, X } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { useUserStats } from '@/lib/hooks/useArticles'
 import { keys } from '@/lib/query-keys'
+import { useCollaboratorShares } from '@/lib/hooks/useCollaboratorShares'
 import {
-  getCollaborators,
   createCollaborator,
   updateCollaborator,
   deleteCollaborator,
@@ -298,19 +297,15 @@ function CollaboratorFormFields({
 export default function CollaboratorsPage() {
   const { user, checkAuth } = useAuth()
   const queryClient = useQueryClient()
-  // user.wallet (contexte d'auth) n'est chargé qu'une fois à l'ouverture de
-  // l'app et n'est jamais invalidé après une vente/dépense ailleurs — le
-  // montant du gérant restait figé tant qu'on ne rechargeait pas la page.
-  // useUserStats() lit le même endpoint (GET /api/user) mais via le cache
-  // TanStack Query, déjà invalidé après chaque transaction (voir
-  // invalidateUserStats(), appelé par wallet/new) : même source fraîche que
-  // le Solde du tableau de bord.
-  const { stats: userStats } = useUserStats()
-
-  const { data: collaborators, isLoading } = useQuery({
-    queryKey: keys.collaborators.all,
-    queryFn: getCollaborators,
-  })
+  // Part et montant du gérant (et de chaque collaborateur) viennent
+  // désormais UNIQUEMENT de ce hook : la part est toujours recalculée
+  // (100 − somme des parts actives), jamais lue d'une colonne figée
+  // (l'ancien user.company_share ne se resynchronisait pas tout seul après
+  // un ajout/modif/retrait — c'était le bug). Le montant vient du même
+  // total "ventes − dépenses depuis le début" que le solde du portefeuille,
+  // déjà invalidé après chaque vente/dépense.
+  const { base, isNegativeBase, isLoading, collaborators, ownerShare, remainingShare, getShare } =
+    useCollaboratorShares()
 
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [roleOverrides, setRoleOverrides] = React.useState<Record<string, RoleValue>>({})
@@ -321,12 +316,13 @@ export default function CollaboratorsPage() {
   const [removeTarget, setRemoveTarget] = React.useState<Member | null>(null)
   const [removing, setRemoving] = React.useState(false)
 
-  const companyShare = user ? Number(user.company_share ?? 0) : 0
   const editingCollaborator = (collaborators ?? []).find((c) => c.id === editingId) ?? null
   const mode: 'add' | 'edit' = editingCollaborator ? 'edit' : 'add'
-  const remainingForEdit = editingCollaborator ? companyShare + Number(editingCollaborator.part) : companyShare
+  // En mode édition, le champ Part est désactivé (non modifiable après
+  // création) : il n'affiche que sa propre valeur, pas une part "restante".
+  const remainingForEdit = editingCollaborator ? Number(editingCollaborator.part) : remainingShare
 
-  const schema = React.useMemo(() => buildSchema(mode, companyShare), [mode, companyShare])
+  const schema = React.useMemo(() => buildSchema(mode, remainingShare), [mode, remainingShare])
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
     defaultValues: { name: '', phone: PHONE_PREFIX, role: 'Vendeur', part: 10 },
@@ -390,6 +386,10 @@ export default function CollaboratorsPage() {
           next[created.id] = data.role
           return next
         })
+        // Confirme en arrière-plan que le cache optimiste ci-dessus
+        // correspond bien à l'état serveur (parts/montants recalculés par
+        // useCollaboratorShares dès que ce cache change).
+        void queryClient.invalidateQueries({ queryKey: keys.collaborators.all })
         toast.success('Collaborateur ajouté')
         setHighlightId(created.id)
         setTimeout(() => setHighlightId(null), 2000)
@@ -422,6 +422,7 @@ export default function CollaboratorsPage() {
       queryClient.setQueryData<Collaborator[]>(keys.collaborators.all, (old = []) =>
         old.map((c) => (c.id === id ? updated : c))
       )
+      void queryClient.invalidateQueries({ queryKey: keys.collaborators.all })
       toast.success('Modifications enregistrées')
       resetToAddMode()
       setDrawerOpen(false)
@@ -442,6 +443,7 @@ export default function CollaboratorsPage() {
 
     try {
       await deleteCollaborator(target.collaborator.id)
+      void queryClient.invalidateQueries({ queryKey: keys.collaborators.all })
       toast.success('Collaborateur retiré')
       setRemoveTarget(null)
       void checkAuth()
@@ -463,8 +465,8 @@ export default function CollaboratorsPage() {
       initials: getInitials(`${user.first_name} ${user.last_name}`),
       role: 'Gérant · propriétaire',
       phone: null,
-      share: companyShare,
-      amount: Number(userStats?.wallet ?? user.wallet ?? 0),
+      share: ownerShare.share,
+      amount: ownerShare.amount,
       image: user.profile_image ?? null,
     }
     const collabMembers: Member[] = (collaborators ?? []).map((c) => ({
@@ -474,13 +476,13 @@ export default function CollaboratorsPage() {
       initials: getInitials(c.name),
       role: roleOverrides[c.id] ?? 'Vendeur',
       phone: c.phone,
-      amount: Number(c.wallet ?? 0),
+      amount: getShare(c.id)?.amount ?? 0,
       share: Number(c.part),
       image: c.image ?? null,
       collaborator: c,
     }))
     return [owner, ...collabMembers]
-  }, [user, collaborators, roleOverrides, companyShare, userStats])
+  }, [user, collaborators, roleOverrides, ownerShare, getShare])
 
   const shareAria = members.map((m) => `${m.name} ${formatShare(m.share)}`).join(', ')
   const isEmpty = !isLoading && members.length <= 1
@@ -543,7 +545,7 @@ export default function CollaboratorsPage() {
       register={form.register}
       errors={form.formState.errors}
       mode={mode}
-      remaining={companyShare - (Number(form.watch('part')) || 0)}
+      remaining={remainingShare - (Number(form.watch('part')) || 0)}
       currentPart={remainingForEdit}
       photoPreview={photoPreview}
       onPickPhoto={handlePickPhoto}
@@ -566,6 +568,11 @@ export default function CollaboratorsPage() {
         ) : (
           <ShareBar compact={false} />
         )}
+        {!isLoading && isNegativeBase ? (
+          <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
+            Résultat négatif sur la période : {formatAmount(base)}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-start gap-5">
           <div
@@ -612,7 +619,12 @@ export default function CollaboratorsPage() {
                         {formatShare(m.share)}
                       </dd>
                       <dt className="text-subtle">Montant</dt>
-                      <dd className="m-0 font-bold text-success">{formatAmount(m.amount)}</dd>
+                      <dd
+                        className={`m-0 font-bold ${m.amount < 0 ? '' : 'text-success'}`}
+                        style={m.amount < 0 ? { color: '#A3213A' } : undefined}
+                      >
+                        {formatAmount(m.amount)}
+                      </dd>
                     </dl>
                     {!m.isOwner ? (
                       <div className="flex gap-2">
@@ -694,6 +706,11 @@ export default function CollaboratorsPage() {
         ) : (
           <ShareBar compact />
         )}
+        {!isLoading && isNegativeBase ? (
+          <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
+            Résultat négatif sur la période : {formatAmount(base)}
+          </p>
+        ) : null}
 
         {isLoading
           ? [1, 2, 3].map((i) => <div key={i} className="h-[150px] animate-pulse rounded-[20px] bg-surface-soft" />)
@@ -723,7 +740,12 @@ export default function CollaboratorsPage() {
                     <span className="rounded-full bg-brand-100 px-2.5 py-1.5 text-[13px] font-extrabold text-brand-700">
                       {formatShare(m.share)}
                     </span>
-                    <span className="text-xs font-bold text-success">{formatAmount(m.amount)}</span>
+                    <span
+                      className={`text-xs font-bold ${m.amount < 0 ? '' : 'text-success'}`}
+                      style={m.amount < 0 ? { color: '#A3213A' } : undefined}
+                    >
+                      {formatAmount(m.amount)}
+                    </span>
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

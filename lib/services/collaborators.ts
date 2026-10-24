@@ -78,9 +78,22 @@ function handleCollaboratorError(error: unknown, context: string): never {
     throw new Error(axiosError.response?.data?.message || 'Collaborateur non autorisé')
   }
 
-  if (status === 422) {
+  if (status === 422 || status === 400) {
+    // 400 ET 422 traités pareil : pendant le déploiement, le frontend peut
+    // se retrouver face à l'ancien backend (qui renvoyait 400, sans
+    // `errors`) ou au nouveau (422, avec `errors`) — dans les deux cas on
+    // affiche simplement le message du serveur.
     const validationErrors: ValidationErrors = axiosError.response?.data?.errors || {}
-    throw { validationErrors, message: 'Erreur de validation' }
+    const firstFieldMessage = Object.values(validationErrors)[0]?.[0]
+    // Préfère le message racine du backend (ex. "Le total des parts dépasse
+    // 100 %") — sinon le premier message de champ — sinon un générique.
+    // Doit être une vraie instance Error pour que `error instanceof Error`
+    // dans le composant appelant affiche ce message plutôt qu'un fallback
+    // générique (ex. "Échec de l'ajout du collaborateur").
+    const message = axiosError.response?.data?.message || firstFieldMessage || 'Erreur de validation'
+    const validationError = new Error(message) as Error & { validationErrors?: ValidationErrors }
+    validationError.validationErrors = validationErrors
+    throw validationError
   }
 
   if (status && status >= 500) {

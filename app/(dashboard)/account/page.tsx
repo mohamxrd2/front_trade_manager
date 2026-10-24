@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { useCollaboratorShares } from '@/lib/hooks/useCollaboratorShares'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -8,6 +9,11 @@ import dayjs from 'dayjs'
 
 export default function AccountPage() {
   const { user, loading } = useAuth()
+  // Part toujours recalculée (100 − somme des parts actives des
+  // collaborateurs), jamais lue de l'ancienne colonne user.company_share
+  // figée tant qu'aucun rechargement n'avait lieu — même source que
+  // /collaborators (lib/hooks/useCollaboratorShares.ts).
+  const { ownerShare } = useCollaboratorShares()
 
   if (loading) {
     return (
@@ -62,12 +68,10 @@ export default function AccountPage() {
               <p className="text-muted-foreground">Email</p>
               <p className="font-medium">{user.email}</p>
             </div>
-            {user.company_share !== undefined && (
-              <div>
-                <p className="text-muted-foreground">Part de l&apos;entreprise</p>
-                <p className="font-medium">{user.company_share}%</p>
-              </div>
-            )}
+            <div>
+              <p className="text-muted-foreground">Part de l&apos;entreprise</p>
+              <p className="font-medium">{ownerShare.share}%</p>
+            </div>
             {user.created_at && (
               <div>
                 <p className="text-muted-foreground">Membre depuis</p>
