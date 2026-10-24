@@ -236,12 +236,21 @@ export default function WalletPage() {
     })
   }
 
-  const allOnPageSelected = paginatedRows.length > 0 && paginatedRows.every((t) => selectedIds.has(t.id))
+  // Une vente liée à une facture PAYÉE ne peut pas être supprimée (422 serveur,
+  // voir TransactionController::destroy()) — la case à cocher est grisée pour
+  // ces lignes afin d'éviter l'erreur plutôt que de la laisser se produire
+  // puis l'afficher après coup.
+  const canSelectForDeletion = (t: Transaction) =>
+    isDeletableFromList(t, t.invoice_id ? invoiceLookup[t.invoice_id]?.status : undefined)
+
+  const selectablePaginatedRows = paginatedRows.filter(canSelectForDeletion)
+  const allOnPageSelected =
+    selectablePaginatedRows.length > 0 && selectablePaginatedRows.every((t) => selectedIds.has(t.id))
   const toggleSelectAllOnPage = () => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (allOnPageSelected) paginatedRows.forEach((t) => next.delete(t.id))
-      else paginatedRows.forEach((t) => next.add(t.id))
+      if (allOnPageSelected) selectablePaginatedRows.forEach((t) => next.delete(t.id))
+      else selectablePaginatedRows.forEach((t) => next.add(t.id))
       return next
     })
   }
@@ -607,8 +616,9 @@ export default function WalletPage() {
                           role="checkbox"
                           aria-checked={allOnPageSelected}
                           aria-label="Sélectionner toute la page"
+                          disabled={selectablePaginatedRows.length === 0}
                           onClick={toggleSelectAllOnPage}
-                          className={`flex size-6 items-center justify-center rounded-lg ${
+                          className={`flex size-6 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-40 ${
                             allOnPageSelected ? 'bg-brand-500' : 'border-[1.5px] border-line-strong bg-surface'
                           }`}
                         >
@@ -625,6 +635,7 @@ export default function WalletPage() {
                   <tbody>
                     {paginatedRows.map((t) => {
                       const checked = selectedIds.has(t.id)
+                      const selectable = canSelectForDeletion(t)
                       return (
                         <tr
                           key={t.id}
@@ -636,9 +647,15 @@ export default function WalletPage() {
                               type="button"
                               role="checkbox"
                               aria-checked={checked}
-                              aria-label={`Sélectionner ${transactionTitle(t)}`}
+                              aria-label={
+                                selectable
+                                  ? `Sélectionner ${transactionTitle(t)}`
+                                  : `${transactionTitle(t)} : liée à une facture payée, non sélectionnable`
+                              }
+                              disabled={!selectable}
+                              title={selectable ? undefined : 'Liée à une facture payée — à gérer depuis la facture'}
                               onClick={(e) => { e.stopPropagation(); toggleRow(t.id) }}
-                              className={`flex size-6 items-center justify-center rounded-lg ${
+                              className={`flex size-6 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-40 ${
                                 checked ? 'bg-brand-500' : 'border-[1.5px] border-line-strong bg-surface'
                               }`}
                             >
