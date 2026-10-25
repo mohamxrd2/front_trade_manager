@@ -56,5 +56,9 @@
   "expenses": "Dépenses",
   "invoice": "Facture",
   "period": "Période",
-  "balance": "Solde"
+  "balance": "Solde",
+  "showPassword": "Afficher le mot de passe",
+  "hidePassword": "Masquer le mot de passe",
+  "continueWithGoogle": "Continuer avec Google",
+  "continueWithFacebook": "Continuer avec Facebook"
 }

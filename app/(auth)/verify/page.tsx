@@ -7,6 +7,7 @@ import { ArrowLeft, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { OtpInput, SubmitButton } from '@/components/auth'
 
 /**
@@ -32,6 +33,7 @@ function VerifyPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { verifyRegistration, resendRegistrationCode } = useAuth()
+  const { t } = useTranslation()
 
   const email = searchParams.get('email')
   const backHref = searchParams.get('from') === 'login' ? '/login' : `/signup?email=${encodeURIComponent(email ?? '')}`
@@ -81,9 +83,9 @@ function VerifyPageInner() {
       setCodeError(true)
 
       if (result.status === 410) {
-        setCodeErrorMessage('Ce code a expiré. Demandez-en un nouveau.')
+        setCodeErrorMessage(t('auth.verify.codeExpired'))
       } else if (result.status === 429) {
-        setCodeErrorMessage('Trop de tentatives incorrectes. Demandez un nouveau code.')
+        setCodeErrorMessage(t('auth.verify.tooManyAttempts'))
       } else {
         // 422 : le backend renvoie "Code incorrect. {n} tentative(s) restante(s)."
         // — reformulé ici au libellé exact demandé, en extrayant le nombre.
@@ -91,8 +93,8 @@ function VerifyPageInner() {
         const remaining = match?.[1]
         setCodeErrorMessage(
           remaining
-            ? `Code incorrect. Il vous reste ${remaining} essai${remaining === '1' ? '' : 's'}.`
-            : result.error || 'Code incorrect.'
+            ? t('auth.verify.incorrectCodeWithRemaining', { remaining: Number(remaining) })
+            : result.error || t('auth.verify.incorrectCode')
         )
       }
     },
@@ -112,11 +114,11 @@ function VerifyPageInner() {
 
     if (result.success) {
       setSecondsLeft(RESEND_COOLDOWN)
-      toast.success('Nouveau code envoyé')
+      toast.success(t('auth.verify.resentSuccess'))
     } else if (result.status === 404) {
       router.replace('/signup')
     } else {
-      toast.error(result.error || "Impossible d'envoyer un nouveau code.")
+      toast.error(result.error || t('auth.verify.resendError'))
     }
   }
 
@@ -124,9 +126,9 @@ function VerifyPageInner() {
 
   const resendText = (textColorClass: string) => (
     <p className={`text-sm ${textColorClass}`}>
-      Pas reçu ?{' '}
+      {t('auth.verify.notReceived')}{' '}
       {secondsLeft > 0 ? (
-        <span className="text-[#B9B9C8]">Renvoyer le code dans {formatCountdown(secondsLeft)}</span>
+        <span className="text-[#B9B9C8]">{t('auth.verify.resendIn', { time: formatCountdown(secondsLeft) })}</span>
       ) : (
         <button
           type="button"
@@ -134,7 +136,7 @@ function VerifyPageInner() {
           disabled={resending}
           className="font-semibold text-[#5B3FE6] disabled:opacity-60"
         >
-          Renvoyer le code
+          {t('auth.verify.resend')}
         </button>
       )}
     </p>
@@ -170,9 +172,9 @@ function VerifyPageInner() {
             <Mail className="size-8" />
           </div>
 
-          <h1 className="text-[30px] font-extrabold text-[#0E0E1A]">Vérifiez votre e-mail</h1>
+          <h1 className="text-[30px] font-extrabold text-[#0E0E1A]">{t('auth.verify.title')}</h1>
           <p className="text-[15px] text-[#4B4B5C]">
-            Saisissez le code à 6 chiffres envoyé à <strong className="text-[#0E0E1A]">{email}</strong>
+            {t('auth.verify.subtitleDesktopPrefix')} <strong className="text-[#0E0E1A]">{email}</strong>
           </p>
 
           <form onSubmit={handleManualSubmit} className="flex w-full flex-col items-center gap-[22px]">
@@ -183,7 +185,7 @@ function VerifyPageInner() {
               onComplete={handleComplete}
               error={codeError}
               disabled={isVerifying}
-              legend="Code de vérification"
+              legend={t('auth.verify.legend')}
               legendClassName="sr-only"
               containerClassName="justify-center gap-2.5"
               boxClassName="h-16 w-16 rounded-[18px] text-[26px]"
@@ -193,7 +195,7 @@ function VerifyPageInner() {
                 {codeErrorMessage}
               </p>
             ) : null}
-            <SubmitButton isSubmitting={isVerifying} idleLabel="Vérifier" busyLabel="Vérification…" className="w-full" />
+            <SubmitButton isSubmitting={isVerifying} idleLabel={t('auth.verify.submitIdle')} busyLabel={t('auth.verify.submitBusy')} className="w-full" />
           </form>
 
           {resendText('text-[#4B4B5C]')}
@@ -202,7 +204,7 @@ function VerifyPageInner() {
             href={backHref}
             className="rounded-[10px] px-2.5 py-2.5 text-sm font-semibold text-[#4B4B5C]"
           >
-            ← Modifier l&apos;adresse e-mail
+            {t('auth.verify.editEmail')}
           </Link>
         </div>
       </div>
@@ -217,7 +219,7 @@ function VerifyPageInner() {
       >
         <Link
           href={backHref}
-          aria-label="Retour"
+          aria-label={t('auth.verify.back')}
           className="flex size-11 items-center justify-center rounded-full border border-[#ECECF2] bg-white"
         >
           <ArrowLeft className="size-5 text-[#0E0E1A]" />
@@ -227,8 +229,10 @@ function VerifyPageInner() {
           <div className="flex size-16 items-center justify-center rounded-[20px] bg-[#EEEAFE] text-[#5B3FE6]">
             <Mail className="size-7" />
           </div>
-          <h1 className="text-[30px] font-bold leading-[1.1] text-[#0E0E1A]">Vérifiez votre e-mail</h1>
-          <p className="text-[15px] text-[#6B6B7B]">Nous avons envoyé un code à 6 chiffres à {email}</p>
+          <h1 className="text-[30px] font-bold leading-[1.1] text-[#0E0E1A]">{t('auth.verify.title')}</h1>
+          <p className="text-[15px] text-[#6B6B7B]">
+            {t('auth.verify.subtitleMobilePrefix')} {email}
+          </p>
         </div>
 
         <form onSubmit={handleManualSubmit} className="flex flex-1 flex-col gap-5">
@@ -240,7 +244,7 @@ function VerifyPageInner() {
               onComplete={handleComplete}
               error={codeError}
               disabled={isVerifying}
-              legend="Code de vérification"
+              legend={t('auth.verify.legend')}
               legendClassName="mb-2.5 block text-[13px] font-semibold text-[#0E0E1A]"
               containerClassName="gap-2"
               boxClassName="h-[58px] w-[46px] rounded-[14px] text-2xl"
@@ -256,7 +260,7 @@ function VerifyPageInner() {
 
           <div className="flex-1" />
 
-          <SubmitButton isSubmitting={isVerifying} idleLabel="Vérifier" busyLabel="Vérification…" />
+          <SubmitButton isSubmitting={isVerifying} idleLabel={t('auth.verify.submitIdle')} busyLabel={t('auth.verify.submitBusy')} />
         </form>
       </div>
     </>

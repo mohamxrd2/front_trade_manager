@@ -3,6 +3,7 @@
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 interface OtpInputProps {
   length?: number
@@ -36,6 +37,7 @@ export function OtpInput({
   boxClassName,
   containerClassName,
 }: OtpInputProps) {
+  const { t } = useTranslation()
   const inputRefs = React.useRef<Array<HTMLInputElement | null>>([])
   const prevValueRef = React.useRef(value)
 
@@ -114,7 +116,7 @@ export function OtpInput({
             inputMode="numeric"
             pattern="[0-9]*"
             autoComplete={i === 0 ? 'one-time-code' : 'off'}
-            aria-label={`Chiffre ${i + 1}`}
+            aria-label={t('auth.otp.digitLabel', { n: i + 1 })}
             value={digit}
             onChange={(e) => handleChange(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}

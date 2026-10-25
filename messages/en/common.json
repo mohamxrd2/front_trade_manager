@@ -56,5 +56,9 @@
   "expenses": "Expenses",
   "invoice": "Invoice",
   "period": "Period",
-  "balance": "Balance"
+  "balance": "Balance",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "continueWithGoogle": "Continue with Google",
+  "continueWithFacebook": "Continue with Facebook"
 }

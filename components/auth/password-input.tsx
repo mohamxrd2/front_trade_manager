@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string
@@ -21,6 +22,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
   { label, id, error, labelRight, className, ...props },
   ref
 ) {
+  const { t } = useTranslation()
   const [show, setShow] = React.useState(false)
 
   return (
@@ -50,7 +52,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
         <button
           type="button"
           onClick={() => setShow((v) => !v)}
-          aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+          aria-label={show ? t('common.hidePassword') : t('common.showPassword')}
           className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full text-[#6B6B7B] transition-colors hover:text-[#0E0E1A]"
         >
           {show ? <EyeOff className="size-5" /> : <Eye className="size-5" />}

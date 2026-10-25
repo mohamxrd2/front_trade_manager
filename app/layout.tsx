@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { cookies, headers } from "next/headers";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { LanguageProvider } from "@/lib/i18n/context/LanguageContext";
-import { LANGUAGE_COOKIE_NAME, type AppLanguage } from "@/lib/i18n/current-language";
+import type { AppLanguage } from "@/lib/i18n/current-language";
+import { resolveInitialLanguage } from "@/lib/i18n/resolve-initial-language";
 import { Toaster } from "sonner";
 import { Providers } from "@/app/providers";
 import { StaleClientListener } from "@/components/stale-client-listener";
@@ -40,16 +40,6 @@ const SITE_METADATA: Record<AppLanguage, { title: string; description: string; k
       "Waelly manages your inventory, sales and invoices from a single app, on phone and on computer.",
     keywords: "inventory management, business management, PDF invoices, sales, expenses, French-speaking Africa, FCFA",
   },
-}
-
-/** Même résolution que RootLayout (cookie, puis Accept-Language) — métadonnées ET premier rendu doivent toujours s'accorder. */
-async function resolveInitialLanguage(): Promise<AppLanguage> {
-  const cookieStore = await cookies()
-  const cookieLanguage = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value
-  if (cookieLanguage === "en" || cookieLanguage === "fr") return cookieLanguage
-
-  const acceptLanguage = (await headers()).get("accept-language") ?? ""
-  return acceptLanguage.toLowerCase().startsWith("en") ? "en" : "fr"
 }
 
 export async function generateMetadata(): Promise<Metadata> {

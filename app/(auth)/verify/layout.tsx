@@ -1,7 +1,10 @@
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = {
-  title: 'Vérification · Waelly',
+import { resolveInitialLanguage } from '@/lib/i18n/resolve-initial-language'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await resolveInitialLanguage()
+  return { title: language === 'en' ? 'Verification · Waelly' : 'Vérification · Waelly' }
 }
 
 export default function VerifyLayout({ children }: { children: React.ReactNode }) {

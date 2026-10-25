@@ -9,6 +9,7 @@ import { z } from 'zod'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import {
   AuthLogo,
   AuthInput,
@@ -73,35 +74,42 @@ function passwordScore(pw: string): number {
   return score
 }
 
-const SCORE_LABELS: Record<number, string> = {
-  0: 'Trop faible',
-  1: 'Trop faible',
-  2: 'Moyen',
-  3: 'Bon mot de passe',
-  4: 'Excellent',
+function buildSignupSchema(t: ReturnType<typeof useTranslation>['t']) {
+  return z.object({
+    fullName: z.string().min(2, t('auth.signup.validationNameMin')),
+    email: z.string().email(t('auth.signup.validationEmailInvalid')),
+    password: z.string().superRefine((val, ctx) => {
+      const missing: string[] = []
+      if (val.length < 8) missing.push(t('auth.signup.passwordReq8'))
+      if (!/[A-Z]/.test(val)) missing.push(t('auth.signup.passwordReqUpper'))
+      if (!/[a-z]/.test(val)) missing.push(t('auth.signup.passwordReqLower'))
+      if (!/[0-9]/.test(val)) missing.push(t('auth.signup.passwordReqDigit'))
+      if (!/[^A-Za-z0-9]/.test(val)) missing.push(t('auth.signup.passwordReqSpecial'))
+      if (missing.length > 0) {
+        ctx.addIssue({ code: 'custom', message: `${t('auth.signup.passwordMissingPrefix')}${missing.join(', ')}.` })
+      }
+    }),
+    terms: z.boolean().refine((v) => v === true, { message: t('auth.signup.validationTermsRequired') }),
+  })
 }
 
-const signupSchema = z.object({
-  fullName: z.string().min(2, 'Le nom complet doit contenir au moins 2 caractères'),
-  email: z.string().email('Adresse e-mail invalide'),
-  password: z.string().superRefine((val, ctx) => {
-    const missing: string[] = []
-    if (val.length < 8) missing.push('8 caractères minimum')
-    if (!/[A-Z]/.test(val)) missing.push('une majuscule')
-    if (!/[a-z]/.test(val)) missing.push('une minuscule')
-    if (!/[0-9]/.test(val)) missing.push('un chiffre')
-    if (!/[^A-Za-z0-9]/.test(val)) missing.push('un caractère spécial')
-    if (missing.length > 0) {
-      ctx.addIssue({ code: 'custom', message: `Il manque : ${missing.join(', ')}.` })
-    }
-  }),
-  terms: z.boolean().refine((v) => v === true, { message: 'Vous devez accepter les conditions.' }),
-})
+type SignupFormValues = z.infer<ReturnType<typeof buildSignupSchema>>
 
-type SignupFormValues = z.infer<typeof signupSchema>
-
-function PasswordStrengthGauge({ password }: { password: string }) {
+function PasswordStrengthGauge({
+  password,
+  t,
+}: {
+  password: string
+  t: ReturnType<typeof useTranslation>['t']
+}) {
   const score = passwordScore(password)
+  const scoreLabels: Record<number, string> = {
+    0: t('auth.signup.scoreTooWeak'),
+    1: t('auth.signup.scoreTooWeak'),
+    2: t('auth.signup.scoreMedium'),
+    3: t('auth.signup.scoreGood'),
+    4: t('auth.signup.scoreExcellent'),
+  }
   return (
     <div className="flex flex-col gap-1.5">
       <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
@@ -110,7 +118,7 @@ function PasswordStrengthGauge({ password }: { password: string }) {
         ))}
       </div>
       <p className="text-xs text-[#4B4B5C]" aria-live="polite">
-        {SCORE_LABELS[score]} · 8 caractères minimum
+        {scoreLabels[score]} · {t('auth.signup.passwordHint')}
       </p>
     </div>
   )
@@ -120,9 +128,11 @@ function SignupPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { register: registerUser } = useAuth()
+  const { t } = useTranslation()
   const [authError, setAuthError] = React.useState<string | null>(null)
   const [emailTakenEmail, setEmailTakenEmail] = React.useState<string | null>(null)
 
+  const signupSchema = React.useMemo(() => buildSignupSchema(t), [t])
   const {
     control,
     handleSubmit,
@@ -162,14 +172,14 @@ function SignupPageInner() {
       return
     }
 
-    setAuthError(result.error || 'Une erreur est survenue. Réessayez.')
+    setAuthError(result.error || t('auth.login.errorGeneric'))
   }
 
   const emailTakenNotice = emailTakenEmail ? (
     <p className="text-xs font-semibold text-[#A3213A]">
-      Un compte existe déjà avec cet e-mail.{' '}
+      {t('auth.signup.emailTakenNotice')}{' '}
       <Link href={`/login?email=${encodeURIComponent(emailTakenEmail)}`} className="underline">
-        Se connecter
+        {t('auth.signup.signIn')}
       </Link>
     </p>
   ) : null
@@ -192,13 +202,13 @@ function SignupPageInner() {
           )}
         />
         <span>
-          J&apos;accepte les{' '}
+          {t('auth.signup.termsPrefix')}{' '}
           <Link href="/terms" className="font-semibold">
-            conditions d&apos;utilisation
+            {t('auth.signup.termsLink')}
           </Link>{' '}
-          et la{' '}
+          {t('auth.signup.termsAnd')}{' '}
           <Link href="/privacy" className="font-semibold">
-            politique de confidentialité
+            {t('auth.signup.privacyLink')}
           </Link>
         </span>
       </label>
@@ -215,21 +225,21 @@ function SignupPageInner() {
             <AuthLogo size={36} className="mb-2" textClassName="text-[#0E0E1A]" />
 
             <div className="flex flex-col gap-1">
-              <h1 className="text-[32px] font-extrabold text-[#0E0E1A]">Créer votre compte</h1>
-              <p className="text-[15px] text-[#6B6B7B]">Quelques secondes suffisent.</p>
+              <h1 className="text-[32px] font-extrabold text-[#0E0E1A]">{t('auth.signup.title')}</h1>
+              <p className="text-[15px] text-[#6B6B7B]">{t('auth.signup.subtitle')}</p>
             </div>
 
             <AuthError>{authError}</AuthError>
 
             <SocialButtons />
-            <Divider>ou</Divider>
+            <Divider>{t('auth.signup.or')}</Divider>
 
             <Controller
               control={control}
               name="fullName"
               render={({ field }) => (
                 <AuthInput
-                  label="Nom complet"
+                  label={t('auth.signup.fullNameLabel')}
                   id="signup-name-desktop"
                   autoComplete="name"
                   error={errors.fullName?.message}
@@ -243,7 +253,7 @@ function SignupPageInner() {
                 name="email"
                 render={({ field }) => (
                   <AuthInput
-                    label="Adresse e-mail"
+                    label={t('auth.signup.emailLabel')}
                     id="signup-email-desktop"
                     type="email"
                     autoComplete="email"
@@ -260,7 +270,7 @@ function SignupPageInner() {
                 name="password"
                 render={({ field }) => (
                   <PasswordInput
-                    label="Mot de passe"
+                    label={t('auth.signup.passwordLabel')}
                     id="signup-password-desktop"
                     autoComplete="new-password"
                     error={errors.password?.message}
@@ -268,17 +278,17 @@ function SignupPageInner() {
                   />
                 )}
               />
-              <PasswordStrengthGauge password={password} />
+              <PasswordStrengthGauge password={password} t={t} />
             </div>
 
             {termsCheckbox('signup-desktop')}
 
-            <SubmitButton isSubmitting={isSubmitting} idleLabel="Créer mon compte" busyLabel="Création…" />
+            <SubmitButton isSubmitting={isSubmitting} idleLabel={t('auth.signup.submitIdle')} busyLabel={t('auth.signup.submitBusy')} />
 
             <p className="text-center text-sm text-[#6B6B7B]">
-              Déjà inscrit ?{' '}
+              {t('auth.signup.alreadyRegistered')}{' '}
               <Link href="/login" className="font-bold text-[#0E0E1A]">
-                Se connecter
+                {t('auth.signup.signIn')}
               </Link>
             </p>
           </form>
@@ -289,7 +299,7 @@ function SignupPageInner() {
           style={{ background: 'linear-gradient(160deg, #5B3FE6 0%, #7A5CF5 55%, #C8B8FF 100%)' }}
         >
           <h2 className="max-w-[480px] text-center text-[clamp(28px,3vw,40px)] font-extrabold leading-[1.1]">
-            Votre boutique organisée dès aujourd&apos;hui.
+            {t('auth.signup.heroTitle')}
           </h2>
           <AuthSteps current={1} />
         </div>
@@ -305,7 +315,7 @@ function SignupPageInner() {
           }}
         >
           <AuthLogo size={40} textClassName="text-white" />
-          <h1 className="text-[28px] font-bold leading-[1.1]">Créer votre compte</h1>
+          <h1 className="text-[28px] font-bold leading-[1.1]">{t('auth.signup.title')}</h1>
           <AuthStepsCompact current={1} />
         </div>
 
@@ -317,7 +327,7 @@ function SignupPageInner() {
             name="fullName"
             render={({ field }) => (
               <AuthInput
-                label="Nom complet"
+                label={t('auth.signup.fullNameLabel')}
                 id="signup-name-mobile"
                 autoComplete="name"
                 error={errors.fullName?.message}
@@ -331,7 +341,7 @@ function SignupPageInner() {
               name="email"
               render={({ field }) => (
                 <AuthInput
-                  label="Adresse e-mail"
+                  label={t('auth.signup.emailLabel')}
                   id="signup-email-mobile"
                   type="email"
                   autoComplete="email"
@@ -348,7 +358,7 @@ function SignupPageInner() {
               name="password"
               render={({ field }) => (
                 <PasswordInput
-                  label="Mot de passe"
+                  label={t('auth.signup.passwordLabel')}
                   id="signup-password-mobile"
                   autoComplete="new-password"
                   error={errors.password?.message}
@@ -356,20 +366,20 @@ function SignupPageInner() {
                 />
               )}
             />
-            <PasswordStrengthGauge password={password} />
+            <PasswordStrengthGauge password={password} t={t} />
           </div>
 
           {termsCheckbox('signup-mobile')}
 
-          <SubmitButton isSubmitting={isSubmitting} idleLabel="Créer mon compte" busyLabel="Création…" className="mt-1" />
+          <SubmitButton isSubmitting={isSubmitting} idleLabel={t('auth.signup.submitIdle')} busyLabel={t('auth.signup.submitBusy')} className="mt-1" />
 
-          <Divider>ou</Divider>
+          <Divider>{t('auth.signup.or')}</Divider>
           <SocialButtons />
 
           <p className="text-center text-sm text-[#6B6B7B]">
-            Déjà inscrit ?{' '}
+            {t('auth.signup.alreadyRegistered')}{' '}
             <Link href="/login" className="font-bold text-[#0E0E1A]">
-              Se connecter
+              {t('auth.signup.signIn')}
             </Link>
           </p>
         </form>

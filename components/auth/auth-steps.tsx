@@ -1,10 +1,9 @@
-import { cn } from '@/lib/utils'
+'use client'
 
-const STEPS = [
-  'Créez votre compte',
-  'Confirmez votre e-mail',
-  'Présentez votre entreprise',
-]
+import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+
+const STEP_KEYS = ['auth.steps.step1', 'auth.steps.step2', 'auth.steps.step3']
 
 interface AuthStepsProps {
   current: 1 | 2 | 3
@@ -18,14 +17,15 @@ interface AuthStepsProps {
  * inactives restent très translucides.
  */
 export function AuthSteps({ current, className }: AuthStepsProps) {
+  const { t } = useTranslation()
   return (
     <ol className={cn('flex max-w-[460px] flex-col gap-3', className)}>
-      {STEPS.map((label, i) => {
+      {STEP_KEYS.map((key, i) => {
         const n = i + 1
         const active = n === current
         return (
           <li
-            key={label}
+            key={key}
             className={cn(
               'flex items-center gap-3 rounded-[20px] px-4 py-3.5',
               active ? 'border border-white/40 bg-white/22' : 'bg-white/12'
@@ -39,7 +39,7 @@ export function AuthSteps({ current, className }: AuthStepsProps) {
             >
               {n}
             </span>
-            <span className="text-[15px] font-semibold text-white">{label}</span>
+            <span className="text-[15px] font-semibold text-white">{t(key)}</span>
           </li>
         )
       })}
@@ -53,16 +53,17 @@ export function AuthSteps({ current, className }: AuthStepsProps) {
  * Connexion mobile).
  */
 export function AuthStepsCompact({ current, className }: AuthStepsProps) {
+  const { t } = useTranslation()
   return (
-    <ol className={cn('flex items-center', className)} aria-label="Étapes de l'inscription">
-      {STEPS.map((label, i) => {
+    <ol className={cn('flex items-center', className)} aria-label={t('auth.steps.aria')}>
+      {STEP_KEYS.map((key, i) => {
         const n = i + 1
         const active = n === current
         return (
-          <li key={label} className="flex items-center">
+          <li key={key} className="flex items-center">
             <span
               aria-current={active ? 'step' : undefined}
-              aria-label={label}
+              aria-label={t(key)}
               className={cn(
                 'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
                 active ? 'bg-white text-[#3A20B8]' : 'bg-white/25 text-white'
@@ -70,7 +71,7 @@ export function AuthStepsCompact({ current, className }: AuthStepsProps) {
             >
               {n}
             </span>
-            {n < STEPS.length ? <span className="h-px w-6 bg-white/30" aria-hidden="true" /> : null}
+            {n < STEP_KEYS.length ? <span className="h-px w-6 bg-white/30" aria-hidden="true" /> : null}
           </li>
         )
       })}

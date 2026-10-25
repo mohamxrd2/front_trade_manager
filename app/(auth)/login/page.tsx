@@ -9,6 +9,7 @@ import { z } from 'zod'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { getSocialAuthErrorMessage } from '@/lib/services/social-auth'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import {
   AuthLogo,
   AuthInput,
@@ -28,13 +29,15 @@ import {
  * vers Vérification.dc.html — erreur de la maquette, câblé vers /signup ici.
  */
 
-const loginSchema = z.object({
-  login: z.string().min(1, "Saisissez votre e-mail ou votre nom d'utilisateur"),
-  password: z.string().min(1, 'Saisissez votre mot de passe'),
-  remember: z.boolean(),
-})
+function buildLoginSchema(t: ReturnType<typeof useTranslation>['t']) {
+  return z.object({
+    login: z.string().min(1, t('auth.login.validationLoginRequired')),
+    password: z.string().min(1, t('auth.login.validationPasswordRequired')),
+    remember: z.boolean(),
+  })
+}
 
-type LoginFormValues = z.infer<typeof loginSchema>
+type LoginFormValues = z.infer<ReturnType<typeof buildLoginSchema>>
 
 /** Protection open-redirect : ?next= doit être un chemin interne commençant par "/" (pas "//hôte-externe"). */
 function isSafeNext(path: string | null): path is string {
@@ -45,11 +48,13 @@ function LoginPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useAuth()
+  const { t } = useTranslation()
   const [authError, setAuthError] = React.useState<string | null>(null)
 
   const prefillLogin = searchParams.get('email') ?? ''
   const socialError = getSocialAuthErrorMessage(searchParams.get('error'), searchParams.get('provider'))
 
+  const loginSchema = React.useMemo(() => buildLoginSchema(t), [t])
   const {
     register,
     control,
@@ -86,25 +91,27 @@ function LoginPageInner() {
     }
 
     if (result.status === 401) {
-      setAuthError('E-mail ou mot de passe incorrect.')
+      setAuthError(t('auth.login.errorInvalidCredentials'))
     } else if (result.status === 429) {
       const minutes = result.retryAfterSeconds ? Math.max(1, Math.ceil(result.retryAfterSeconds / 60)) : null
-      setAuthError(minutes ? `Trop de tentatives. Réessayez dans ${minutes} min.` : 'Trop de tentatives. Réessayez plus tard.')
+      setAuthError(
+        minutes ? t('auth.login.errorTooManyAttempts', { minutes }) : t('auth.login.errorTooManyAttemptsGeneric')
+      )
     } else if (result.errorType === 'NETWORK_ERROR' || result.errorType === 'TIMEOUT_ERROR') {
-      setAuthError('Connexion impossible. Vérifiez votre connexion internet.')
+      setAuthError(t('auth.login.errorNetwork'))
     } else {
-      setAuthError(result.error || 'Une erreur est survenue. Réessayez.')
+      setAuthError(result.error || t('auth.login.errorGeneric'))
     }
   }
 
   const forgotPasswordDesktop = (
     <Link href="/forgot-password" className="text-[13px] font-semibold text-[#4B2FD6]">
-      Mot de passe oublié ?
+      {t('auth.login.forgotPassword')}
     </Link>
   )
   const forgotPasswordMobile = (
     <Link href="/forgot-password" className="text-[13px] font-semibold text-[#4B2FD6]">
-      Oublié ?
+      {t('auth.login.forgotPasswordShort')}
     </Link>
   )
 
@@ -123,21 +130,21 @@ function LoginPageInner() {
 
           <div className="flex max-w-[520px] flex-col gap-5">
             <h1 className="text-[clamp(32px,3.4vw,46px)] font-extrabold leading-[1.08] tracking-[-0.03em]">
-              Votre stock, vos ventes, vos factures. Au même endroit.
+              {t('auth.login.heroTitle')}
             </h1>
             <p className="text-[17px] leading-[1.55] text-[#DCDCF7]">
-              Retrouvez votre activité là où vous l&apos;avez laissée, sur ordinateur comme sur téléphone.
+              {t('auth.login.heroSubtitleDesktop')}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-4" aria-hidden="true">
             <div className="flex-[1_1_180px] rounded-[20px] border border-white/18 bg-white/10 p-4">
-              <span className="block text-xs text-[#C8C8F0]">Solde du mois</span>
+              <span className="block text-xs text-[#C8C8F0]">{t('auth.login.monthlyBalance')}</span>
               <span className="block text-xl font-bold">1 245 000 F</span>
             </div>
             <div className="flex-[1_1_180px] rounded-[20px] border border-white/18 bg-white/10 p-4">
-              <span className="block text-xs text-[#C8C8F0]">Factures payées</span>
-              <span className="block text-xl font-bold">11 ce mois</span>
+              <span className="block text-xs text-[#C8C8F0]">{t('auth.login.paidInvoices')}</span>
+              <span className="block text-xl font-bold">{t('auth.login.paidInvoicesCount')}</span>
             </div>
           </div>
         </div>
@@ -145,21 +152,21 @@ function LoginPageInner() {
         <div className="flex flex-[1_1_440px] items-center justify-center px-5 py-10">
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex w-full max-w-[420px] flex-col gap-[18px]">
             <div className="flex flex-col gap-1">
-              <h2 className="text-[32px] font-extrabold tracking-[-0.02em] text-[#0E0E1A]">Connexion</h2>
-              <p className="text-[15px] text-[#6B6B7B]">Heureux de vous revoir.</p>
+              <h2 className="text-[32px] font-extrabold tracking-[-0.02em] text-[#0E0E1A]">{t('auth.login.title')}</h2>
+              <p className="text-[15px] text-[#6B6B7B]">{t('auth.login.subtitle')}</p>
             </div>
 
             <AuthError>{authError}</AuthError>
 
             <SocialButtons />
-            <Divider>ou avec votre e-mail</Divider>
+            <Divider>{t('auth.login.orWithEmail')}</Divider>
 
             <Controller
               control={control}
               name="login"
               render={({ field }) => (
                 <AuthInput
-                  label="E-mail ou nom d'utilisateur"
+                  label={t('auth.login.identifierLabel')}
                   id="login-identifier-desktop"
                   type="text"
                   autoComplete="username"
@@ -174,7 +181,7 @@ function LoginPageInner() {
               name="password"
               render={({ field }) => (
                 <PasswordInput
-                  label="Mot de passe"
+                  label={t('auth.login.passwordLabel')}
                   id="login-password-desktop"
                   autoComplete="current-password"
                   labelRight={forgotPasswordDesktop}
@@ -186,15 +193,15 @@ function LoginPageInner() {
 
             <label className="flex min-h-11 items-center gap-2.5 text-sm text-[#0E0E1A]">
               <input type="checkbox" className="size-5 accent-[#5B3FE6]" {...register('remember')} />
-              Rester connecté
+              {t('auth.login.rememberMe')}
             </label>
 
-            <SubmitButton isSubmitting={isSubmitting} idleLabel="Se connecter" busyLabel="Connexion…" />
+            <SubmitButton isSubmitting={isSubmitting} idleLabel={t('auth.login.submitIdle')} busyLabel={t('auth.login.submitBusy')} />
 
             <p className="text-center text-sm text-[#6B6B7B]">
-              Pas encore de compte ?{' '}
+              {t('auth.login.noAccount')}{' '}
               <Link href="/signup" className="font-bold text-[#0E0E1A]">
-                Créer un compte
+                {t('auth.login.createAccount')}
               </Link>
             </p>
           </form>
@@ -213,9 +220,9 @@ function LoginPageInner() {
           <AuthLogo size={40} textClassName="text-white" />
           <div className="flex flex-col gap-3">
             <h1 className="text-[32px] font-bold leading-[1.1]">
-              Votre stock, vos ventes, vos factures. Au même endroit.
+              {t('auth.login.heroTitle')}
             </h1>
-            <p className="text-[15px] text-[#C8C8F0]">Connectez-vous pour retrouver votre activité.</p>
+            <p className="text-[15px] text-[#C8C8F0]">{t('auth.login.heroSubtitleMobile')}</p>
           </div>
         </div>
 
@@ -227,7 +234,7 @@ function LoginPageInner() {
             name="login"
             render={({ field }) => (
               <AuthInput
-                label="E-mail ou nom d'utilisateur"
+                label={t('auth.login.identifierLabel')}
                 id="login-identifier-mobile"
                 type="text"
                 autoComplete="username"
@@ -241,7 +248,7 @@ function LoginPageInner() {
             name="password"
             render={({ field }) => (
               <PasswordInput
-                label="Mot de passe"
+                label={t('auth.login.passwordLabel')}
                 id="login-password-mobile"
                 autoComplete="current-password"
                 labelRight={forgotPasswordMobile}
@@ -251,17 +258,17 @@ function LoginPageInner() {
             )}
           />
 
-          <SubmitButton isSubmitting={isSubmitting} idleLabel="Se connecter" busyLabel="Connexion…" className="mt-1" />
+          <SubmitButton isSubmitting={isSubmitting} idleLabel={t('auth.login.submitIdle')} busyLabel={t('auth.login.submitBusy')} className="mt-1" />
 
-          <Divider>ou</Divider>
+          <Divider>{t('auth.login.or')}</Divider>
           <SocialButtons />
 
           <div className="flex-1" />
 
           <p className="text-center text-sm text-[#6B6B7B]">
-            Pas encore de compte ?{' '}
+            {t('auth.login.noAccount')}{' '}
             <Link href="/signup" className="font-bold text-[#0E0E1A]">
-              Créer un compte
+              {t('auth.login.createAccount')}
             </Link>
           </p>
         </form>

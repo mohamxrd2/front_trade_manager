@@ -6,6 +6,7 @@ import { IconBrandFacebookFilled } from '@tabler/icons-react'
 
 import { cn } from '@/lib/utils'
 import { SOCIAL_AUTH_URLS } from '@/lib/services/social-auth'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { GoogleIcon } from './google-icon'
 
 interface SocialButtonsProps {
@@ -20,6 +21,7 @@ interface SocialButtonsProps {
  * bouton cliqué, les deux boutons désactivés le temps de la redirection.
  */
 export function SocialButtons({ className }: SocialButtonsProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = React.useState<'google' | 'facebook' | null>(null)
 
   return (
@@ -28,7 +30,7 @@ export function SocialButtons({ className }: SocialButtonsProps) {
         href={SOCIAL_AUTH_URLS.google}
         onClick={() => setLoading('google')}
         aria-disabled={loading !== null}
-        aria-label="Continuer avec Google"
+        aria-label={t('common.continueWithGoogle')}
         className={cn(
           'flex h-[52px] items-center justify-center gap-2 rounded-full border border-[#E2E2EA] bg-white text-[15px] font-semibold text-[#0E0E1A] transition-opacity',
           loading !== null && loading !== 'google' && 'pointer-events-none opacity-50'
@@ -47,7 +49,7 @@ export function SocialButtons({ className }: SocialButtonsProps) {
         href={SOCIAL_AUTH_URLS.facebook}
         onClick={() => setLoading('facebook')}
         aria-disabled={loading !== null}
-        aria-label="Continuer avec Facebook"
+        aria-label={t('common.continueWithFacebook')}
         className={cn(
           'flex h-[52px] items-center justify-center gap-2 rounded-full border border-[#E2E2EA] bg-white text-[15px] font-semibold text-[#0E0E1A] transition-opacity',
           loading !== null && loading !== 'facebook' && 'pointer-events-none opacity-50'

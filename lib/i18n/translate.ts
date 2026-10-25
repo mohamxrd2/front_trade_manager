@@ -18,6 +18,8 @@ import frCompany from '@/messages/fr/company.json'
 import frInvoices from '@/messages/fr/invoices.json'
 import frClients from '@/messages/fr/clients.json'
 import frOnboarding from '@/messages/fr/onboarding.json'
+import frAuth from '@/messages/fr/auth.json'
+import frLanding from '@/messages/fr/landing.json'
 
 import enCommon from '@/messages/en/common.json'
 import enNav from '@/messages/en/nav.json'
@@ -36,6 +38,8 @@ import enCompany from '@/messages/en/company.json'
 import enInvoices from '@/messages/en/invoices.json'
 import enClients from '@/messages/en/clients.json'
 import enOnboarding from '@/messages/en/onboarding.json'
+import enAuth from '@/messages/en/auth.json'
+import enLanding from '@/messages/en/landing.json'
 
 export type TranslationKey = string
 export type TranslationValue = string | { [key: string]: TranslationValue }
@@ -66,6 +70,8 @@ export const translations: Record<AppLanguage, TranslationObject> = {
     invoices: frInvoices,
     clients: frClients,
     onboarding: frOnboarding,
+    auth: frAuth,
+    landing: frLanding,
   },
   en: {
     common: enCommon,
@@ -85,6 +91,8 @@ export const translations: Record<AppLanguage, TranslationObject> = {
     invoices: enInvoices,
     clients: enClients,
     onboarding: enOnboarding,
+    auth: enAuth,
+    landing: enLanding,
   },
 }
 
