@@ -120,6 +120,13 @@
   "preview": "Aperçu",
   "previewInvoice": "Aperçu de la facture",
   "previewOf": "Aperçu — {{number}}",
+  "card": {
+    "facture": "Facture",
+    "billedToLabel": "Facturé à",
+    "discountLabel": "Remise ({{percent}}%)",
+    "taxLabel": "Taxes ({{percent}}%)",
+    "shippingLabel": "Livraison"
+  },
   "pdf": {
     "invoice": "FACTURE",
     "billed_to": "Facturé à",

@@ -1,12 +1,12 @@
-import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
+'use client'
 
 import type { Invoice, InvoiceTheme } from '@/lib/services/invoices'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber, formatDate } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 
-dayjs.locale('fr')
-
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 // Reprend les couleurs réelles utilisées par le backend pour générer le PDF
 // de chaque thème (voir components/invoices/invoice-form/step-theme.tsx) —
@@ -33,6 +33,7 @@ interface InvoicePreviewCardProps {
  * sur /invoices/[id] (mobile et accès direct), pour afficher la même carte.
  */
 export function InvoicePreviewCard({ invoice }: InvoicePreviewCardProps) {
+  const { t, language } = useTranslation()
   const header = THEME_HEADER[invoice.theme] ?? DEFAULT_HEADER
   const subtotal = Number(invoice.subtotal)
   const discount = Number(invoice.discount_amount)
@@ -50,7 +51,7 @@ export function InvoicePreviewCard({ invoice }: InvoicePreviewCardProps) {
           ) : null}
         </span>
         <span className="flex flex-col items-end gap-0.5">
-          <span className={`text-xs ${header.sub}`}>Facture</span>
+          <span className={`text-xs ${header.sub}`}>{t('invoices.card.facture')}</span>
           <span className="text-base font-bold">{invoice.invoice_number}</span>
         </span>
       </div>
@@ -58,12 +59,12 @@ export function InvoicePreviewCard({ invoice }: InvoicePreviewCardProps) {
       <div className="flex flex-col gap-3.5 px-5 py-4.5 text-[13px]">
         <div className="flex items-start justify-between gap-2.5">
           <span className="flex flex-col gap-0.5">
-            <span className="text-subtle">Facturé à</span>
+            <span className="text-subtle">{t('invoices.card.billedToLabel')}</span>
             <span className="text-sm font-bold text-ink">{invoice.client?.name}</span>
           </span>
           <span className="flex flex-col items-end gap-0.5 text-right">
-            <span className="text-subtle">Date</span>
-            <span className="font-semibold text-ink">{dayjs(invoice.issued_at).format('D MMM YYYY')}</span>
+            <span className="text-subtle">{t('invoices.date')}</span>
+            <span className="font-semibold text-ink">{formatDate(invoice.issued_at, language, 'D MMM YYYY')}</span>
           </span>
         </div>
 
@@ -73,42 +74,42 @@ export function InvoicePreviewCard({ invoice }: InvoicePreviewCardProps) {
               <span className="flex flex-col gap-0.5">
                 <span className="font-semibold text-ink">{item.name_snapshot}</span>
                 <span className="text-xs text-subtle">
-                  {item.quantity} × {formatAmount(Number(item.unit_price))}
+                  {item.quantity} × {formatAmount(Number(item.unit_price), language)}
                 </span>
               </span>
-              <span className="shrink-0 font-bold text-ink">{formatAmount(Number(item.total_line))} F</span>
+              <span className="shrink-0 font-bold text-ink">{formatAmount(Number(item.total_line), language)} F</span>
             </div>
           ))}
         </div>
 
         <div className="flex flex-col gap-1.5">
           <div className="flex justify-between text-ink-3">
-            <span>Sous-total</span>
-            <span>{formatAmount(subtotal)} F</span>
+            <span>{t('invoices.subtotal')}</span>
+            <span>{formatAmount(subtotal, language)} F</span>
           </div>
           {discount > 0 ? (
             <div className="flex justify-between text-success">
-              <span>Remise ({invoice.discount_percent}%)</span>
-              <span>−{formatAmount(discount)} F</span>
+              <span>{t('invoices.card.discountLabel', { percent: invoice.discount_percent })}</span>
+              <span>−{formatAmount(discount, language)} F</span>
             </div>
           ) : null}
           {tax > 0 ? (
             <div className="flex justify-between text-ink-3">
-              <span>Taxes ({invoice.tax_percent}%)</span>
-              <span>+{formatAmount(tax)} F</span>
+              <span>{t('invoices.card.taxLabel', { percent: invoice.tax_percent })}</span>
+              <span>+{formatAmount(tax, language)} F</span>
             </div>
           ) : null}
           {shipping > 0 ? (
             <div className="flex justify-between text-ink-3">
-              <span>Livraison</span>
-              <span>+{formatAmount(shipping)} F</span>
+              <span>{t('invoices.card.shippingLabel')}</span>
+              <span>+{formatAmount(shipping, language)} F</span>
             </div>
           ) : null}
         </div>
 
         <div className="flex items-baseline justify-between border-t border-divider pt-3">
-          <span className="text-sm font-bold text-ink">Total</span>
-          <span className="text-[22px] font-extrabold tracking-[-0.02em] text-ink">{formatAmount(total)} F</span>
+          <span className="text-sm font-bold text-ink">{t('invoices.total')}</span>
+          <span className="text-[22px] font-extrabold tracking-[-0.02em] text-ink">{formatAmount(total, language)} F</span>
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ import { getClientById, getInvoices, type Client, type Invoice } from '@/lib/ser
 import { Button } from '@/components/waelly'
 import { ClientDetailCard } from '@/components/clients/client-detail-card'
 import { ClientFormDialog } from '@/components/clients/client-form-dialog'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 /**
  * Fiche client en pleine page — même contenu que le panneau "Aperçu" de
@@ -18,6 +19,7 @@ import { ClientFormDialog } from '@/components/clients/client-form-dialog'
 export default function ClientDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { t } = useTranslation()
   const clientId = params.id as string
 
   const [client, setClient] = React.useState<Client | null>(null)
@@ -42,11 +44,11 @@ export default function ClientDetailPage() {
       setClient(data)
       setInvoices(all)
     } catch (err: unknown) {
-      setError((err as Error).message || 'Impossible de charger ce client.')
+      setError((err as Error).message || t('clients.page.loadErrorRetry'))
     } finally {
       setIsLoading(false)
     }
-  }, [clientId])
+  }, [clientId, t])
 
   React.useEffect(() => {
     fetchData()
@@ -76,9 +78,9 @@ export default function ClientDetailPage() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <AlertCircle className="size-12 text-subtle" />
-        <p className="text-sm text-subtle">{error || 'Client introuvable.'}</p>
+        <p className="text-sm text-subtle">{error || t('clients.page.notFound')}</p>
         <Button variant="secondary" onClick={fetchData}>
-          Réessayer
+          {t('wallet.list.retry')}
         </Button>
       </div>
     )
@@ -89,7 +91,7 @@ export default function ClientDetailPage() {
       <div className="flex items-center">
         <Link
           href="/clients"
-          aria-label="Retour aux clients"
+          aria-label={t('clients.page.backToClientsAria')}
           className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
         >
           <ArrowLeft className="size-5" />
@@ -100,10 +102,10 @@ export default function ClientDetailPage() {
 
       <div className="glass fixed inset-x-3.5 bottom-[22px] z-30 flex gap-2.5 rounded-[32px] p-2.5">
         <Button variant="secondary" className="flex-1" onClick={() => setFormOpen(true)}>
-          Modifier
+          {t('products.detail.modify')}
         </Button>
         <Button variant="black" className="flex-1" asChild>
-          <Link href={`/invoices/new?client=${client.id}`}>Facturer</Link>
+          <Link href={`/invoices/new?client=${client.id}`}>{t('clients.page.invoiceAction')}</Link>
         </Button>
       </div>
 

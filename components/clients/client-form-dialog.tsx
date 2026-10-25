@@ -22,35 +22,37 @@ import {
 } from '@/components/ui/alert-dialog'
 import { createClient, updateClient, deleteClient, type Client, type CreateClientPayload } from '@/lib/services/invoices'
 import { invalidateClients } from '@/lib/invalidate'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { Button, FilterChips } from '@/components/waelly'
 
-const clientSchema = z.object({
-  name: z.string().min(1, 'Le nom du client est obligatoire.'),
-  phone: z.string().optional(),
-  email: z
-    .string()
-    .optional()
-    .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "L'adresse email n'est pas valide"),
-  billing_address: z.string().optional(),
-  shipping_address: z.string().optional(),
-})
+function buildClientSchema(t: ReturnType<typeof useTranslation>['t']) {
+  return z.object({
+    name: z.string().min(1, t('clients.form.validationNameRequired')),
+    phone: z.string().optional(),
+    email: z
+      .string()
+      .optional()
+      .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), t('clients.form.validationEmailInvalid')),
+    billing_address: z.string().optional(),
+    shipping_address: z.string().optional(),
+  })
+}
 
-type ClientFormValues = z.infer<typeof clientSchema>
+type ClientFormValues = z.infer<ReturnType<typeof buildClientSchema>>
 
-const PAYMENT_CHIPS_DESKTOP = [
-  { value: 'cash', label: 'Espèces' },
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'bank_transfer', label: 'Virement' },
-  { value: 'cheque', label: 'Chèque' },
-  { value: 'credit_card', label: 'Carte bancaire' },
-]
-const PAYMENT_CHIPS_MOBILE = [
-  { value: 'cash', label: 'Espèces' },
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'bank_transfer', label: 'Virement' },
-  { value: 'cheque', label: 'Chèque' },
-  { value: 'credit_card', label: 'Carte' },
-]
+function buildPaymentChips(t: ReturnType<typeof useTranslation>['t']) {
+  const desktop = [
+    { value: 'cash', label: t('clients.paymentMethods.cash') },
+    { value: 'mobile_money', label: t('clients.paymentMethods.mobileMoney') },
+    { value: 'bank_transfer', label: t('clients.paymentMethods.bankTransfer') },
+    { value: 'cheque', label: t('clients.paymentMethods.cheque') },
+    { value: 'credit_card', label: t('clients.paymentMethods.creditCard') },
+  ]
+  const mobile = desktop.map((chip) =>
+    chip.value === 'credit_card' ? { ...chip, label: t('clients.paymentMethods.creditCardShort') } : chip
+  )
+  return { desktop, mobile }
+}
 
 // Reprend exactement la règle de Vente/mobile/AjoutClient.dc.html :
 // /^(m\.|mme|mlle)$/i — ignore ces mots avant de prendre les initiales.
@@ -91,7 +93,11 @@ export function ClientFormDialog({
   onDeleted,
 }: ClientFormDialogProps) {
   const router = useRouter()
+  const { t } = useTranslation()
   const isEditing = Boolean(client)
+
+  const clientSchema = React.useMemo(() => buildClientSchema(t), [t])
+  const paymentChips = React.useMemo(() => buildPaymentChips(t), [t])
 
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [paymentMethod, setPaymentMethod] = React.useState('')
@@ -158,7 +164,7 @@ export function ClientFormDialog({
     setIsSubmitting(true)
     try {
       const result = await saveClient(data)
-      toast.success(isEditing ? 'Client mis à jour' : 'Client ajouté')
+      toast.success(isEditing ? t('clients.form.toastUpdated') : t('clients.form.toastAdded'))
       onSuccess(result)
     } catch (err: unknown) {
       const error = err as Error & { errors?: Record<string, string[]> }
@@ -166,7 +172,7 @@ export function ClientFormDialog({
         const first = Object.values(error.errors)[0]
         toast.error(Array.isArray(first) ? first[0] : error.message)
       } else {
-        toast.error(error.message || "Échec de l'enregistrement")
+        toast.error(error.message || t('clients.form.errorSaveFailed'))
       }
     } finally {
       setIsSubmitting(false)
@@ -177,7 +183,7 @@ export function ClientFormDialog({
     setIsSubmitting(true)
     try {
       const result = await saveClient(data)
-      toast.success('Client ajouté')
+      toast.success(t('clients.form.toastAdded'))
       onSuccess(result)
       router.push(`/invoices/new?client=${result.id}`)
     } catch (err: unknown) {
@@ -186,7 +192,7 @@ export function ClientFormDialog({
         const first = Object.values(error.errors)[0]
         toast.error(Array.isArray(first) ? first[0] : error.message)
       } else {
-        toast.error(error.message || "Échec de l'enregistrement")
+        toast.error(error.message || t('clients.form.errorSaveFailed'))
       }
     } finally {
       setIsSubmitting(false)
@@ -199,11 +205,11 @@ export function ClientFormDialog({
     try {
       await deleteClient(client.id)
       invalidateClients()
-      toast.success('Client supprimé')
+      toast.success(t('clients.form.toastDeleted'))
       setDeleteDialogOpen(false)
       onDeleted?.()
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Échec de la suppression')
+      toast.error((err as Error).message || t('clients.form.errorDeleteFailed'))
     } finally {
       setIsDeleting(false)
     }
@@ -227,16 +233,16 @@ export function ClientFormDialog({
               <button
                 type="button"
                 onClick={handleClose}
-                aria-label="Retour"
+                aria-label={t('clients.form.backAria')}
                 className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
               >
                 <ArrowLeft className="size-[22px]" />
               </button>
               <DialogPrimitive.Title className="flex-1 text-[22px] font-bold tracking-[-0.01em] text-ink">
-                {isEditing ? 'Modifier le client' : 'Nouveau client'}
+                {isEditing ? t('clients.form.editTitle') : t('clients.form.newTitle')}
               </DialogPrimitive.Title>
               <button type="button" onClick={handleClose} className="py-3 text-sm font-semibold text-ink-3">
-                Annuler
+                {t('common.cancel')}
               </button>
             </div>
 
@@ -250,25 +256,25 @@ export function ClientFormDialog({
               </span>
               <div className="flex flex-1 flex-col gap-1">
                 <DialogPrimitive.Title className="text-[22px] font-extrabold tracking-[-0.02em] text-ink">
-                  {isEditing ? `Modifier ${client?.name ?? 'le client'}` : 'Nouveau client'}
+                  {isEditing
+                    ? t('clients.form.editTitleNamed', { name: client?.name ?? t('clients.form.editTitleFallback') })
+                    : t('clients.form.newTitle')}
                 </DialogPrimitive.Title>
                 <span className="text-sm text-subtle">
-                  {isEditing
-                    ? 'Les modifications apparaîtront dans ses prochaines factures.'
-                    : 'Il sera proposé automatiquement dans vos factures.'}
+                  {isEditing ? t('clients.form.editHint') : t('clients.form.newHint')}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={handleClose}
-                aria-label="Fermer"
+                aria-label={t('common.close')}
                 className="flex size-10 shrink-0 items-center justify-center rounded-full bg-canvas text-ink"
               >
                 <X className="size-[18px]" />
               </button>
             </div>
             <DialogPrimitive.Description className="sr-only">
-              Formulaire d&apos;informations client
+              {t('clients.form.formDescription')}
             </DialogPrimitive.Description>
 
             {/* --- Avatar centré mobile --- */}
@@ -280,7 +286,7 @@ export function ClientFormDialog({
                 {ini}
               </span>
               <span className="text-[13px] text-subtle">
-                {isEditing ? 'Les modifications seront reprises dans ses factures' : 'Il sera proposé dans vos factures'}
+                {isEditing ? t('clients.form.editHintMobile') : t('clients.form.newHintMobile')}
               </span>
             </div>
 
@@ -290,11 +296,11 @@ export function ClientFormDialog({
             >
               <div className="flex flex-col gap-2">
                 <label htmlFor="client-name" className="text-[13px] font-semibold text-ink">
-                  Nom complet ou raison sociale <span className="text-danger-strong">*</span>
+                  {t('clients.form.nameLabel')} <span className="text-danger-strong">*</span>
                 </label>
                 <input
                   id="client-name"
-                  placeholder="Ex. Boutique Le Plateau"
+                  placeholder={t('clients.form.namePlaceholder')}
                   {...register('name')}
                   disabled={isSubmitting}
                   aria-invalid={Boolean(errors.name)}
@@ -308,12 +314,12 @@ export function ClientFormDialog({
               <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
                 <div className="flex flex-col gap-2">
                   <label htmlFor="client-phone" className="text-[13px] font-semibold text-ink">
-                    Téléphone
+                    {t('clients.phone')}
                   </label>
                   <input
                     id="client-phone"
                     type="tel"
-                    placeholder="+225 07 00 00 00 00"
+                    placeholder={t('clients.form.phonePlaceholder')}
                     {...register('phone')}
                     disabled={isSubmitting}
                     className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink disabled:opacity-60 lg:h-12"
@@ -321,12 +327,12 @@ export function ClientFormDialog({
                 </div>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="client-email" className="text-[13px] font-semibold text-ink">
-                    E-mail
+                    {t('clients.form.emailLabel')}
                   </label>
                   <input
                     id="client-email"
                     type="email"
-                    placeholder="client@exemple.ci"
+                    placeholder={t('clients.form.emailPlaceholder')}
                     {...register('email')}
                     disabled={isSubmitting}
                     aria-invalid={Boolean(errors.email)}
@@ -339,15 +345,15 @@ export function ClientFormDialog({
               </div>
 
               <div className="flex flex-col gap-2.5">
-                <span className="text-[13px] font-semibold text-ink">Mode de paiement habituel</span>
+                <span className="text-[13px] font-semibold text-ink">{t('clients.form.paymentMethodLabel')}</span>
                 <FilterChips
-                  options={PAYMENT_CHIPS_DESKTOP}
+                  options={paymentChips.desktop}
                   value={paymentMethod}
                   onChange={setPaymentMethod}
                   className="hidden lg:flex"
                 />
                 <FilterChips
-                  options={PAYMENT_CHIPS_MOBILE}
+                  options={paymentChips.mobile}
                   value={paymentMethod}
                   onChange={setPaymentMethod}
                   className="lg:hidden"
@@ -356,12 +362,12 @@ export function ClientFormDialog({
 
               <div className="flex flex-col gap-2">
                 <label htmlFor="client-billing" className="text-[13px] font-semibold text-ink">
-                  Adresse de facturation
+                  {t('clients.billingAddress')}
                 </label>
                 <textarea
                   id="client-billing"
                   rows={2}
-                  placeholder="Rue, quartier, ville"
+                  placeholder={t('clients.form.billingAddressPlaceholder')}
                   {...register('billing_address')}
                   disabled={isSubmitting}
                   className="rounded-field border border-line-strong px-3.5 py-3 text-[15px] text-ink disabled:opacity-60"
@@ -376,18 +382,18 @@ export function ClientFormDialog({
                   disabled={isSubmitting}
                   className="size-5 accent-brand-500"
                 />
-                Adresse de livraison identique
+                {t('clients.form.shippingSameLabel')}
               </label>
 
               {!sameAsBilling ? (
                 <div className="flex flex-col gap-2">
                   <label htmlFor="client-shipping" className="text-[13px] font-semibold text-ink">
-                    Adresse de livraison
+                    {t('clients.shippingAddress')}
                   </label>
                   <textarea
                     id="client-shipping"
                     rows={2}
-                    placeholder="Rue, quartier, ville"
+                    placeholder={t('clients.form.shippingAddressPlaceholder')}
                     {...register('shipping_address')}
                     disabled={isSubmitting}
                     className="rounded-field border border-line-strong px-3.5 py-3 text-[15px] text-ink disabled:opacity-60"
@@ -402,7 +408,7 @@ export function ClientFormDialog({
                   disabled={isSubmitting}
                   className="self-start text-[13px] font-semibold text-danger-strong lg:hidden"
                 >
-                  Supprimer ce client
+                  {t('clients.form.deleteClient')}
                 </button>
               ) : null}
 
@@ -415,14 +421,14 @@ export function ClientFormDialog({
                     disabled={isSubmitting}
                     className="text-[13px] font-semibold text-danger-strong"
                   >
-                    Supprimer ce client
+                    {t('clients.form.deleteClient')}
                   </button>
                 ) : (
                   <span />
                 )}
                 <span className="flex flex-wrap gap-2.5">
                   <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>
-                    Annuler
+                    {t('common.cancel')}
                   </Button>
                   {offerInvoiceAction ? (
                     <Button
@@ -431,11 +437,11 @@ export function ClientFormDialog({
                       disabled={isSubmitting}
                       onClick={handleSubmit(onSubmitAndInvoice)}
                     >
-                      Enregistrer et facturer
+                      {t('clients.form.saveAndInvoice')}
                     </Button>
                   ) : null}
                   <Button type="submit" variant="primary" disabled={isSubmitting}>
-                    {isSubmitting ? 'Enregistrement…' : 'Enregistrer le client'}
+                    {isSubmitting ? t('products.saving') : t('clients.form.save')}
                   </Button>
                 </span>
               </div>
@@ -450,7 +456,7 @@ export function ClientFormDialog({
                   onClick={handleSubmit(onSubmitAndInvoice)}
                   className="flex h-[52px] flex-1 items-center justify-center rounded-[26px] bg-surface/85 text-sm font-bold text-ink disabled:opacity-60"
                 >
-                  Et facturer
+                  {t('clients.form.saveAndInvoiceShort')}
                 </button>
               ) : null}
               <button
@@ -459,7 +465,7 @@ export function ClientFormDialog({
                 onClick={handleSubmit(onSubmitSave)}
                 className="flex h-[52px] flex-[1.4] items-center justify-center rounded-[26px] bg-button text-[15px] font-bold text-white shadow-button disabled:opacity-60"
               >
-                {isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+                {isSubmitting ? t('products.saving') : t('clients.form.saveShort')}
               </button>
             </div>
           </DialogPrimitive.Content>
@@ -469,17 +475,17 @@ export function ClientFormDialog({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer {client?.name} ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('clients.form.deleteConfirmTitleNamed', { name: client?.name ?? '' })}</AlertDialogTitle>
             <AlertDialogDescription>
               {invoicesCount > 0
-                ? `Ce client a ${invoicesCount} facture(s) associée(s) : la suppression sera refusée tant qu'elles existent.`
-                : 'Cette action est définitive.'}
+                ? t('clients.form.deleteConfirmWithInvoices', { count: invoicesCount })
+                : t('clients.form.deleteConfirmDefinitive')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? 'Suppression…' : 'Supprimer'}
+              {isDeleting ? t('products.detail.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

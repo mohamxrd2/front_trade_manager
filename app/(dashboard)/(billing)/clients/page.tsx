@@ -13,13 +13,16 @@ import {
   type Invoice,
 } from '@/lib/services/invoices'
 import { Button, Card, Pagination } from '@/components/waelly'
-import { ClientDetailCard, PAYMENT_METHOD_LABELS } from '@/components/clients/client-detail-card'
+import { ClientDetailCard, buildPaymentMethodLabels } from '@/components/clients/client-detail-card'
 import { ClientFormDialog } from '@/components/clients/client-form-dialog'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 
 const PAGE_SIZE = 10
 
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 const initials = (name: string): string => (name.trim() ? name.trim().slice(0, 2).toUpperCase() : 'NA')
 
@@ -49,6 +52,8 @@ const AVATAR_TINTS = [
 export default function ClientsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t, language } = useTranslation()
+  const paymentMethodLabels = React.useMemo(() => buildPaymentMethodLabels(t), [t])
   const selectedId = searchParams.get('id')
 
   const [search, setSearch] = React.useState('')
@@ -96,11 +101,11 @@ export default function ClientsPage() {
       setClients(data)
       setTotalCount(total)
     } catch (err: unknown) {
-      setError((err as Error).message || 'Impossible de charger les clients.')
+      setError((err as Error).message || t('clients.page.loadError'))
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, page])
+  }, [debouncedSearch, page, t])
 
   const fetchAllInvoices = React.useCallback(async () => {
     setLoadingInvoices(true)
@@ -217,11 +222,11 @@ export default function ClientsPage() {
   const emptyState = (
     <div className="flex flex-col items-center gap-3 py-16 text-center">
       <p className="text-sm text-subtle">
-        {debouncedSearch ? `Aucun client ne correspond à "${debouncedSearch}"` : "Aucun client pour l'instant"}
+        {debouncedSearch ? t('clients.page.noMatchFor', { search: debouncedSearch }) : t('clients.page.noneYet')}
       </p>
       {!debouncedSearch ? (
         <Button variant="primary" onClick={openAdd}>
-          + Nouveau client
+          {t('clients.page.newClientCta')}
         </Button>
       ) : null}
     </div>
@@ -234,15 +239,15 @@ export default function ClientsPage() {
         <div className="flex items-center justify-between">
           <Link
             href="/invoices"
-            aria-label="Retour aux factures"
+            aria-label={t('clients.page.backToInvoicesAria')}
             className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
           >
             <ArrowLeft className="size-5" />
           </Link>
-          <h1 className="text-[28px] font-bold tracking-tight text-ink">Clients</h1>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('clients.title')}</h1>
           <button
             type="button"
-            aria-label="Nouveau client"
+            aria-label={t('clients.page.newClientAria')}
             onClick={openAdd}
             className="flex size-12 items-center justify-center rounded-full bg-orb text-white shadow-button"
           >
@@ -255,7 +260,7 @@ export default function ClientsPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par nom, téléphone, e-mail"
+            placeholder={t('clients.page.searchPlaceholderFull')}
             className="h-11 w-full rounded-full border border-line bg-canvas pl-10 pr-4 text-sm text-ink outline-none"
           />
         </div>
@@ -265,7 +270,7 @@ export default function ClientsPage() {
             <AlertCircle className="size-10 text-subtle" />
             <p className="text-sm text-subtle">{error}</p>
             <Button variant="secondary" onClick={fetchClients}>
-              Réessayer
+              {t('wallet.list.retry')}
             </Button>
           </div>
         ) : loading ? (
@@ -299,10 +304,12 @@ export default function ClientsPage() {
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-0.5">
                       <span className="text-sm font-bold text-ink">
-                        {loadingInvoices ? '…' : `${formatAmount(billedTotalFor(c.id))} F`}
+                        {loadingInvoices ? '…' : `${formatAmount(billedTotalFor(c.id), language)} F`}
                       </span>
                       {!loadingInvoices && due > 0 ? (
-                        <span className="text-xs font-semibold text-warning">Reste {formatAmount(due)} F</span>
+                        <span className="text-xs font-semibold text-warning">
+                          {t('clients.page.remainingAmount', { amount: formatAmount(due, language) })}
+                        </span>
                       ) : null}
                     </span>
                   </Link>
@@ -313,7 +320,7 @@ export default function ClientsPage() {
               page={page}
               pageCount={pageCount}
               onPageChange={setPage}
-              summary={`${clients.length} client(s) affiché(s) sur ${totalCount}`}
+              summary={t('clients.page.shownOfTotal', { shown: clients.length, total: totalCount })}
             />
           </>
         )}
@@ -323,12 +330,12 @@ export default function ClientsPage() {
       <div className="hidden flex-col gap-5 lg:flex">
         <div className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Clients</h1>
-            <span className="text-sm text-subtle">Votre annuaire pour facturer plus vite</span>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('clients.title')}</h1>
+            <span className="text-sm text-subtle">{t('clients.page.subtitleDesktop')}</span>
           </div>
           <Button variant="primary" onClick={openAdd}>
             <Plus className="size-[18px]" strokeWidth={2.2} />
-            Nouveau client
+            {t('clients.page.newClientButton')}
           </Button>
         </div>
 
@@ -339,7 +346,7 @@ export default function ClientsPage() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher par nom, téléphone, e-mail"
+                placeholder={t('clients.page.searchPlaceholderFull')}
                 className="h-11 w-full rounded-full border border-line bg-canvas pl-10 pr-4 text-sm text-ink outline-none"
               />
             </div>
@@ -349,7 +356,7 @@ export default function ClientsPage() {
                 <AlertCircle className="size-10 text-subtle" />
                 <p className="text-sm text-subtle">{error}</p>
                 <Button variant="secondary" onClick={fetchClients}>
-                  Réessayer
+                  {t('wallet.list.retry')}
                 </Button>
               </div>
             ) : loading ? (
@@ -366,10 +373,10 @@ export default function ClientsPage() {
                   <table className="w-full min-w-[560px] border-collapse text-sm">
                     <thead>
                       <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                        <th className="px-2 py-2.5">Client</th>
-                        <th className="px-2 py-2.5">Contact</th>
-                        <th className="px-2 py-2.5">Paiement</th>
-                        <th className="px-2 py-2.5 text-right">Facturé</th>
+                        <th className="px-2 py-2.5">{t('clients.page.colClient')}</th>
+                        <th className="px-2 py-2.5">{t('clients.page.colContact')}</th>
+                        <th className="px-2 py-2.5">{t('clients.page.colPayment')}</th>
+                        <th className="px-2 py-2.5 text-right">{t('clients.page.colBilled')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -398,10 +405,10 @@ export default function ClientsPage() {
                             </td>
                             <td className="whitespace-nowrap px-2 py-0 text-ink-3">{c.phone || '—'}</td>
                             <td className="px-2 py-0 text-ink-3">
-                              {c.payment_method ? PAYMENT_METHOD_LABELS[c.payment_method] : '—'}
+                              {c.payment_method ? paymentMethodLabels[c.payment_method] : '—'}
                             </td>
                             <td className="whitespace-nowrap px-2 py-0 text-right font-bold text-ink">
-                              {loadingInvoices ? '…' : `${formatAmount(billedTotalFor(c.id))} F`}
+                              {loadingInvoices ? '…' : `${formatAmount(billedTotalFor(c.id), language)} F`}
                             </td>
                           </tr>
                         )
@@ -413,13 +420,13 @@ export default function ClientsPage() {
                   page={page}
                   pageCount={pageCount}
                   onPageChange={setPage}
-                  summary={`${clients.length} client(s) affiché(s) sur ${totalCount}`}
+                  summary={t('clients.page.shownOfTotal', { shown: clients.length, total: totalCount })}
                 />
               </>
             )}
           </Card>
 
-          <aside aria-label="Fiche client" className="glass-panel flex flex-[2_1_340px] flex-col gap-4 rounded-panel p-5">
+          <aside aria-label={t('clients.page.clientDetailAria')} className="glass-panel flex flex-[2_1_340px] flex-col gap-4 rounded-panel p-5">
             {loadingSelected || !selectedClient ? (
               <div className="h-[460px] animate-pulse rounded-tile bg-surface-soft" />
             ) : (
@@ -432,10 +439,10 @@ export default function ClientsPage() {
                 />
                 <div className="flex gap-2.5">
                   <Button variant="secondary" className="flex-1" onClick={() => openEdit(selectedClient)}>
-                    Modifier
+                    {t('products.detail.modify')}
                   </Button>
                   <Button variant="black" className="flex-1" asChild>
-                    <Link href={`/invoices/new?client=${selectedClient.id}`}>Facturer</Link>
+                    <Link href={`/invoices/new?client=${selectedClient.id}`}>{t('clients.page.invoiceAction')}</Link>
                   </Button>
                 </div>
               </>
