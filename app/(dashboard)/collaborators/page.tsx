@@ -18,6 +18,9 @@ import {
   deleteCollaborator,
   type Collaborator,
 } from '@/lib/services/collaborators'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Button } from '@/components/waelly'
 import {
   AlertDialog,
@@ -59,7 +62,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
  */
 
 type RoleValue = 'Vendeur' | 'Associé' | 'Couturier' | 'Gestionnaire'
-const ROLE_OPTIONS: RoleValue[] = ['Vendeur', 'Associé', 'Couturier', 'Gestionnaire']
+const ROLE_OPTIONS: RoleValue[] = ['Vendeur', 'Associé', 'Couturier', 'Gestionnaire'] // i18n:allow — identifiants internes (état local, jamais persistés ni affichés directement — voir roleLabels(t) pour le texte affiché)
 
 const AVATAR_CYCLE = [
   { bg: 'bg-brand-100', text: 'text-brand-600' },
@@ -77,8 +80,17 @@ function getInitials(name: string): string {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
 }
 
-function formatShare(n: number): string {
-  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(n)} %`
+function formatShare(n: number, language: AppLanguage): string {
+  return `${formatNumber(n, language, { maximumFractionDigits: 2 })} %`
+}
+
+function roleLabels(t: ReturnType<typeof useTranslation>['t']): Record<RoleValue, string> {
+  return {
+    Vendeur: t('collaborators.roleSeller'),
+    Associé: t('collaborators.rolePartner'),
+    Couturier: t('collaborators.roleTailor'),
+    Gestionnaire: t('collaborators.roleManager'),
+  }
 }
 
 function isValidPhone(value: string): boolean {
@@ -92,29 +104,31 @@ const PHONE_PREFIX = '+225 '
 // `superRefine` conditionnel ne change ni la forme ni le type, seulement les
 // erreurs levées — nécessaire pour que useForm<FormInput, any, FormOutput>
 // garde un type cohérent entre les deux modes ajout/édition.
-const collaboratorBaseSchema = z.object({
-  name: z.string().min(1, 'Le nom est requis').max(255),
-  phone: z
-    .string()
-    .min(1, 'Le téléphone est requis')
-    .refine(isValidPhone, 'Format attendu : +225 suivi de 10 chiffres'),
-  role: z.enum(ROLE_OPTIONS as [RoleValue, ...RoleValue[]], { message: 'Le rôle est requis' }),
-  // Toujours optionnel au niveau du type : la contrainte réelle (requis,
-  // 0,01-99,99 %, ≤ part disponible) est appliquée en ajout ET en édition
-  // via superRefine ci-dessous — `maxPart` est déjà "la part disponible
-  // POUR CE formulaire" (exclut les autres collaborateurs, pas celui-ci).
-  part: z.coerce.number().optional(),
-})
+function buildBaseSchema(t: ReturnType<typeof useTranslation>['t']) {
+  return z.object({
+    name: z.string().min(1, t('collaborators.validation.nameRequired')).max(255),
+    phone: z
+      .string()
+      .min(1, t('collaborators.validation.phoneRequired'))
+      .refine(isValidPhone, t('collaborators.validationPhoneFormat')),
+    role: z.enum(ROLE_OPTIONS as [RoleValue, ...RoleValue[]], { message: t('collaborators.validationRoleRequired') }),
+    // Toujours optionnel au niveau du type : la contrainte réelle (requis,
+    // 0,01-99,99 %, ≤ part disponible) est appliquée en ajout ET en édition
+    // via superRefine ci-dessous — `maxPart` est déjà "la part disponible
+    // POUR CE formulaire" (exclut les autres collaborateurs, pas celui-ci).
+    part: z.coerce.number().optional(),
+  })
+}
 
-function buildSchema(maxPart: number) {
-  return collaboratorBaseSchema.superRefine((data, ctx) => {
+function buildSchema(t: ReturnType<typeof useTranslation>['t'], language: AppLanguage, maxPart: number) {
+  return buildBaseSchema(t).superRefine((data, ctx) => {
     const cap = Math.max(0.01, Math.min(99.99, maxPart))
     if (data.part === undefined || Number.isNaN(data.part)) {
-      ctx.addIssue({ code: 'custom', path: ['part'], message: 'La part est requise' })
+      ctx.addIssue({ code: 'custom', path: ['part'], message: t('collaborators.validationPartRequired') })
     } else if (data.part < 0.01) {
-      ctx.addIssue({ code: 'custom', path: ['part'], message: 'La part doit être supérieure à 0 %' })
+      ctx.addIssue({ code: 'custom', path: ['part'], message: t('collaborators.validationPartMin') })
     } else if (data.part > cap) {
-      ctx.addIssue({ code: 'custom', path: ['part'], message: `La part ne peut pas dépasser ${formatShare(maxPart)}` })
+      ctx.addIssue({ code: 'custom', path: ['part'], message: t('collaborators.validationPartExceeds', { share: formatShare(maxPart, language) }) })
     }
   })
 }
@@ -123,8 +137,8 @@ function buildSchema(maxPart: number) {
 // avant coercition) différent de son type de SORTIE `number | undefined`
 // (après coercition) — useForm prend les deux génériques séparément pour
 // éviter un conflit de typage avec le resolver zod.
-type FormInput = z.input<typeof collaboratorBaseSchema>
-type FormOutput = z.output<typeof collaboratorBaseSchema>
+type FormInput = z.input<ReturnType<typeof buildBaseSchema>>
+type FormOutput = z.output<ReturnType<typeof buildBaseSchema>>
 type FormValues = FormInput
 
 interface Member {
@@ -141,8 +155,8 @@ interface Member {
   collaborator?: Collaborator
 }
 
-function formatAmount(n: number): string {
-  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n)} F`
+function formatAmount(n: number, language: AppLanguage): string {
+  return `${formatNumber(n, language, { maximumFractionDigits: 0 })} F`
 }
 
 /** Champs partagés du formulaire — identiques panneau ordinateur / bottom sheet mobile. */
@@ -163,6 +177,8 @@ function CollaboratorFormFields({
   idPrefix: string
   compact?: boolean
 }) {
+  const { t, language } = useTranslation()
+  const labels = roleLabels(t)
   const fileRef = React.useRef<HTMLInputElement>(null)
   const fieldHeight = compact ? 'h-[50px]' : 'h-12'
   const fieldText = compact ? 'text-base' : 'text-sm'
@@ -192,7 +208,7 @@ function CollaboratorFormFields({
             +
           </span>
         )}
-        Ajouter une photo
+        {t('collaborators.addPhoto')}
       </button>
       <input
         ref={fileRef}
@@ -207,11 +223,11 @@ function CollaboratorFormFields({
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${idPrefix}-name`} className="text-[13px] font-semibold text-ink">
-          Nom complet
+          {t('collaborators.fullNameLabel')}
         </label>
         <input
           id={`${idPrefix}-name`}
-          placeholder="Ex. Moussa Diallo"
+          placeholder={t('collaborators.fullNamePlaceholder')}
           aria-describedby={errors.name ? `${idPrefix}-name-error` : undefined}
           className={`${fieldHeight} rounded-field border border-line-strong px-3.5 ${fieldText} text-ink`}
           {...register('name')}
@@ -225,12 +241,12 @@ function CollaboratorFormFields({
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${idPrefix}-phone`} className="text-[13px] font-semibold text-ink">
-          Téléphone
+          {t('collaborators.phone')}
         </label>
         <input
           id={`${idPrefix}-phone`}
           type="tel"
-          placeholder={compact ? '+225 07 00 00 00 00' : '+225 …'}
+          placeholder={compact ? t('collaborators.phonePlaceholderCompact') : t('collaborators.phonePlaceholderWide')}
           aria-describedby={errors.phone ? `${idPrefix}-phone-error` : undefined}
           className={`${fieldHeight} rounded-field border border-line-strong px-3.5 ${fieldText} text-ink`}
           {...register('phone')}
@@ -245,7 +261,7 @@ function CollaboratorFormFields({
       <div className="grid grid-cols-2 gap-2.5">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${idPrefix}-role`} className="text-[13px] font-semibold text-ink">
-            Rôle
+            {t('collaborators.roleLabel')}
           </label>
           <select
             id={`${idPrefix}-role`}
@@ -254,14 +270,14 @@ function CollaboratorFormFields({
           >
             {ROLE_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
-                {opt}
+                {labels[opt]}
               </option>
             ))}
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${idPrefix}-part`} className="text-[13px] font-semibold text-ink">
-            Part (%)
+            {t('collaborators.shareLabel')}
           </label>
           <input
             id={`${idPrefix}-part`}
@@ -281,7 +297,7 @@ function CollaboratorFormFields({
         </p>
       ) : (
         <p id={`${idPrefix}-part-help`} className="-mt-1 text-xs text-subtle">
-          Reste disponible : {formatShare(Math.max(0, remaining))}
+          {t('collaborators.remainingAvailable', { share: formatShare(Math.max(0, remaining), language) })}
         </p>
       )}
     </>
@@ -290,6 +306,8 @@ function CollaboratorFormFields({
 
 export default function CollaboratorsPage() {
   const { user, checkAuth } = useAuth()
+  const { t, language } = useTranslation()
+  const labels = roleLabels(t)
   const queryClient = useQueryClient()
   // Part et montant du gérant (et de chaque collaborateur) viennent
   // désormais UNIQUEMENT de ce hook : la part est toujours recalculée
@@ -321,7 +339,7 @@ export default function CollaboratorsPage() {
     ? remainingShare + Number(editingCollaborator.part)
     : remainingShare
 
-  const schema = React.useMemo(() => buildSchema(remainingForEdit), [remainingForEdit])
+  const schema = React.useMemo(() => buildSchema(t, language, remainingForEdit), [t, language, remainingForEdit])
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
     // onChange : le message d'erreur sous "Part (%)" et la désactivation du
@@ -393,7 +411,7 @@ export default function CollaboratorsPage() {
         // correspond bien à l'état serveur (parts/montants recalculés par
         // useCollaboratorShares dès que ce cache change).
         void queryClient.invalidateQueries({ queryKey: keys.collaborators.all })
-        toast.success('Collaborateur ajouté')
+        toast.success(t('collaborators.toastAddedShort'))
         setHighlightId(created.id)
         setTimeout(() => setHighlightId(null), 2000)
         resetToAddMode()
@@ -406,7 +424,7 @@ export default function CollaboratorsPage() {
           delete next[tempId]
           return next
         })
-        toast.error(error instanceof Error ? error.message : 'Échec de l’ajout du collaborateur')
+        toast.error(error instanceof Error ? error.message : t('collaborators.errorAddFailed'))
       } finally {
         setSubmitting(false)
       }
@@ -427,12 +445,12 @@ export default function CollaboratorsPage() {
         old.map((c) => (c.id === id ? updated : c))
       )
       void queryClient.invalidateQueries({ queryKey: keys.collaborators.all })
-      toast.success('Modifications enregistrées')
+      toast.success(t('collaborators.toastUpdatedShort'))
       resetToAddMode()
       setDrawerOpen(false)
     } catch (error) {
       queryClient.setQueryData(keys.collaborators.all, previous)
-      toast.error(error instanceof Error ? error.message : 'Échec de la modification')
+      toast.error(error instanceof Error ? error.message : t('collaborators.errorUpdateFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -448,13 +466,13 @@ export default function CollaboratorsPage() {
     try {
       await deleteCollaborator(target.collaborator.id)
       void queryClient.invalidateQueries({ queryKey: keys.collaborators.all })
-      toast.success('Collaborateur retiré')
+      toast.success(t('collaborators.toastRemoved'))
       setRemoveTarget(null)
       void checkAuth()
       if (editingId === target.collaborator.id) resetToAddMode()
     } catch (error) {
       queryClient.setQueryData(keys.collaborators.all, previous)
-      toast.error(error instanceof Error ? error.message : 'Échec du retrait')
+      toast.error(error instanceof Error ? error.message : t('collaborators.errorRemoveFailed'))
     } finally {
       setRemoving(false)
     }
@@ -467,7 +485,7 @@ export default function CollaboratorsPage() {
       isOwner: true,
       name: `${user.first_name} ${user.last_name}`.trim(),
       initials: getInitials(`${user.first_name} ${user.last_name}`),
-      role: 'Gérant · propriétaire',
+      role: t('collaborators.ownerRole'),
       phone: null,
       share: ownerShare.share,
       amount: ownerShare.amount,
@@ -478,7 +496,7 @@ export default function CollaboratorsPage() {
       isOwner: false,
       name: c.name,
       initials: getInitials(c.name),
-      role: roleOverrides[c.id] ?? 'Vendeur',
+      role: labels[roleOverrides[c.id] ?? 'Vendeur'],
       phone: c.phone,
       amount: getShare(c.id)?.amount ?? 0,
       share: Number(c.part),
@@ -486,9 +504,10 @@ export default function CollaboratorsPage() {
       collaborator: c,
     }))
     return [owner, ...collabMembers]
-  }, [user, collaborators, roleOverrides, ownerShare, getShare])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, collaborators, roleOverrides, ownerShare, getShare, t])
 
-  const shareAria = members.map((m) => `${m.name} ${formatShare(m.share)}`).join(', ')
+  const shareAria = members.map((m) => `${m.name} ${formatShare(m.share, language)}`).join(', ')
   const isEmpty = !isLoading && members.length <= 1
 
   const openAddDrawer = () => {
@@ -507,9 +526,9 @@ export default function CollaboratorsPage() {
       }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className={`font-bold ${compact ? 'text-base' : 'text-[17px]'}`}>Répartition des parts</span>
+        <span className={`font-bold ${compact ? 'text-base' : 'text-[17px]'}`}>{t('collaborators.shareDistribution')}</span>
         <span className="text-[13px]" style={{ color: '#C8C8F0' }}>
-          {members.length} membres
+          {t('collaborators.teamSize', { count: members.length })}
         </span>
       </div>
       {isLoading ? (
@@ -537,7 +556,7 @@ export default function CollaboratorsPage() {
               className={`rounded-full ${SHARE_COLORS[i % 5]}`}
               style={{ width: compact ? 8 : 10, height: compact ? 8 : 10 }}
             />
-            {m.name.split(' ')[0]} · {formatShare(m.share)}
+            {m.name.split(' ')[0]} · {formatShare(m.share, language)}
           </span>
         ))}
       </div>
@@ -564,8 +583,10 @@ export default function CollaboratorsPage() {
       {/* ============================= ORDINATEUR (≥ 768px / md) ============================= */}
       <div className="hidden flex-col gap-5 md:flex">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-[28px] font-bold tracking-tight text-ink">Collaborateurs</h1>
-          <span className="text-sm text-subtle">L’équipe associée à {user?.first_name ? `${user.first_name} ${user.last_name}` : 'votre entreprise'}</span>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('collaborators.title')}</h1>
+          <span className="text-sm text-subtle">
+            {t('collaborators.teamOf', { name: user?.first_name ? `${user.first_name} ${user.last_name}` : t('collaborators.yourCompanyFallback') })}
+          </span>
         </div>
 
         {isLoading ? (
@@ -575,7 +596,7 @@ export default function CollaboratorsPage() {
         )}
         {!isLoading && isNegativeBase ? (
           <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
-            Résultat négatif sur la période : {formatAmount(base)}
+            {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
           </p>
         ) : null}
 
@@ -615,20 +636,20 @@ export default function CollaboratorsPage() {
                     >
                       {m.phone ? (
                         <>
-                          <dt className="text-subtle">Téléphone</dt>
+                          <dt className="text-subtle">{t('collaborators.phone')}</dt>
                           <dd className="m-0 font-semibold text-ink">{m.phone}</dd>
                         </>
                       ) : null}
-                      <dt className="text-subtle">Part</dt>
+                      <dt className="text-subtle">{t('collaborators.share')}</dt>
                       <dd className="m-0 font-bold" style={{ color: '#3A20B8' }}>
-                        {formatShare(m.share)}
+                        {formatShare(m.share, language)}
                       </dd>
-                      <dt className="text-subtle">Montant</dt>
+                      <dt className="text-subtle">{t('transactions.amount')}</dt>
                       <dd
                         className={`m-0 font-bold ${m.amount < 0 ? '' : 'text-success'}`}
                         style={m.amount < 0 ? { color: '#A3213A' } : undefined}
                       >
-                        {formatAmount(m.amount)}
+                        {formatAmount(m.amount, language)}
                       </dd>
                     </dl>
                     {!m.isOwner ? (
@@ -638,14 +659,14 @@ export default function CollaboratorsPage() {
                           onClick={() => startEdit(m)}
                           className="flex min-h-10 flex-1 items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-semibold text-ink"
                         >
-                          Modifier
+                          {t('products.detail.modify')}
                         </button>
                         <button
                           type="button"
                           onClick={() => setRemoveTarget(m)}
                           className="flex min-h-10 items-center justify-center rounded-full border border-danger-border bg-surface px-3.5 text-[13px] font-semibold text-danger-strong"
                         >
-                          Retirer
+                          {t('collaborators.remove')}
                         </button>
                       </div>
                     ) : null}
@@ -654,30 +675,30 @@ export default function CollaboratorsPage() {
           </div>
 
           <aside
-            aria-label="Ajouter un collaborateur"
+            aria-label={t('collaborators.addCollaborator')}
             className="glass-panel sticky flex flex-[2_1_320px] flex-col gap-3.5 rounded-panel p-5.5"
             style={{ top: 20 }}
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-lg font-bold text-ink">
-                {mode === 'edit' ? 'Modifier le collaborateur' : 'Ajouter un collaborateur'}
+                {mode === 'edit' ? t('collaborators.editCollaborator') : t('collaborators.addCollaborator')}
               </h2>
               {mode === 'edit' ? (
                 <button type="button" onClick={resetToAddMode} className="text-sm font-semibold text-brand-600">
-                  Annuler
+                  {t('common.cancel')}
                 </button>
               ) : null}
             </div>
             {isEmpty ? (
               <p className="text-sm text-subtle">
-                Ajoutez votre premier collaborateur pour partager le suivi de l’activité.
+                {t('collaborators.addFirstCollaboratorHint')}
               </p>
             ) : null}
             <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
               {formFieldsNode('collab-desktop', false)}
               <Button type="submit" variant="primary" className="h-[50px] w-full" disabled={submitting || !!form.formState.errors.part}>
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
-                {mode === 'edit' ? 'Enregistrer' : 'Ajouter à l’équipe'}
+                {mode === 'edit' ? t('products.save') : t('collaborators.addToTeam')}
               </Button>
             </form>
           </aside>
@@ -689,16 +710,16 @@ export default function CollaboratorsPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/settings"
-            aria-label="Retour aux paramètres"
+            aria-label={t('collaborators.backToSettingsAria')}
             className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
           >
             <ChevronLeft className="size-[22px]" strokeWidth={2} />
           </Link>
-          <h1 className="flex-1 text-[22px] font-bold tracking-tight text-ink">Collaborateurs</h1>
+          <h1 className="flex-1 text-[22px] font-bold tracking-tight text-ink">{t('collaborators.title')}</h1>
           <button
             type="button"
             onClick={openAddDrawer}
-            aria-label="Ajouter un collaborateur"
+            aria-label={t('collaborators.addCollaborator')}
             className="flex size-12 items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(75,47,214,0.35)]"
             style={{ background: 'radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8)' }}
           >
@@ -713,7 +734,7 @@ export default function CollaboratorsPage() {
         )}
         {!isLoading && isNegativeBase ? (
           <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
-            Résultat négatif sur la période : {formatAmount(base)}
+            {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
           </p>
         ) : null}
 
@@ -743,13 +764,13 @@ export default function CollaboratorsPage() {
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     <span className="rounded-full bg-brand-100 px-2.5 py-1.5 text-[13px] font-extrabold text-brand-700">
-                      {formatShare(m.share)}
+                      {formatShare(m.share, language)}
                     </span>
                     <span
                       className={`text-xs font-bold ${m.amount < 0 ? '' : 'text-success'}`}
                       style={m.amount < 0 ? { color: '#A3213A' } : undefined}
                     >
-                      {formatAmount(m.amount)}
+                      {formatAmount(m.amount, language)}
                     </span>
                   </span>
                 </div>
@@ -770,12 +791,12 @@ export default function CollaboratorsPage() {
                         onClick={() => startEdit(m)}
                         className={`flex min-h-[42px] items-center justify-center rounded-full border border-line-strong bg-surface px-3.5 text-[13px] font-semibold text-ink ${m.phone ? '' : 'flex-1'}`}
                       >
-                        Modifier
+                        {t('products.detail.modify')}
                       </button>
                       <button
                         type="button"
                         onClick={() => setRemoveTarget(m)}
-                        aria-label={`Retirer ${m.name}`}
+                        aria-label={t('collaborators.removeNamedAria', { name: m.name })}
                         className="flex size-[42px] shrink-0 items-center justify-center rounded-full border border-danger-border bg-surface text-danger-strong"
                       >
                         <X className="size-4" strokeWidth={2} />
@@ -797,24 +818,24 @@ export default function CollaboratorsPage() {
       >
         <DrawerContent className="px-5 pb-8 pt-2.5">
           <DrawerHeader className="mt-1.5">
-            <DrawerTitle>{mode === 'edit' ? 'Modifier le collaborateur' : 'Ajouter un collaborateur'}</DrawerTitle>
+            <DrawerTitle>{mode === 'edit' ? t('collaborators.editCollaborator') : t('collaborators.addCollaborator')}</DrawerTitle>
             <button
               type="button"
               onClick={() => setDrawerOpen(false)}
-              aria-label="Fermer"
+              aria-label={t('common.close')}
               className="flex size-10 items-center justify-center rounded-full bg-canvas text-ink"
             >
               <X className="size-4" strokeWidth={2} />
             </button>
           </DrawerHeader>
           {isEmpty ? (
-            <p className="text-sm text-subtle">Ajoutez votre premier collaborateur pour partager le suivi de l’activité.</p>
+            <p className="text-sm text-subtle">{t('collaborators.addFirstCollaboratorHint')}</p>
           ) : null}
           <form onSubmit={onSubmit} className="mt-3.5 flex flex-col gap-3">
             {formFieldsNode('collab-mobile', true)}
             <Button type="submit" variant="primary" className="h-[54px] w-full text-base" disabled={submitting || !!form.formState.errors.part}>
               {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
-              {mode === 'edit' ? 'Enregistrer' : 'Ajouter à l’équipe'}
+              {mode === 'edit' ? t('products.save') : t('collaborators.addToTeam')}
             </Button>
           </form>
         </DrawerContent>
@@ -824,16 +845,16 @@ export default function CollaboratorsPage() {
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Retirer {removeTarget?.name} de l’équipe ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('collaborators.removeConfirmTitle', { name: removeTarget?.name ?? '' })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Sa part de {removeTarget ? formatShare(removeTarget.share) : ''} sera à redistribuer.
+              {t('collaborators.removeConfirmDescription', { share: removeTarget ? formatShare(removeTarget.share, language) : '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={removing}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmRemove} disabled={removing}>
               {removing ? <Loader2 className="size-4 animate-spin" /> : null}
-              Retirer
+              {t('collaborators.remove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
