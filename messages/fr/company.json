@@ -1,0 +1,22 @@
+{
+  "completeProfile": "Complétez votre profil entreprise",
+  "completeProfileDescription": "Pour créer des factures, vous devez d'abord ajouter un logo et un email à votre entreprise.",
+  "logo": "Logo de l'entreprise",
+  "logoRequired": "Le logo est obligatoire",
+  "logoTooLarge": "Le fichier est trop volumineux (max 2MB)",
+  "logoInvalidType": "Le fichier doit être une image",
+  "email": "Email de l'entreprise",
+  "emailPlaceholder": "facturation@votreentreprise.com",
+  "emailDescription": "Cet email apparaîtra sur vos factures",
+  "emailRequired": "L'email est obligatoire",
+  "emailInvalid": "Email invalide",
+  "dragDropLogo": "Cliquez ou glissez-déposez votre logo ici",
+  "dropLogoHere": "Déposez le logo ici...",
+  "profileCompleted": "Profil entreprise complété",
+  "onboardingComplete": "Configuration terminée avec succès",
+  "saveError": "Erreur lors de l'enregistrement",
+  "continueToInvoices": "Continuer vers les factures",
+  "uploading": "Envoi en cours...",
+  "alreadyComplete": "Profil déjà complet",
+  "redirecting": "Redirection en cours..."
+}

@@ -18,6 +18,7 @@ import { TABS, resolveActiveTabIndex, isTabBarHidden } from '@/lib/tabs'
 import { useTabLens } from '@/hooks/useTabLens'
 import { useKeyboardOpen } from '@/hooks/useKeyboardOpen'
 import { useScrollShrink } from '@/hooks/useScrollShrink'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 const BUTTON_PRESS_SPRING = { type: 'spring' as const, stiffness: 500, damping: 30 }
 const ICON_BOUNCE_SPRING = { type: 'spring' as const, stiffness: 600, damping: 18 }
@@ -32,6 +33,7 @@ function vibrateTabChange() {
 function BottomTabBarInner() {
   const pathname = usePathname()
   const router = useRouter()
+  const { t } = useTranslation()
   const reducedMotion = useReducedMotion()
   const keyboardOpen = useKeyboardOpen()
   const navRef = React.useRef<HTMLElement>(null)
@@ -90,7 +92,7 @@ function BottomTabBarInner() {
   return (
     <m.nav
       ref={navRef}
-      aria-label="Navigation principale"
+      aria-label={t('nav.mainNav')}
       {...navProps}
       style={{
         ...navProps.style,
@@ -156,7 +158,7 @@ function BottomTabBarInner() {
               >
                 <Icon className="size-[22px]" strokeWidth={active ? 2 : 1.8} />
               </m.span>
-              {tab.label}
+              {t(tab.labelKey)}
             </m.span>
           </Link>
         )

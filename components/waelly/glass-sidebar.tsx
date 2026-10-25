@@ -18,6 +18,7 @@ import {
 import type { LucideIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,24 +36,25 @@ import {
  */
 interface GlassSidebarNavItem {
   href: string
-  label: string
+  /** Clé de traduction (nav.*), pas le texte directement — résolu au rendu via t(). */
+  labelKey: string
   icon: LucideIcon
   badge?: { count: number; tone: "danger" | "brand" }
 }
 
 const ACTIVITY_ITEMS: GlassSidebarNavItem[] = [
-  { href: "/dashboard", label: "Tableau de bord", icon: Home },
-  { href: "/products", label: "Stock", icon: Package },
-  { href: "/wallet", label: "Portefeuille", icon: Wallet },
-  { href: "/invoices", label: "Factures", icon: FileText },
-  { href: "/clients", label: "Clients", icon: Users },
-  { href: "/analytics", label: "Analyses", icon: BarChart3 },
+  { href: "/dashboard", labelKey: "nav.dashboard", icon: Home },
+  { href: "/products", labelKey: "nav.stock", icon: Package },
+  { href: "/wallet", labelKey: "nav.wallet", icon: Wallet },
+  { href: "/invoices", labelKey: "nav.invoices", icon: FileText },
+  { href: "/clients", labelKey: "nav.clients", icon: Users },
+  { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
 ]
 
 const ACCOUNT_ITEMS: GlassSidebarNavItem[] = [
-  { href: "/collaborators", label: "Collaborateurs", icon: Users },
-  { href: "/notifications", label: "Notifications", icon: Bell },
-  { href: "/settings", label: "Paramètres", icon: Settings },
+  { href: "/collaborators", labelKey: "nav.collaborators", icon: Users },
+  { href: "/notifications", labelKey: "nav.notifications", icon: Bell },
+  { href: "/settings", labelKey: "nav.settings", icon: Settings },
 ]
 
 interface GlassSidebarUser {
@@ -74,9 +76,11 @@ interface GlassSidebarProps {
 function NavLink({
   item,
   active,
+  label,
 }: {
   item: GlassSidebarNavItem
   active: boolean
+  label: string
 }) {
   const Icon = item.icon
 
@@ -90,7 +94,7 @@ function NavLink({
       )}
     >
       <Icon className="size-5" strokeWidth={1.8} />
-      {item.label}
+      {label}
       {item.badge ? (
         <span
           className={cn(
@@ -115,6 +119,7 @@ function GlassSidebar({
   className,
 }: GlassSidebarProps) {
   const pathname = usePathname()
+  const { t } = useTranslation()
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`)
   const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false)
 
@@ -131,7 +136,7 @@ function GlassSidebar({
 
   return (
     <aside
-      aria-label="Menu"
+      aria-label={t('nav.menu')}
       data-slot="waelly-glass-sidebar"
       className={cn(
         "glass-panel hidden h-full w-full flex-col gap-4.5 overflow-y-auto rounded-hero p-3.5 lg:flex",
@@ -152,22 +157,22 @@ function GlassSidebar({
         className="flex min-h-[46px] items-center justify-center gap-2 rounded-full bg-button text-sm font-bold text-white shadow-button"
       >
         <Plus className="size-[18px]" strokeWidth={2.2} />
-        Nouvelle vente
+        {t('nav.newSale')}
       </Link>
 
-      <nav aria-label="Navigation principale" className="flex flex-wrap gap-0.5">
+      <nav aria-label={t('nav.mainNav')} className="flex flex-wrap gap-0.5">
         <span className="basis-full px-3 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-subtle">
-          Activité
+          {t('nav.activitySection')}
         </span>
         {activityItems.map((item) => (
-          <NavLink key={item.href} item={item} active={isActive(item.href)} />
+          <NavLink key={item.href} item={item} active={isActive(item.href)} label={t(item.labelKey)} />
         ))}
 
         <span className="basis-full px-3 pb-1 pt-3.5 text-[11px] font-bold uppercase tracking-wide text-subtle">
-          Compte
+          {t('nav.accountSection')}
         </span>
         {accountItems.map((item) => (
-          <NavLink key={item.href} item={item} active={isActive(item.href)} />
+          <NavLink key={item.href} item={item} active={isActive(item.href)} label={t(item.labelKey)} />
         ))}
       </nav>
 
@@ -191,7 +196,7 @@ function GlassSidebar({
         <button
           type="button"
           onClick={() => setLogoutDialogOpen(true)}
-          aria-label="Se déconnecter"
+          aria-label={t('nav.logout')}
           className="flex size-10 shrink-0 items-center justify-center rounded-full text-ink-3"
         >
           <LogOut className="size-[18px]" strokeWidth={1.9} />
@@ -201,18 +206,18 @@ function GlassSidebar({
       <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Se déconnecter ?</AlertDialogTitle>
-            <AlertDialogDescription>Vous devrez vous reconnecter pour accéder à votre compte.</AlertDialogDescription>
+            <AlertDialogTitle>{t('nav.logoutConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('nav.logoutConfirmDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setLogoutDialogOpen(false)
                 onLogout?.()
               }}
             >
-              Se déconnecter
+              {t('nav.logout')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

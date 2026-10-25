@@ -19,6 +19,8 @@ interface SegmentedControlProps {
   value: string
   onChange: (value: string) => void
   className?: string
+  /** Par défaut "Période" (non traduit) — les appelants i18n passent leur propre libellé traduit. */
+  ariaLabel?: string
 }
 
 function SegmentedControl({
@@ -26,12 +28,13 @@ function SegmentedControl({
   value,
   onChange,
   className,
+  ariaLabel = "Période",
 }: SegmentedControlProps) {
   return (
     <div
       data-slot="waelly-segmented-control"
       role="group"
-      aria-label="Période"
+      aria-label={ariaLabel}
       className={cn(
         "glass inline-flex gap-1 rounded-full p-1",
         className

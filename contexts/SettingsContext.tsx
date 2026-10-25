@@ -7,6 +7,17 @@ import { toast } from 'sonner'
 import { isSilentError } from '@/lib/utils/error-handler'
 import { queryClient } from '@/lib/query-client'
 import { keys } from '@/lib/query-keys'
+import { getCurrentLanguage } from '@/lib/i18n/current-language'
+
+// SettingsProvider est un ANCÊTRE de LanguageProvider (celui-ci lit
+// settings.language) — il ne peut donc pas appeler useTranslation() sans
+// créer une dépendance circulaire. Pour ces 2 messages, on lit la langue
+// courante directement via le pont (lib/i18n/current-language.ts), sans
+// passer par le contexte React.
+const SETTINGS_TOASTS = {
+  fr: { updated: 'Paramètres mis à jour', updatedDescription: 'Vos paramètres ont été enregistrés avec succès', error: 'Erreur', updateFailed: 'Impossible de mettre à jour les paramètres' },
+  en: { updated: 'Settings updated', updatedDescription: 'Your settings were saved successfully', error: 'Error', updateFailed: 'Unable to update settings' },
+} as const
 
 interface UserSettings {
   currency: string
@@ -113,9 +124,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (!options?.silent) {
-          toast.success('Paramètres mis à jour', {
-            description: 'Vos paramètres ont été enregistrés avec succès',
-          })
+          const t = SETTINGS_TOASTS[getCurrentLanguage()]
+          toast.success(t.updated, { description: t.updatedDescription })
         }
       } else {
         throw new Error(response.data.message || 'Erreur lors de la mise à jour')
@@ -127,9 +137,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       }
 
       const axiosError = error as { response?: { data?: { message?: string } } }
-      const errorMessage = axiosError?.response?.data?.message || 'Impossible de mettre à jour les paramètres'
-      
-      toast.error('Erreur', {
+      const t = SETTINGS_TOASTS[getCurrentLanguage()]
+      const errorMessage = axiosError?.response?.data?.message || t.updateFailed
+
+      toast.error(t.error, {
         description: errorMessage,
       })
       throw error

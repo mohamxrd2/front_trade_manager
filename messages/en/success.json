@@ -1,0 +1,11 @@
+{
+  "productAdded": "Product added successfully!",
+  "productUpdated": "Product updated successfully",
+  "productDeleted": "Article deleted successfully",
+  "variationAdded": "Variation added successfully",
+  "variationUpdated": "Variation updated successfully",
+  "variationDeleted": "Variation deleted successfully",
+  "collaboratorAdded": "Collaborator added successfully",
+  "collaboratorUpdated": "Collaborator updated successfully",
+  "collaboratorDeleted": "Collaborator deleted successfully"
+}

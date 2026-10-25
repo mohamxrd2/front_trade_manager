@@ -1,0 +1,12 @@
+{
+  "title": "Portefeuille",
+  "currentBalance": "Solde actuel",
+  "currentBalanceDescription": "Revenu total - Dépense totale",
+  "totalSales": "Total des ventes",
+  "totalSalesDescription": "Montant total des transactions de vente",
+  "totalExpenses": "Total des dépenses",
+  "totalExpensesDescription": "Montant total des transactions de dépense",
+  "personalRevenue": "Revenu personnel",
+  "personalRevenueDescription": "Votre part personnelle des revenus",
+  "transactions": "Transactions"
+}

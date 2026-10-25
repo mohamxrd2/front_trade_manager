@@ -1,0 +1,11 @@
+{
+  "productAdded": "Produit ajouté avec succès !",
+  "productUpdated": "Produit modifié avec succès",
+  "productDeleted": "Article supprimé avec succès",
+  "variationAdded": "Variation ajoutée avec succès",
+  "variationUpdated": "Variation modifiée avec succès",
+  "variationDeleted": "Variation supprimée avec succès",
+  "collaboratorAdded": "Collaborateur ajouté avec succès",
+  "collaboratorUpdated": "Collaborateur modifié avec succès",
+  "collaboratorDeleted": "Collaborateur supprimé avec succès"
+}

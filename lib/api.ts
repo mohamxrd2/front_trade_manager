@@ -5,6 +5,7 @@ import axios, {
   type InternalAxiosRequestConfig,
   type AxiosResponse,
 } from 'axios'
+import { getCurrentLanguage } from '@/lib/i18n/current-language'
 
 // ============================================================================
 // TYPES ET INTERFACES
@@ -395,6 +396,12 @@ api.interceptors.request.use(
 
     // Log de la requête sortante
     logger.info(`📤 ${method} ${config.url}`)
+
+    // Langue active → le backend l'utilise (middleware App::setLocale) pour
+    // traduire ses messages d'erreur/validation et ses notifications.
+    if (config.headers) {
+      config.headers['Accept-Language'] = getCurrentLanguage()
+    }
 
     // Skip CSRF for the CSRF cookie request itself
     if (config.url === '/sanctum/csrf-cookie') {

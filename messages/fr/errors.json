@@ -1,0 +1,11 @@
+{
+  "loading": "Erreur de chargement",
+  "loadingDescription": "Une erreur est survenue lors du chargement.",
+  "loadingHelp": "Veuillez rafraîchir la page ou contacter le support si le problème persiste.",
+  "redirecting": "Redirection vers la page de connexion...",
+  "unauthorized": "Non authentifié",
+  "notFound": "Non trouvé",
+  "serverError": "Erreur serveur",
+  "networkError": "Erreur réseau",
+  "unknown": "Une erreur inattendue s'est produite"
+}

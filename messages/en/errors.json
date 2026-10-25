@@ -1,0 +1,11 @@
+{
+  "loading": "Loading error",
+  "loadingDescription": "An error occurred while loading.",
+  "loadingHelp": "Please refresh the page or contact support if the problem persists.",
+  "redirecting": "Redirecting to login page...",
+  "unauthorized": "Unauthorized",
+  "notFound": "Not found",
+  "serverError": "Server error",
+  "networkError": "Network error",
+  "unknown": "An unexpected error occurred"
+}

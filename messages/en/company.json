@@ -1,0 +1,22 @@
+{
+  "completeProfile": "Complete your company profile",
+  "completeProfileDescription": "To create invoices, you must first add a logo and email to your company.",
+  "logo": "Company logo",
+  "logoRequired": "Logo is required",
+  "logoTooLarge": "File is too large (max 2MB)",
+  "logoInvalidType": "File must be an image",
+  "email": "Company email",
+  "emailPlaceholder": "billing@yourcompany.com",
+  "emailDescription": "This email will appear on your invoices",
+  "emailRequired": "Email is required",
+  "emailInvalid": "Invalid email",
+  "dragDropLogo": "Click or drag and drop your logo here",
+  "dropLogoHere": "Drop the logo here...",
+  "profileCompleted": "Company profile completed",
+  "onboardingComplete": "Setup completed successfully",
+  "saveError": "Error saving",
+  "continueToInvoices": "Continue to invoices",
+  "uploading": "Uploading...",
+  "alreadyComplete": "Profile already complete",
+  "redirecting": "Redirecting..."
+}

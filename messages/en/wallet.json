@@ -1,0 +1,12 @@
+{
+  "title": "Wallet",
+  "currentBalance": "Current balance",
+  "currentBalanceDescription": "Total revenue - Total expenses",
+  "totalSales": "Total sales",
+  "totalSalesDescription": "Total amount of sales transactions",
+  "totalExpenses": "Total expenses",
+  "totalExpensesDescription": "Total amount of expense transactions",
+  "personalRevenue": "Personal revenue",
+  "personalRevenueDescription": "Your personal share of revenue",
+  "transactions": "Transactions"
+}

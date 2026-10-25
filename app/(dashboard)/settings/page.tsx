@@ -16,6 +16,8 @@ import {
 
 import { useAuth } from '@/contexts/AuthContext'
 import { useSettings } from '@/contexts/SettingsContext'
+import { useLanguage } from '@/lib/i18n/context/LanguageContext'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { keys } from '@/lib/query-keys'
 import { useNotifications } from '@/hooks/useNotifications'
 import { updateUserProfile, updateUserPassword } from '@/lib/auth'
@@ -58,30 +60,40 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 
 type TabId = 'profil' | 'entreprise' | 'preferences' | 'securite'
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'profil', label: 'Profil' },
-  { id: 'entreprise', label: 'Entreprise' },
-  { id: 'preferences', label: 'Préférences' },
-  { id: 'securite', label: 'Sécurité' },
+const TABS: { id: TabId; labelKey: string }[] = [
+  { id: 'profil', labelKey: 'settings.tabs.profile' },
+  { id: 'entreprise', labelKey: 'settings.tabs.company' },
+  { id: 'preferences', labelKey: 'settings.tabs.preferences' },
+  { id: 'securite', labelKey: 'settings.tabs.security' },
 ]
 
+// FCFA (XOF)/Euro/Dollar : le CODE devise (abréviation) reste identique quelle
+// que soit la langue par convention internationale — seul le nom complet
+// pourrait changer ("Euro" est déjà identique en fr/en). Aucune clé i18n
+// nécessaire ici.
 const CURRENCY_OPTIONS = [
   { value: 'FCFA', label: 'FCFA (XOF)' },
   { value: 'EUR', label: 'Euro (EUR)' },
   { value: 'USD', label: 'Dollar (USD)' },
 ]
+// Le nom d'une langue s'affiche toujours DANS cette langue, jamais traduit
+// ("Français" et "English" restent tels quels, quelle que soit la langue de
+// l'interface) — convention standard des sélecteurs de langue.
 const LANGUAGE_OPTIONS = [
-  { value: 'fr', label: 'Français' },
+  { value: 'fr', label: 'Français' }, // i18n:allow — nom de langue affiché dans sa propre langue, jamais traduit
   { value: 'en', label: 'English' },
 ]
 // Listes alignées sur l'onboarding (app/(onboarding)/onboarding/entreprise)
 // pour qu'un même champ ait la même liste de choix partout dans l'app.
-const SECTOR_OPTIONS = ['Mode & textile', 'Alimentation', 'Cosmétique', 'Électronique', 'Restauration', 'Services', 'Autre']
+// Valeurs stockées en base telles quelles (pas encore de clé i18n séparée
+// valeur/affichage pour ces données métier — restent en français pour
+// l'instant, y compris en anglais ; voir rapport final du lot).
+const SECTOR_OPTIONS = ['Mode & textile', 'Alimentation', 'Cosmétique', 'Électronique', 'Restauration', 'Services', 'Autre'] // i18n:allow — valeurs métier stockées en base, pas encore de clé valeur/affichage séparée
 const LEGAL_STATUS_OPTIONS = ['Entreprise individuelle', 'SARL', 'SA', 'Auto-entrepreneur']
-const THEME_OPTIONS: { id: 'light' | 'dark' | 'system'; label: string }[] = [
-  { id: 'light', label: 'Clair' },
-  { id: 'dark', label: 'Sombre' },
-  { id: 'system', label: 'Auto' },
+const THEME_OPTIONS: { id: 'light' | 'dark' | 'system'; labelKey: string }[] = [
+  { id: 'light', labelKey: 'settings.preferences.themeLight' },
+  { id: 'dark', labelKey: 'settings.preferences.themeDark' },
+  { id: 'system', labelKey: 'settings.preferences.themeAuto' },
 ]
 
 // Cycle de 5 couleurs d'avatar — design/DESIGN.md § 2.
@@ -133,6 +145,7 @@ function ProfileFields({
   photoPreview,
   onPickPhoto,
   idPrefix,
+  t,
 }: {
   fullName: string
   onFullNameChange: (v: string) => void
@@ -142,6 +155,7 @@ function ProfileFields({
   photoPreview: string | null
   onPickPhoto: (file: File) => void
   idPrefix: string
+  t: ReturnType<typeof useTranslation>['t']
 }) {
   const fileRef = React.useRef<HTMLInputElement>(null)
   return (
@@ -169,7 +183,7 @@ function ProfileFields({
           className="h-[42px] px-4 text-[13px]"
           onClick={() => fileRef.current?.click()}
         >
-          Changer la photo
+          {t('settings.profile.changePhoto')}
         </Button>
         <input
           ref={fileRef}
@@ -185,7 +199,7 @@ function ProfileFields({
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))' }}>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-name`} className="text-[13px] font-semibold text-ink">
-            Nom complet
+            {t('settings.profile.fullName')}
           </label>
           <input
             id={`${idPrefix}-name`}
@@ -196,7 +210,7 @@ function ProfileFields({
         </div>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-email`} className="text-[13px] font-semibold text-ink">
-            E-mail
+            {t('settings.profile.email')}
           </label>
           <input
             id={`${idPrefix}-email`}
@@ -218,12 +232,14 @@ function CompanyFields({
   logoPreview,
   onPickLogo,
   idPrefix,
+  t,
 }: {
   draft: CompanyDraft
   onChange: (next: CompanyDraft) => void
   logoPreview: string | null
   onPickLogo: (file: File) => void
   idPrefix: string
+  t: ReturnType<typeof useTranslation>['t']
 }) {
   const fileRef = React.useRef<HTMLInputElement>(null)
   const sectorOptions = draft.sector && !SECTOR_OPTIONS.includes(draft.sector) ? [draft.sector, ...SECTOR_OPTIONS] : SECTOR_OPTIONS
@@ -262,7 +278,7 @@ function CompanyFields({
           className="h-[42px] px-4 text-[13px]"
           onClick={() => fileRef.current?.click()}
         >
-          Changer le logo
+          {t('settings.company.changeLogo')}
         </Button>
         <input
           ref={fileRef}
@@ -278,7 +294,7 @@ function CompanyFields({
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))' }}>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-name`} className="text-[13px] font-semibold text-ink">
-            Nom de l’entreprise
+            {t('settings.company.name')}
           </label>
           <input
             id={`${idPrefix}-name`}
@@ -289,7 +305,7 @@ function CompanyFields({
         </div>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-sector`} className="text-[13px] font-semibold text-ink">
-            Secteur
+            {t('settings.company.sector')}
           </label>
           <select
             id={`${idPrefix}-sector`}
@@ -306,7 +322,7 @@ function CompanyFields({
         </div>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-hq`} className="text-[13px] font-semibold text-ink">
-            Siège
+            {t('settings.company.headquarters')}
           </label>
           <input
             id={`${idPrefix}-hq`}
@@ -317,7 +333,7 @@ function CompanyFields({
         </div>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-legal`} className="text-[13px] font-semibold text-ink">
-            Statut légal
+            {t('settings.company.legalStatus')}
           </label>
           <select
             id={`${idPrefix}-legal`}
@@ -334,13 +350,13 @@ function CompanyFields({
         </div>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-iban`} className="text-[13px] font-semibold text-ink">
-            IBAN / compte bancaire
+            {t('settings.company.bankAccount')}
           </label>
           <input
             id={`${idPrefix}-iban`}
             value={draft.bank_account_number}
             onChange={(e) => onChange({ ...draft, bank_account_number: e.target.value })}
-            placeholder="CI00 0000 0000 0000 0000"
+            placeholder={t('settings.company.bankAccountPlaceholder')}
             className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
           />
         </div>
@@ -350,7 +366,7 @@ function CompanyFields({
 }
 
 /** Formulaire de changement de mot de passe — entièrement autonome (son propre bouton « Mettre à jour »), réutilisé carte ordinateur / bottom sheet mobile. */
-function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: () => void }) {
+function PasswordForm({ idPrefix, onSuccess, t }: { idPrefix: string; onSuccess?: () => void; t: ReturnType<typeof useTranslation>['t'] }) {
   const [current, setCurrent] = React.useState('')
   const [next, setNext] = React.useState('')
   const [confirm, setConfirm] = React.useState('')
@@ -361,8 +377,8 @@ function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: (
 
   const handleSubmit = async () => {
     const nextErrors: { next?: string; confirm?: string } = {}
-    if (next.length < 8) nextErrors.next = '8 caractères minimum'
-    if (confirm !== next) nextErrors.confirm = 'Les mots de passe ne correspondent pas'
+    if (next.length < 8) nextErrors.next = t('settings.security.passwordMinLength')
+    if (confirm !== next) nextErrors.confirm = t('settings.security.passwordMismatch')
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -373,13 +389,13 @@ function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: (
         new_password: next,
         new_password_confirmation: confirm,
       })
-      toast.success('Mot de passe mis à jour')
+      toast.success(t('settings.security.passwordUpdated'))
       setCurrent('')
       setNext('')
       setConfirm('')
       onSuccess?.()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Échec de la mise à jour du mot de passe')
+      toast.error(error instanceof Error ? error.message : t('settings.security.passwordUpdateFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -389,7 +405,7 @@ function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <label htmlFor={`${idPrefix}-current`} className="text-[13px] font-semibold text-ink">
-          Mot de passe actuel
+          {t('settings.security.currentPassword')}
         </label>
         <div className="relative">
           <input
@@ -402,7 +418,7 @@ function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: (
           <button
             type="button"
             onClick={() => setShowCurrent((v) => !v)}
-            aria-label={showCurrent ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            aria-label={showCurrent ? t('settings.security.hidePassword') : t('settings.security.showPassword')}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3"
           >
             {showCurrent ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
@@ -412,7 +428,7 @@ function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: (
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))' }}>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-next`} className="text-[13px] font-semibold text-ink">
-            Nouveau mot de passe
+            {t('settings.security.newPassword')}
           </label>
           <div className="relative">
             <input
@@ -425,7 +441,7 @@ function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: (
             <button
               type="button"
               onClick={() => setShowNext((v) => !v)}
-              aria-label={showNext ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              aria-label={showNext ? t('settings.security.hidePassword') : t('settings.security.showPassword')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3"
             >
               {showNext ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
@@ -435,7 +451,7 @@ function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: (
         </div>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-confirm`} className="text-[13px] font-semibold text-ink">
-            Confirmer
+            {t('settings.security.confirmPassword')}
           </label>
           <input
             id={`${idPrefix}-confirm`}
@@ -455,7 +471,7 @@ function PasswordForm({ idPrefix, onSuccess }: { idPrefix: string; onSuccess?: (
         disabled={submitting || !current || !next || !confirm}
       >
         {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
-        Mettre à jour
+        {t('common.update')}
       </Button>
     </div>
   )
@@ -467,13 +483,15 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const { user, logout, checkAuth } = useAuth()
   const { settings, updateSettings } = useSettings()
+  const { t } = useTranslation()
+  const { language, setLanguage } = useLanguage()
   const { unreadCount } = useNotifications()
   const { theme, resolvedTheme, setTheme } = useTheme()
   const [mountedTheme, setMountedTheme] = React.useState(false)
   React.useEffect(() => setMountedTheme(true), [])
 
   const urlTab = searchParams.get('tab') as TabId | null
-  const activeTab: TabId = urlTab && TABS.some((t) => t.id === urlTab) ? urlTab : 'profil'
+  const activeTab: TabId = urlTab && TABS.some((tab) => tab.id === urlTab) ? urlTab : 'profil'
   const setActiveTab = (id: TabId) => router.replace(`/settings?tab=${id}`, { scroll: false })
 
   const { data: company } = useQuery({
@@ -518,19 +536,20 @@ export default function SettingsPage() {
   const companyDirty = JSON.stringify(companyDraft) !== JSON.stringify(sourceCompanyDraft) || logoFile !== null
 
   // ---- Brouillon Préférences ----
+  // La langue n'est PAS un brouillon : elle s'applique immédiatement (voir
+  // le sélecteur plus bas, qui appelle setLanguage() directement) — exigence
+  // explicite du correctif i18n, contrairement à devise/seuil qui restent
+  // en attente d'un clic sur "Enregistrer".
   const [currency, setCurrency] = React.useState('FCFA')
   const [threshold, setThreshold] = React.useState(5)
-  const [language, setLanguageDraft] = React.useState<'fr' | 'en'>('fr')
   React.useEffect(() => {
     if (settings) {
       setCurrency(settings.currency)
       setThreshold(settings.low_stock_threshold)
-      setLanguageDraft((settings.language as 'fr' | 'en') ?? 'fr')
     }
   }, [settings])
   const prefsDirty =
-    !!settings &&
-    (currency !== settings.currency || threshold !== settings.low_stock_threshold || language !== settings.language)
+    !!settings && (currency !== settings.currency || threshold !== settings.low_stock_threshold)
 
   const [saving, setSaving] = React.useState(false)
   const [mobileEditProfileOpen, setMobileEditProfileOpen] = React.useState(false)
@@ -561,7 +580,7 @@ export default function SettingsPage() {
         const { first_name, last_name } = splitFullName(fullName)
         await updateUserProfile({ first_name, last_name, email })
         await checkAuth()
-        toast.success('Modifications enregistrées')
+        toast.success(t('settings.saveSuccess'))
       } else if (activeTab === 'entreprise') {
         if (logoFile) {
           await uploadCompanyLogo(logoFile)
@@ -569,12 +588,12 @@ export default function SettingsPage() {
         }
         await updateCompany(companyDraft)
         await queryClient.invalidateQueries({ queryKey: keys.settings.company() })
-        toast.success('Modifications enregistrées')
+        toast.success(t('settings.saveSuccess'))
       } else if (activeTab === 'preferences') {
-        await updateSettings({ currency, low_stock_threshold: threshold, language })
+        await updateSettings({ currency, low_stock_threshold: threshold })
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Échec de l’enregistrement')
+      toast.error(error instanceof Error ? error.message : t('settings.saveFailed'))
       if (activeTab === 'entreprise') setCompanyDraft(sourceCompanyDraft)
       if (activeTab === 'profil') {
         setFullName(sourceFullName)
@@ -587,7 +606,7 @@ export default function SettingsPage() {
 
   const avatarInitials = getInitials(sourceFullName || user?.username || '?')
   const providerConnected = (provider: 'google' | 'facebook') => user?.provider === provider
-  const notConfigured = () => toast.info('Cette action n’est pas encore disponible.')
+  const notConfigured = () => toast.info(t('settings.profile.notAvailable'))
 
   // Le propriétaire compte comme membre à part entière sur /collaborators
   // (sa part == user.company_share y est affichée au même titre que les
@@ -609,8 +628,8 @@ export default function SettingsPage() {
       <div className="hidden flex-col gap-5 md:flex">
         <div className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Paramètres</h1>
-            <span className="text-sm text-subtle">Profil, entreprise, préférences et sécurité</span>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('settings.pageTitle')}</h1>
+            <span className="text-sm text-subtle">{t('settings.pageSubtitle')}</span>
           </div>
           {activeTab !== 'securite' ? (
             <button
@@ -624,18 +643,18 @@ export default function SettingsPage() {
               }}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              Enregistrer
+              {t('common.save')}
             </button>
           ) : null}
         </div>
 
         <div
           role="tablist"
-          aria-label="Sections"
+          aria-label={t('settings.sectionsAria')}
           className="glass self-start flex flex-wrap gap-1 rounded-panel p-1"
           onKeyDown={(e) => {
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-            const idx = TABS.findIndex((t) => t.id === activeTab)
+            const idx = TABS.findIndex((tab) => tab.id === activeTab)
             const next = e.key === 'ArrowRight' ? (idx + 1) % TABS.length : (idx - 1 + TABS.length) % TABS.length
             setActiveTab(TABS[next].id)
           }}
@@ -651,7 +670,7 @@ export default function SettingsPage() {
                 tab.id === activeTab ? 'bg-active font-bold text-white' : 'bg-transparent font-semibold text-ink-2'
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
@@ -659,7 +678,7 @@ export default function SettingsPage() {
         {activeTab === 'profil' ? (
           <div className="flex flex-wrap items-start gap-5">
             <section className="flex flex-[3_1_460px] flex-col gap-4.5 rounded-panel bg-surface p-6 shadow-card">
-              <h2 className="text-lg font-bold text-ink">Mon profil</h2>
+              <h2 className="text-lg font-bold text-ink">{t('settings.profile.title')}</h2>
               <ProfileFields
                 fullName={fullName}
                 onFullNameChange={setFullName}
@@ -669,10 +688,11 @@ export default function SettingsPage() {
                 photoPreview={photoPreview}
                 onPickPhoto={handlePickPhoto}
                 idPrefix="profil-desktop"
+                t={t}
               />
             </section>
             <section className="flex flex-[2_1_300px] flex-col gap-3 rounded-panel bg-surface p-6 shadow-card">
-              <h2 className="text-lg font-bold text-ink">Comptes connectés</h2>
+              <h2 className="text-lg font-bold text-ink">{t('settings.profile.connectedAccounts')}</h2>
               <div className="flex items-center gap-3 border-b border-divider py-2.5">
                 <span className="flex size-9 items-center justify-center rounded-full border border-dashed border-ink-3 font-bold text-ink">
                   G
@@ -680,16 +700,16 @@ export default function SettingsPage() {
                 <span className="flex flex-1 flex-col">
                   <span className="text-sm font-semibold text-ink">Google</span>
                   <span className={`text-xs ${providerConnected('google') ? 'text-success-strong' : 'text-subtle'}`}>
-                    {providerConnected('google') ? 'Connecté' : 'Non connecté'}
+                    {providerConnected('google') ? t('settings.profile.connected') : t('settings.profile.notConnected')}
                   </span>
                 </span>
                 {providerConnected('google') ? (
                   <Button type="button" variant="secondary" className="h-[38px] px-3.5 text-[13px]" onClick={notConfigured}>
-                    Dissocier
+                    {t('settings.profile.disconnect')}
                   </Button>
                 ) : (
                   <Button type="button" variant="black" className="h-[38px] px-3.5 text-[13px]" onClick={notConfigured}>
-                    Connecter
+                    {t('settings.profile.connect')}
                   </Button>
                 )}
               </div>
@@ -700,16 +720,16 @@ export default function SettingsPage() {
                 <span className="flex flex-1 flex-col">
                   <span className="text-sm font-semibold text-ink">Facebook</span>
                   <span className={`text-xs ${providerConnected('facebook') ? 'text-success-strong' : 'text-subtle'}`}>
-                    {providerConnected('facebook') ? 'Connecté' : 'Non connecté'}
+                    {providerConnected('facebook') ? t('settings.profile.connected') : t('settings.profile.notConnected')}
                   </span>
                 </span>
                 {providerConnected('facebook') ? (
                   <Button type="button" variant="secondary" className="h-[38px] px-3.5 text-[13px]" onClick={notConfigured}>
-                    Dissocier
+                    {t('settings.profile.disconnect')}
                   </Button>
                 ) : (
                   <Button type="button" variant="black" className="h-[38px] px-3.5 text-[13px]" onClick={notConfigured}>
-                    Connecter
+                    {t('settings.profile.connect')}
                   </Button>
                 )}
               </div>
@@ -719,13 +739,14 @@ export default function SettingsPage() {
 
         {activeTab === 'entreprise' ? (
           <section className="flex flex-col gap-4.5 rounded-panel bg-surface p-6 shadow-card">
-            <h2 className="text-lg font-bold text-ink">Profil de l’entreprise</h2>
+            <h2 className="text-lg font-bold text-ink">{t('settings.company.title')}</h2>
             <CompanyFields
               draft={companyDraft}
               onChange={setCompanyDraft}
               logoPreview={logoPreview}
               onPickLogo={handlePickLogo}
               idPrefix="entreprise-desktop"
+              t={t}
             />
           </section>
         ) : null}
@@ -735,9 +756,9 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-center gap-3 border-b border-divider py-4.5">
               <span className="flex flex-[1_1_240px] flex-col gap-0.5">
                 <label htmlFor="pref-devise" className="text-[15px] font-bold text-ink">
-                  Devise
+                  {t('settings.preferences.currency')}
                 </label>
-                <span className="text-[13px] text-subtle">Utilisée pour vos prix, ventes et factures</span>
+                <span className="text-[13px] text-subtle">{t('settings.preferences.currencyHelp')}</span>
               </span>
               <select
                 id="pref-devise"
@@ -755,14 +776,14 @@ export default function SettingsPage() {
 
             <div className="flex flex-wrap items-center gap-3 border-b border-divider py-4.5">
               <span className="flex flex-[1_1_240px] flex-col gap-0.5">
-                <span className="text-[15px] font-bold text-ink">Seuil de stock faible</span>
-                <span className="text-[13px] text-subtle">Vous êtes alerté quand un article passe sous ce nombre</span>
+                <span className="text-[15px] font-bold text-ink">{t('settings.preferences.lowStockThreshold')}</span>
+                <span className="text-[13px] text-subtle">{t('settings.preferences.lowStockThresholdHelp')}</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setThreshold((v) => Math.max(0, v - 1))}
-                  aria-label="Diminuer le seuil"
+                  aria-label={t('settings.preferences.decreaseThreshold')}
                   className="flex size-[42px] items-center justify-center rounded-full border border-line-strong bg-surface text-lg font-bold text-ink"
                 >
                   −
@@ -773,7 +794,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setThreshold((v) => v + 1)}
-                  aria-label="Augmenter le seuil"
+                  aria-label={t('settings.preferences.increaseThreshold')}
                   className="flex size-[42px] items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white"
                 >
                   +
@@ -784,14 +805,14 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-center gap-3 border-b border-divider py-4.5">
               <span className="flex flex-[1_1_240px] flex-col gap-0.5">
                 <label htmlFor="pref-langue" className="text-[15px] font-bold text-ink">
-                  Langue
+                  {t('settings.preferences.language')}
                 </label>
-                <span className="text-[13px] text-subtle">Langue de l’application</span>
+                <span className="text-[13px] text-subtle">{t('settings.preferences.languageHelp')}</span>
               </span>
               <select
                 id="pref-langue"
                 value={language}
-                onChange={(e) => setLanguageDraft(e.target.value as 'fr' | 'en')}
+                onChange={(e) => setLanguage(e.target.value as 'fr' | 'en')}
                 className="h-[46px] min-w-[200px] rounded-field border border-line-strong bg-surface px-3 text-sm text-ink"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
@@ -804,10 +825,10 @@ export default function SettingsPage() {
 
             <div className="flex flex-wrap items-center gap-3 py-4.5">
               <span className="flex flex-[1_1_240px] flex-col gap-0.5">
-                <span className="text-[15px] font-bold text-ink">Thème</span>
-                <span className="text-[13px] text-subtle">Clair, sombre ou selon votre appareil</span>
+                <span className="text-[15px] font-bold text-ink">{t('settings.preferences.theme')}</span>
+                <span className="text-[13px] text-subtle">{t('settings.preferences.themeHelp')}</span>
               </span>
-              <span role="group" aria-label="Thème" className="flex gap-1 rounded-[22px] bg-surface-soft p-1">
+              <span role="group" aria-label={t('settings.preferences.theme')} className="flex gap-1 rounded-[22px] bg-surface-soft p-1">
                 {THEME_OPTIONS.map((opt) => {
                   const active = mountedTheme ? (theme ?? 'system') === opt.id : opt.id === 'system'
                   return (
@@ -820,7 +841,7 @@ export default function SettingsPage() {
                         active ? 'bg-surface font-bold text-ink shadow-seg' : 'bg-transparent font-semibold text-ink-3'
                       }`}
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   )
                 })}
@@ -832,27 +853,27 @@ export default function SettingsPage() {
         {activeTab === 'securite' ? (
           <div className="flex flex-wrap items-start gap-5">
             <section className="flex flex-[3_1_420px] flex-col gap-4 rounded-panel bg-surface p-6 shadow-card">
-              <h2 className="text-lg font-bold text-ink">Changer le mot de passe</h2>
-              <PasswordForm idPrefix="securite-desktop" />
+              <h2 className="text-lg font-bold text-ink">{t('settings.security.changePassword')}</h2>
+              <PasswordForm idPrefix="securite-desktop" t={t} />
             </section>
             <section className="flex flex-[2_1_300px] flex-col gap-3 rounded-panel border border-danger-border bg-surface p-6 shadow-card">
-              <h2 className="text-lg font-bold text-danger-strong">Zone sensible</h2>
+              <h2 className="text-lg font-bold text-danger-strong">{t('settings.security.dangerZone')}</h2>
               <button
                 type="button"
                 onClick={() => setLogoutDialogOpen(true)}
                 className="flex min-h-[46px] items-center justify-center rounded-full border border-line-strong text-sm font-bold text-ink"
               >
-                Se déconnecter
+                {t('nav.logout')}
               </button>
               <button
                 type="button"
                 onClick={() => setDeleteDialogOpen(true)}
                 className="flex min-h-[46px] items-center justify-center rounded-full bg-danger-bg text-sm font-bold text-danger-strong"
               >
-                Supprimer mon compte
+                {t('settings.security.deleteAccount')}
               </button>
               <span className="text-xs leading-relaxed text-subtle">
-                La suppression efface définitivement vos articles, ventes, factures et clients.
+                {t('settings.security.deleteAccountWarning')}
               </span>
             </section>
           </div>
@@ -864,12 +885,12 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            aria-label="Retour"
+            aria-label={t('settings.mobile.backAria')}
             className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
           >
             <ChevronLeft className="size-[22px]" strokeWidth={2} />
           </Link>
-          <h1 className="text-[22px] font-bold text-ink">Paramètres</h1>
+          <h1 className="text-[22px] font-bold text-ink">{t('settings.pageTitle')}</h1>
         </div>
 
         <div className="flex items-center gap-3.5 rounded-tile border border-line bg-surface p-4">
@@ -885,12 +906,12 @@ export default function SettingsPage() {
             onClick={() => setMobileEditProfileOpen(true)}
             className="flex min-h-10 items-center rounded-[10px] border border-line-strong px-3 text-[13px] font-semibold text-ink"
           >
-            Modifier
+            {t('settings.mobile.edit')}
           </button>
         </div>
 
         <div className="flex flex-col gap-2">
-          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">Entreprise</h2>
+          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.mobile.companySection')}</h2>
           <div className="flex flex-col rounded-tile border border-line bg-surface">
             <button
               type="button"
@@ -898,15 +919,15 @@ export default function SettingsPage() {
               className="flex min-h-14 items-center gap-3 border-b border-divider px-4 text-left"
             >
               <span className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-ink">Profil de l’entreprise</span>
-                <span className="text-xs text-subtle">Logo, statut légal, compte bancaire</span>
+                <span className="text-[15px] font-semibold text-ink">{t('settings.company.title')}</span>
+                <span className="text-xs text-subtle">{t('settings.company.mobileSubtitle')}</span>
               </span>
               <ChevronRight className="size-[18px] text-subtle" />
             </button>
             <Link href="/collaborators" className="flex min-h-14 items-center gap-3 px-4">
               <span className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-ink">Collaborateurs</span>
-                <span className="text-xs text-subtle">{collaboratorCount} membres · parts et rôles</span>
+                <span className="text-[15px] font-semibold text-ink">{t('settings.mobile.collaborators')}</span>
+                <span className="text-xs text-subtle">{t('settings.mobile.collaboratorsCount', { count: collaboratorCount })}</span>
               </span>
               <span className="flex">
                 {collaboratorAvatars.map((c, i) => {
@@ -928,11 +949,11 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">Préférences</h2>
+          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.tabs.preferences')}</h2>
           <div className="flex flex-col rounded-tile border border-line bg-surface">
             <div className="flex min-h-14 items-center gap-3 border-b border-divider px-4">
               <label htmlFor="pref-devise-m" className="flex-1 text-[15px] font-semibold text-ink">
-                Devise
+                {t('settings.preferences.currency')}
               </label>
               <select
                 id="pref-devise-m"
@@ -957,8 +978,8 @@ export default function SettingsPage() {
             </div>
             <div className="flex min-h-14 items-center gap-3 border-b border-divider py-1.5 pl-4 pr-3">
               <span className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-ink">Seuil de stock faible</span>
-                <span className="text-xs text-subtle">Alerte sous ce nombre</span>
+                <span className="text-[15px] font-semibold text-ink">{t('settings.preferences.lowStockThreshold')}</span>
+                <span className="text-xs text-subtle">{t('settings.preferences.lowStockThresholdHelpShort')}</span>
               </span>
               <span className="flex items-center gap-1">
                 <button
@@ -972,7 +993,7 @@ export default function SettingsPage() {
                       setThreshold(settings?.low_stock_threshold ?? 5)
                     }
                   }}
-                  aria-label="Diminuer le seuil"
+                  aria-label={t('settings.preferences.decreaseThreshold')}
                   className="flex size-10 items-center justify-center rounded-[10px] border border-line-strong bg-canvas text-lg font-bold text-ink"
                 >
                   −
@@ -991,7 +1012,7 @@ export default function SettingsPage() {
                       setThreshold(settings?.low_stock_threshold ?? 5)
                     }
                   }}
-                  aria-label="Augmenter le seuil"
+                  aria-label={t('settings.preferences.increaseThreshold')}
                   className="flex size-10 items-center justify-center rounded-[10px] border border-line-strong bg-canvas text-lg font-bold text-ink"
                 >
                   +
@@ -1000,20 +1021,12 @@ export default function SettingsPage() {
             </div>
             <div className="flex min-h-14 items-center gap-3 border-b border-divider px-4">
               <label htmlFor="pref-langue-m" className="flex-1 text-[15px] font-semibold text-ink">
-                Langue
+                {t('settings.preferences.language')}
               </label>
               <select
                 id="pref-langue-m"
                 value={language}
-                onChange={async (e) => {
-                  const value = e.target.value as 'fr' | 'en'
-                  setLanguageDraft(value)
-                  try {
-                    await updateSettings({ language: value })
-                  } catch {
-                    setLanguageDraft((settings?.language as 'fr' | 'en') ?? 'fr')
-                  }
-                }}
+                onChange={(e) => setLanguage(e.target.value as 'fr' | 'en')}
                 className="min-h-10 border-0 bg-transparent text-right text-[15px] text-ink-2"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
@@ -1025,7 +1038,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex min-h-14 items-center gap-3 px-4">
               <span id="dark-mode-label" className="flex-1 text-[15px] font-semibold text-ink">
-                Thème sombre
+                {t('settings.preferences.themeDarkModeToggle')}
               </span>
               <button
                 type="button"
@@ -1052,10 +1065,10 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">Compte</h2>
+          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.mobile.accountSection')}</h2>
           <div className="flex flex-col rounded-tile border border-line bg-surface">
             <Link href="/notifications" className="flex min-h-14 items-center gap-3 border-b border-divider px-4">
-              <span className="flex-1 text-[15px] font-semibold text-ink">Notifications</span>
+              <span className="flex-1 text-[15px] font-semibold text-ink">{t('nav.notifications')}</span>
               {unreadCount > 0 ? (
                 <span className="rounded-full bg-brand-100 px-2.5 py-[3px] text-xs font-bold text-brand-700">
                   {unreadCount}
@@ -1068,7 +1081,7 @@ export default function SettingsPage() {
               onClick={() => setMobilePasswordOpen(true)}
               className="flex min-h-14 items-center gap-3 border-b border-divider px-4 text-left"
             >
-              <span className="flex-1 text-[15px] font-semibold text-ink">Changer le mot de passe</span>
+              <span className="flex-1 text-[15px] font-semibold text-ink">{t('settings.security.changePassword')}</span>
               <ChevronRight className="size-[18px] text-subtle" />
             </button>
             <button
@@ -1076,7 +1089,7 @@ export default function SettingsPage() {
               onClick={() => setLogoutDialogOpen(true)}
               className="flex min-h-14 items-center px-4 text-left text-[15px] font-bold text-danger"
             >
-              Se déconnecter
+              {t('nav.logout')}
             </button>
           </div>
         </div>
@@ -1086,7 +1099,7 @@ export default function SettingsPage() {
       <Sheet open={mobileEditProfileOpen} onOpenChange={setMobileEditProfileOpen}>
         <SheetContent side="bottom" className="rounded-t-[28px] border-0 bg-surface p-5 pb-8">
           <SheetHeader className="p-0">
-            <SheetTitle className="text-lg font-bold text-ink">Modifier le profil</SheetTitle>
+            <SheetTitle className="text-lg font-bold text-ink">{t('settings.profile.editProfile')}</SheetTitle>
           </SheetHeader>
           <div className="mt-4">
             <ProfileFields
@@ -1098,6 +1111,7 @@ export default function SettingsPage() {
               photoPreview={photoPreview}
               onPickPhoto={handlePickPhoto}
               idPrefix="profil-mobile"
+              t={t}
             />
           </div>
           <Button
@@ -1111,7 +1125,7 @@ export default function SettingsPage() {
             }}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Enregistrer
+            {t('common.save')}
           </Button>
         </SheetContent>
       </Sheet>
@@ -1119,7 +1133,7 @@ export default function SettingsPage() {
       <Sheet open={mobileCompanyOpen} onOpenChange={setMobileCompanyOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-[28px] border-0 bg-surface p-5 pb-8">
           <SheetHeader className="p-0">
-            <SheetTitle className="text-lg font-bold text-ink">Profil de l’entreprise</SheetTitle>
+            <SheetTitle className="text-lg font-bold text-ink">{t('settings.company.title')}</SheetTitle>
           </SheetHeader>
           <div className="mt-4">
             <CompanyFields
@@ -1128,6 +1142,7 @@ export default function SettingsPage() {
               logoPreview={logoPreview}
               onPickLogo={handlePickLogo}
               idPrefix="entreprise-mobile"
+              t={t}
             />
           </div>
           <Button
@@ -1144,10 +1159,10 @@ export default function SettingsPage() {
                 }
                 await updateCompany(companyDraft)
                 await queryClient.invalidateQueries({ queryKey: keys.settings.company() })
-                toast.success('Modifications enregistrées')
+                toast.success(t('settings.saveSuccess'))
                 setMobileCompanyOpen(false)
               } catch (error) {
-                toast.error(error instanceof Error ? error.message : 'Échec de l’enregistrement')
+                toast.error(error instanceof Error ? error.message : t('settings.saveFailed'))
                 setCompanyDraft(sourceCompanyDraft)
               } finally {
                 setSaving(false)
@@ -1155,7 +1170,7 @@ export default function SettingsPage() {
             }}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Enregistrer
+            {t('common.save')}
           </Button>
         </SheetContent>
       </Sheet>
@@ -1163,10 +1178,10 @@ export default function SettingsPage() {
       <Sheet open={mobilePasswordOpen} onOpenChange={setMobilePasswordOpen}>
         <SheetContent side="bottom" className="rounded-t-[28px] border-0 bg-surface p-5 pb-8">
           <SheetHeader className="p-0">
-            <SheetTitle className="text-lg font-bold text-ink">Changer le mot de passe</SheetTitle>
+            <SheetTitle className="text-lg font-bold text-ink">{t('settings.security.changePassword')}</SheetTitle>
           </SheetHeader>
           <div className="mt-4">
-            <PasswordForm idPrefix="securite-mobile" onSuccess={() => setMobilePasswordOpen(false)} />
+            <PasswordForm idPrefix="securite-mobile" onSuccess={() => setMobilePasswordOpen(false)} t={t} />
           </div>
         </SheetContent>
       </Sheet>
@@ -1175,12 +1190,12 @@ export default function SettingsPage() {
       <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Se déconnecter ?</AlertDialogTitle>
-            <AlertDialogDescription>Vous devrez vous reconnecter pour accéder à votre compte.</AlertDialogDescription>
+            <AlertDialogTitle>{t('nav.logoutConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('nav.logoutConfirmDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmLogout}>Se déconnecter</AlertDialogAction>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmLogout}>{t('nav.logout')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1194,28 +1209,27 @@ export default function SettingsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer définitivement votre compte ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('settings.security.deleteAccountConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              La suppression efface définitivement vos articles, ventes, factures et clients. Tapez «&nbsp;{company?.name ?? ''}&nbsp;»
-              pour confirmer.
+              {t('settings.security.deleteAccountConfirmDescription', { name: company?.name ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <input
             value={deleteConfirmText}
             onChange={(e) => setDeleteConfirmText(e.target.value)}
-            placeholder={company?.name ?? "Nom de l'entreprise"}
+            placeholder={company?.name ?? t('settings.security.deleteAccountPlaceholder')}
             className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               disabled={!company?.name || deleteConfirmText !== company.name}
               onClick={() => {
                 setDeleteDialogOpen(false)
-                toast.error('La suppression de compte n’est pas encore disponible.')
+                toast.error(t('settings.security.deleteAccountNotAvailable'))
               }}
             >
-              Supprimer définitivement
+              {t('settings.security.deleteAccountConfirmButton')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

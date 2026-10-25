@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { LanguageProvider } from "@/lib/i18n/context/LanguageContext";
+import { LANGUAGE_COOKIE_NAME, type AppLanguage } from "@/lib/i18n/current-language";
 import { Toaster } from "sonner";
 import { Providers } from "@/app/providers";
 import { StaleClientListener } from "@/components/stale-client-listener";
@@ -50,13 +52,21 @@ export const viewport: Viewport = {
   themeColor: "#5B3FE6",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Lu une seule fois ici (Server Component) : le premier rendu — serveur
+  // ET client à l'hydratation — affiche directement la bonne langue, sans
+  // clignotement (<html lang> correct dès le départ, LanguageProvider
+  // n'a pas besoin d'un état "mounted" transitoire différent du serveur).
+  const cookieStore = await cookies();
+  const cookieLanguage = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value;
+  const initialLanguage: AppLanguage = cookieLanguage === "en" ? "en" : "fr";
+
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang={initialLanguage} suppressHydrationWarning>
       <head>
         <script
           // Anti-FOUC : rendu une seule fois côté serveur (Server Component,
@@ -75,7 +85,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <SettingsProvider>
-              <LanguageProvider>
+              <LanguageProvider initialLanguage={initialLanguage}>
                 <Providers>
                   {children}
                   <Toaster position="bottom-right" richColors />

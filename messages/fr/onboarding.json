@@ -1,0 +1,90 @@
+{
+  "title": "Configuration initiale",
+  "description": "Complétez votre profil pour commencer à utiliser l'application",
+  "submitting": "Enregistrement...",
+  "submit": "Terminer la configuration",
+  "step": "Étape",
+  "previous": "Précédent",
+  "next": "Suivant",
+  "steps": {
+    "basicInfo": {
+      "title": "Informations de base",
+      "description": "Commencez par les informations essentielles de votre entreprise"
+    },
+    "contactInfo": {
+      "title": "Coordonnées",
+      "description": "Ajoutez les informations de contact et de localisation"
+    },
+    "settings": {
+      "title": "Paramètres",
+      "description": "Configurez les paramètres de base de votre compte"
+    },
+    "finalization": {
+      "title": "Finalisation",
+      "description": "Dernière étape pour compléter votre configuration"
+    }
+  },
+  "companyInfo": {
+    "title": "Informations de l'entreprise",
+    "name": "Nom de l'entreprise",
+    "namePlaceholder": "Ex: Ma Société SARL",
+    "sector": "Secteur d'activité",
+    "sectorPlaceholder": "Ex: Commerce, Services, etc.",
+    "headquarters": "Siège social",
+    "headquartersPlaceholder": "Ex: 123 Rue Example, Ville, Pays",
+    "email": "Email de l'entreprise",
+    "emailPlaceholder": "contact@entreprise.com",
+    "legalStatus": "Statut juridique",
+    "legalStatusPlaceholder": "Ex: SARL, SA, EURL, etc.",
+    "bankAccount": "N° Compte bancaire",
+    "bankAccountPlaceholder": "Ex: 1234567890",
+    "logo": "Logo de l'entreprise (URL)",
+    "logoPlaceholder": "https://example.com/logo.png",
+    "logoHint": "Vous pourrez uploader une image plus tard"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "currency": "Devise",
+    "currencyPlaceholder": "Sélectionner une devise",
+    "currencies": {
+      "FCFA": "Franc CFA",
+      "EUR": "Euro",
+      "USD": "Dollar américain",
+      "XOF": "Franc CFA Ouest",
+      "GBP": "Livre sterling",
+      "JPY": "Yen japonais",
+      "CNY": "Yuan chinois",
+      "INR": "Roupie indienne",
+      "BRL": "Real brésilien",
+      "CAD": "Dollar canadien",
+      "AUD": "Dollar australien",
+      "CHF": "Franc suisse",
+      "NGN": "Naira nigérian",
+      "ZAR": "Rand sud-africain",
+      "EGP": "Livre égyptienne"
+    },
+    "lowStockThreshold": "Seuil de stock faible (%)",
+    "lowStockThresholdDescription": "Un article sera considéré en stock faible en dessous de ce pourcentage (défaut: 80%)",
+    "language": "Langue",
+    "languagePlaceholder": "Sélectionner une langue",
+    "languages": {
+      "fr": "Français",
+      "en": "English"
+    }
+  },
+  "validation": {
+    "companyNameRequired": "Le nom de l'entreprise est obligatoire",
+    "sectorRequired": "Le secteur d'activité est obligatoire",
+    "headquartersRequired": "Le siège social est obligatoire",
+    "legalStatusRequired": "Le statut juridique est obligatoire",
+    "invalidEmail": "Email invalide",
+    "currencyRequired": "La devise est obligatoire"
+  },
+  "success": {
+    "title": "Onboarding complété",
+    "description": "Vos informations ont été enregistrées avec succès"
+  },
+  "errors": {
+    "submitFailed": "Erreur lors de l'enregistrement"
+  }
+}

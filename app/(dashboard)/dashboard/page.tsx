@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
+import type { AppLanguage } from '@/lib/i18n/current-language'
+import { formatMoney, formatNumber, formatDate } from '@/lib/i18n/format'
 import {
   AlertCircle,
   ArrowDownLeft,
@@ -65,37 +67,37 @@ const CategoryDonut = dynamic(
   { ssr: false }
 )
 
-dayjs.locale('fr')
-
-const PERIOD_OPTIONS: { value: PeriodType; label: string }[] = [
-  { value: 'today', label: "Aujourd'hui" },
-  { value: '7', label: '7 jours' },
-  { value: '30', label: '30 jours' },
-  { value: 'year', label: '12 mois' },
-  { value: 'all', label: 'Depuis toujours' },
+// PÉRIODE_OPTIONS utilise désormais des clés de traduction (dashboard.period.*)
+// résolues au rendu, pas un libellé fixe — voir leur usage plus bas.
+const PERIOD_OPTIONS: { value: PeriodType; labelKey: string }[] = [
+  { value: 'today', labelKey: 'dashboard.period.today' },
+  { value: '7', labelKey: 'dashboard.period.7d' },
+  { value: '30', labelKey: 'dashboard.period.30d' },
+  { value: 'year', labelKey: 'dashboard.period.year' },
+  { value: 'all', labelKey: 'dashboard.period.allTime' },
 ]
 
 // Reprend la détection "nouvelle donnée" de components/analytics/overview-cards.tsx
-// (previous = 0, variation non significative), mais formate désormais en
-// français à une décimale maximum, sans flèche embarquée dans le texte —
-// la direction (↑/↓) est portée séparément par KpiCard via `trend`, jamais
-// dans la chaîne elle-même (sinon flèche en double ou contradictoire).
-const PERCENT_FORMATTER = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
-
+// (previous = 0, variation non significative), mais formate désormais selon
+// la langue active à une décimale maximum, sans flèche embarquée dans le
+// texte — la direction (↑/↓) est portée séparément par KpiCard via `trend`,
+// jamais dans la chaîne elle-même (sinon flèche en double ou contradictoire).
 function formatVariation(
   change: number | null | undefined,
   previous: number | null | undefined,
-  current: number | null | undefined
+  current: number | null | undefined,
+  language: AppLanguage,
+  newLabel: string
 ): { value: string; isNew: boolean } {
   if (change === null || change === undefined || isNaN(change)) {
     return { value: '0 %', isNew: false }
   }
   if (previous === 0 && current !== null && current !== undefined && current > 0) {
     if (Math.abs(change) > 10000 || !isFinite(change)) {
-      return { value: 'Nouveau', isNew: true }
+      return { value: newLabel, isNew: true }
     }
   }
-  return { value: `${PERCENT_FORMATTER.format(Math.abs(change))} %`, isNew: false }
+  return { value: `${formatNumber(Math.abs(change), language, { maximumFractionDigits: 1 })} %`, isNew: false }
 }
 
 type ComparisonMetric = { change: number; change_type: 'increase' | 'decrease'; previous: number; current: number }
@@ -104,9 +106,14 @@ type ComparisonMetric = { change: number; change_type: 'increase' | 'decrease'; 
 // (verte) ; pour les dépenses une hausse est négative (rouge). La flèche,
 // elle, suit TOUJOURS le sens réel de la variation (trend), jamais la
 // couleur — ce sont deux choses indépendantes.
-function kpiDelta(metric: ComparisonMetric | undefined, goodWhenIncreasing: boolean) {
+function kpiDelta(
+  metric: ComparisonMetric | undefined,
+  goodWhenIncreasing: boolean,
+  language: AppLanguage,
+  newLabel: string
+) {
   if (!metric) return { delta: undefined, trend: 'up' as const, positive: true }
-  const { value, isNew } = formatVariation(metric.change, metric.previous, metric.current)
+  const { value, isNew } = formatVariation(metric.change, metric.previous, metric.current, language, newLabel)
   const trend: 'up' | 'down' = metric.change_type === 'increase' ? 'up' : 'down'
   const positive = isNew ? true : goodWhenIncreasing ? trend === 'up' : trend === 'down'
   return { delta: value, trend, positive }
@@ -115,15 +122,18 @@ function kpiDelta(metric: ComparisonMetric | undefined, goodWhenIncreasing: bool
 // Regroupe les points quotidiens bruts de l'API pour éviter un tracé en
 // dents de scie : un point par jour sur 7 jours (et "Aujourd'hui", un seul
 // point), ~5 points (hebdomadaires) sur 30 jours, un point par mois sur
-// 12 mois, un point par année pour "Depuis toujours".
+// 12 mois, un point par année pour "Depuis toujours". `language` pilote le
+// format des libellés (ex. "Mon"/"lun.", "Jan"/"janv.") — jamais un
+// dayjs.locale() global, voir lib/i18n/format.ts.
 function bucketTrendPoints(
   points: { date: string; amount: number }[],
-  period: PeriodType
+  period: PeriodType,
+  language: AppLanguage
 ): { label: string; value: number }[] {
   const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date))
 
   if (period === '7' || period === 'today') {
-    return sorted.map((p) => ({ label: dayjs(p.date).format('ddd'), value: p.amount }))
+    return sorted.map((p) => ({ label: formatDate(p.date, language, 'ddd'), value: p.amount }))
   }
 
   if (period === 'year') {
@@ -133,7 +143,7 @@ function bucketTrendPoints(
       byMonth.set(key, (byMonth.get(key) ?? 0) + p.amount)
     })
     return Array.from(byMonth.entries()).map(([key, value]) => ({
-      label: dayjs(key, 'YYYY-MM').format('MMM'),
+      label: formatDate(dayjs(key, 'YYYY-MM').toDate(), language, 'MMM'),
       value,
     }))
   }
@@ -160,7 +170,7 @@ function bucketTrendPoints(
     }
   })
   return Array.from(byWeek.values()).map(({ total, lastDate }) => ({
-    label: dayjs(lastDate).format('DD/MM'),
+    label: formatDate(lastDate, language, 'DD/MM'),
     value: total,
   }))
 }
@@ -173,16 +183,13 @@ function getTransactionAmount(transaction: Transaction): number {
   return transaction.amount || 0
 }
 
-function formatTransactionMeta(dateString: string): string {
+function formatTransactionMeta(dateString: string, language: AppLanguage, todayLabel: string, yesterdayLabel: string): string {
   const d = dayjs(dateString)
   const today = dayjs().startOf('day')
-  if (d.isSame(today, 'day')) return `Aujourd'hui, ${d.format('HH:mm')}`
-  if (d.isSame(today.subtract(1, 'day'), 'day')) return `Hier, ${d.format('HH:mm')}`
-  return d.format('DD/MM, HH:mm')
+  if (d.isSame(today, 'day')) return `${todayLabel}, ${formatDate(dateString, language, 'HH:mm')}`
+  if (d.isSame(today.subtract(1, 'day'), 'day')) return `${yesterdayLabel}, ${formatDate(dateString, language, 'HH:mm')}`
+  return formatDate(dateString, language, 'DD/MM, HH:mm')
 }
-
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
 
 /**
  * Tableau de bord — reprend design/maquettes/ordinateur/Web-Tableau.dc.html
@@ -191,7 +198,7 @@ const formatAmount = (value: number): string =>
  */
 export default function DashboardPage() {
   const { user } = useAuth()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const { currency } = useCurrency()
   const { unreadCount } = useNotifications()
   const [period, setPeriod] = React.useState<PeriodType>('today')
@@ -202,8 +209,8 @@ export default function DashboardPage() {
   // provoquait une erreur d'hydratation sur ce texte.
   const [todayLabel, setTodayLabel] = React.useState('')
   React.useEffect(() => {
-    setTodayLabel(dayjs().format('dddd D MMMM YYYY'))
-  }, [])
+    setTodayLabel(formatDate(new Date(), language, 'dddd D MMMM YYYY'))
+  }, [language])
 
   // Statistiques utilisateur — gate de chargement/erreur de la page, inchangé.
   const { error, isLoading } = useUserStats()
@@ -268,13 +275,13 @@ export default function DashboardPage() {
 
   // Afficher les erreurs (inchangé)
   if (error) {
-    const isAuthError = error.message.includes('Non authentifié')
+    const isAuthError = error.message.includes('Non authentifié') // i18n:allow — sentinelle interne (lib/services/articles.ts), jamais affichée
 
     if (isAuthError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <AlertCircle className="h-12 w-12 text-muted-foreground" />
-          <p className="text-lg font-medium">Redirection vers la page de connexion...</p>
+          <p className="text-lg font-medium">{t('dashboard.redirectingToLogin')}</p>
         </div>
       )
     }
@@ -283,12 +290,12 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6 py-6 px-4 lg:px-6">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Erreur de chargement</AlertTitle>
+          <AlertTitle>{t('dashboard.loadError')}</AlertTitle>
           <AlertDescription>
-            {error.message || 'Une erreur est survenue lors du chargement des données.'}
+            {error.message || t('dashboard.loadErrorGeneric')}
             <br />
             <span className="text-xs mt-2 block">
-              Veuillez rafraîchir la page ou contacter le support si le problème persiste.
+              {t('dashboard.loadErrorHint')}
             </span>
           </AlertDescription>
         </Alert>
@@ -300,10 +307,12 @@ export default function DashboardPage() {
     ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()
     : '?'
 
-  const trendData = bucketTrendPoints(trends?.sales_expenses?.sales ?? [], period)
+  const periodOptions = PERIOD_OPTIONS.map((p) => ({ value: p.value, label: t(p.labelKey) }))
+  const trendData = bucketTrendPoints(trends?.sales_expenses?.sales ?? [], period, language)
 
+  const newLabel = t('dashboard.kpi.new')
   const salesChange = comparisons
-    ? formatVariation(comparisons.sales.change, comparisons.sales.previous, comparisons.sales.current)
+    ? formatVariation(comparisons.sales.change, comparisons.sales.previous, comparisons.sales.current, language, newLabel)
     : null
 
   // « Ventes par article » : dérivé du top 5 déjà chargé pour le graphique
@@ -324,33 +333,33 @@ export default function DashboardPage() {
       100 - topProducts.reduce((sum, p) => sum + (p.total_amount / totalSales) * 100, 0)
     )
     if (othersPercent >= 1) {
-      slices.push({ label: 'Autres', value: Math.round(othersPercent) })
+      slices.push({ label: t('dashboard.otherCategory'), value: Math.round(othersPercent) })
     }
     return slices
   })()
 
   const kpiCards = [
     {
-      label: 'Chiffre d’affaires',
-      value: `${formatAmount(overview?.total_sales ?? 0)} F`,
-      ...kpiDelta(comparisons?.sales, true),
+      label: t('dashboard.kpi.revenue'),
+      value: formatMoney(overview?.total_sales ?? 0, currency, language),
+      ...kpiDelta(comparisons?.sales, true, language, newLabel),
       dotColor: '#5B3FE6',
     },
     {
-      label: 'Dépenses',
-      value: `${formatAmount(overview?.total_expenses ?? 0)} F`,
-      ...kpiDelta(comparisons?.expenses, false),
+      label: t('dashboard.kpi.expenses'),
+      value: formatMoney(overview?.total_expenses ?? 0, currency, language),
+      ...kpiDelta(comparisons?.expenses, false, language, newLabel),
       dotColor: '#E5484D',
     },
     {
-      label: 'Bénéfice net',
-      value: `${formatAmount(overview?.net_revenue ?? 0)} F`,
-      ...kpiDelta(comparisons?.net_revenue, true),
+      label: t('dashboard.kpi.netProfit'),
+      value: formatMoney(overview?.net_revenue ?? 0, currency, language),
+      ...kpiDelta(comparisons?.net_revenue, true, language, newLabel),
       dotColor: '#0B8A43',
     },
     {
-      label: 'Panier moyen',
-      value: `${formatAmount(kpis?.average_basket ?? 0)} F`,
+      label: t('dashboard.kpi.averageBasket'),
+      value: formatMoney(kpis?.average_basket ?? 0, currency, language),
       delta: undefined,
       trend: 'up' as const,
       positive: true,
@@ -363,13 +372,13 @@ export default function DashboardPage() {
       <Button variant="secondary" className="flex-1" asChild>
         <Link href="/wallet/new?type=sale">
           <ArrowUpRight className="size-[17px]" />
-          Vente
+          {t('common.sale')}
         </Link>
       </Button>
       <Button variant="secondary" className="flex-1" asChild>
         <Link href="/wallet/new?type=expense">
           <ArrowDownLeft className="size-[17px]" />
-          Dépense
+          {t('common.expense')}
         </Link>
       </Button>
       <Button
@@ -377,10 +386,12 @@ export default function DashboardPage() {
         className="flex-1 border border-white/30 bg-white/14 font-semibold text-white hover:bg-white/20"
         asChild
       >
-        <Link href="/invoices/new">Facture</Link>
+        <Link href="/invoices/new">{t('common.invoice')}</Link>
       </Button>
     </>
   )
+
+  const notificationsAriaLabel = t('dashboard.notificationsAria', { count: unreadCount })
 
   return (
     <div className="flex flex-col gap-5">
@@ -391,27 +402,27 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/settings"
-            aria-label="Paramètres"
+            aria-label={t('nav.settings')}
             className="flex size-11 items-center justify-center rounded-full bg-brand-500 text-[15px] font-bold text-white"
           >
             {initials}
           </Link>
           <div className="flex flex-col gap-0.5">
-            <span className="text-[13px] text-subtle">Bonjour, {user?.first_name}</span>
-            <span className="text-lg font-bold text-ink">{t('dashboard.title') || 'Tableau de bord'}</span>
+            <span className="text-[13px] text-subtle">{t('dashboard.greeting', { name: user?.first_name ?? '' })}</span>
+            <span className="text-lg font-bold text-ink">{t('dashboard.title')}</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/settings"
-            aria-label="Paramètres"
+            aria-label={t('nav.settings')}
             className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
           >
             <Settings className="size-[20px]" strokeWidth={1.8} />
           </Link>
           <Link
             href="/notifications"
-            aria-label={`Notifications, ${unreadCount} non lues`}
+            aria-label={notificationsAriaLabel}
             className="relative flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
           >
             <Bell className="size-[22px]" strokeWidth={1.8} />
@@ -426,23 +437,23 @@ export default function DashboardPage() {
       <div className="hidden flex-wrap items-center justify-between gap-3.5 lg:flex">
         <div className="flex flex-col gap-0.5">
           <h1 className="text-[28px] font-bold tracking-tight text-ink">
-            Bonjour, {user?.first_name}
+            {t('dashboard.greeting', { name: user?.first_name ?? '' })}
           </h1>
           <span className="text-sm text-subtle">
-            {todayLabel} · voici votre activité
+            {t('dashboard.activitySummary', { date: todayLabel })}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative flex">
             <Search className="pointer-events-none absolute left-4 top-3.5 size-[18px] text-subtle" />
             <input
-              placeholder="Rechercher article, client, facture…"
+              placeholder={t('dashboard.searchPlaceholder')}
               className="glass h-12 w-[300px] max-w-full rounded-full pl-11 pr-4 text-sm text-ink outline-none"
             />
           </div>
           <Link
             href="/notifications"
-            aria-label={`Notifications, ${unreadCount} non lues`}
+            aria-label={notificationsAriaLabel}
             className="glass relative flex size-12 items-center justify-center rounded-full text-ink"
           >
             <Bell className="size-5" strokeWidth={1.8} />
@@ -453,7 +464,7 @@ export default function DashboardPage() {
           <Button variant="primary" asChild>
             <Link href="/wallet/new?type=sale">
               <Plus className="size-[18px]" strokeWidth={2.2} />
-              Nouvelle vente
+              {t('nav.newSale')}
             </Link>
           </Button>
         </div>
@@ -466,13 +477,13 @@ export default function DashboardPage() {
             <div className="h-full min-h-[220px] animate-pulse rounded-hero bg-surface-soft" />
           ) : (
             <HeroCard
-              label="Solde"
-              period={PERIOD_OPTIONS.find((p) => p.value === period)?.label}
-              amount={formatAmount(overview?.net_revenue ?? 0)}
+              label={t('common.balance')}
+              period={periodOptions.find((p) => p.value === period)?.label}
+              amount={formatNumber(overview?.net_revenue ?? 0, language)}
               currency={currency}
               stats={[
-                { label: 'Ventes', value: `+${formatAmount(overview?.total_sales ?? 0)}` },
-                { label: 'Dépenses', value: `−${formatAmount(overview?.total_expenses ?? 0)}` },
+                { label: t('common.sales'), value: `+${formatNumber(overview?.total_sales ?? 0, language)}` },
+                { label: t('common.expenses'), value: `−${formatNumber(overview?.total_expenses ?? 0, language)}` },
               ]}
               actions={heroActions}
             />
@@ -482,9 +493,10 @@ export default function DashboardPage() {
         <div className="hidden flex-[3_1_460px] flex-col gap-3.5 lg:flex">
           <SegmentedControl
             className="self-start"
-            options={PERIOD_OPTIONS}
+            options={periodOptions}
             value={period}
             onChange={(v) => setPeriod(v as PeriodType)}
+            ariaLabel={t('common.period')}
           />
           <div className="grid flex-1 grid-cols-2 gap-3.5">
             {isLoadingOverview
@@ -505,7 +517,7 @@ export default function DashboardPage() {
           <span className="flex size-14 items-center justify-center rounded-tile bg-orb text-white">
             <Plus className="size-6" strokeWidth={1.9} />
           </span>
-          Vente
+          {t('common.sale')}
         </Link>
         <Link
           href="/wallet/new?type=expense"
@@ -514,7 +526,7 @@ export default function DashboardPage() {
           <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
             <ArrowDownLeft className="size-6" strokeWidth={1.9} />
           </span>
-          Dépense
+          {t('common.expense')}
         </Link>
         <Link
           href="/invoices/new"
@@ -523,7 +535,7 @@ export default function DashboardPage() {
           <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
             <FileText className="size-6" strokeWidth={1.8} />
           </span>
-          Facture
+          {t('common.invoice')}
         </Link>
         <Link
           href="/products"
@@ -532,7 +544,7 @@ export default function DashboardPage() {
           <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
             <PackagePlus className="size-6" strokeWidth={1.8} />
           </span>
-          Réappro
+          {t('dashboard.quickRestock')}
         </Link>
       </div>
 
@@ -547,7 +559,7 @@ export default function DashboardPage() {
           <Package className="size-[22px]" strokeWidth={1.9} />
           <span className="flex flex-1 flex-col gap-0.5">
             <span className="text-sm font-bold">
-              {lowStockArticles.length} article{lowStockArticles.length > 1 ? 's' : ''} en stock faible
+              {t('dashboard.lowStockBanner', { count: lowStockArticles.length })}
             </span>
             <span className="text-[13px]">
               {lowStockArticles.slice(0, 3).map((a) => a.name).join(', ')}
@@ -564,7 +576,7 @@ export default function DashboardPage() {
             <div className="h-[220px] animate-pulse rounded-tile bg-surface-soft" />
           ) : (
             <AreaTrendChart
-              title="Tendance des ventes"
+              title={t('dashboard.salesTrend')}
               trendPercent={
                 salesChange?.isNew || comparisons === undefined
                   ? undefined
@@ -576,14 +588,14 @@ export default function DashboardPage() {
         </Card>
         <Card className="hidden flex-[1_1_300px] lg:block">
           <CardHeader>
-            <CardTitle>Ventes par article</CardTitle>
+            <CardTitle>{t('dashboard.salesByProduct')}</CardTitle>
           </CardHeader>
           <div className="mt-4">
             {donutData.length > 0 ? (
               <CategoryDonut
                 data={donutData}
-                centerValue={formatAmount(overview?.total_sales ?? 0)}
-                centerLabel={`${currency} · période`}
+                centerValue={formatNumber(overview?.total_sales ?? 0, language)}
+                centerLabel={`${currency} · ${t('dashboard.periodSuffix')}`}
               />
             ) : (
               <p className="py-10 text-center text-sm text-subtle">{t('common.noData')}</p>
@@ -597,9 +609,9 @@ export default function DashboardPage() {
       <div className="flex flex-wrap gap-5">
         <Card className="min-w-0 flex-[2_1_520px] p-0">
           <div className="flex items-center justify-between p-5 pb-0">
-            <CardTitle>Dernières opérations</CardTitle>
+            <CardTitle>{t('dashboard.recentTransactions')}</CardTitle>
             <Link href="/wallet" className="text-sm font-semibold text-brand-600">
-              Tout voir
+              {t('common.viewAll')}
             </Link>
           </div>
 
@@ -626,8 +638,8 @@ export default function DashboardPage() {
                       )
                     }
                     title={transaction.name}
-                    meta={`${transaction.type === 'sale' ? 'Vente' : 'Dépense'} · ${formatTransactionMeta(transaction.date)}`}
-                    amount={`${transaction.type === 'sale' ? '+' : '−'}${formatAmount(getTransactionAmount(transaction))}`}
+                    meta={`${transaction.type === 'sale' ? t('common.sale') : t('common.expense')} · ${formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}`}
+                    amount={`${transaction.type === 'sale' ? '+' : '−'}${formatNumber(getTransactionAmount(transaction), language)}`}
                     type={transaction.type === 'sale' ? 'income' : 'expense'}
                     onClick={() => setSelectedTransaction(transaction)}
                   />
@@ -639,10 +651,10 @@ export default function DashboardPage() {
                 <table className="w-full min-w-[520px] border-collapse text-sm">
                   <thead>
                     <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                      <th className="px-2 py-2.5">Opération</th>
-                      <th className="px-2 py-2.5">Type</th>
-                      <th className="px-2 py-2.5">Date</th>
-                      <th className="px-2 py-2.5 text-right">Montant</th>
+                      <th className="px-2 py-2.5">{t('dashboard.operationColumn')}</th>
+                      <th className="px-2 py-2.5">{t('dashboard.typeColumn')}</th>
+                      <th className="px-2 py-2.5">{t('dashboard.dateColumn')}</th>
+                      <th className="px-2 py-2.5 text-right">{t('dashboard.amountColumn')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -674,10 +686,10 @@ export default function DashboardPage() {
                                 : 'rounded-full bg-danger-bg px-2.5 py-1 text-xs font-bold text-danger-strong'
                             }
                           >
-                            {transaction.type === 'sale' ? 'Vente' : 'Dépense'}
+                            {transaction.type === 'sale' ? t('common.sale') : t('common.expense')}
                           </span>
                         </td>
-                        <td className="px-2 py-3 text-ink-3">{formatTransactionMeta(transaction.date)}</td>
+                        <td className="px-2 py-3 text-ink-3">{formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}</td>
                         <td
                           className={
                             transaction.type === 'sale'
@@ -686,7 +698,7 @@ export default function DashboardPage() {
                           }
                         >
                           {transaction.type === 'sale' ? '+' : '−'}
-                          {formatAmount(getTransactionAmount(transaction))}
+                          {formatNumber(getTransactionAmount(transaction), language)}
                         </td>
                       </tr>
                     ))}
@@ -700,9 +712,9 @@ export default function DashboardPage() {
         {lowStockArticles.length > 0 ? (
           <Card className="hidden flex-[1_1_300px] flex-col gap-3 lg:flex">
             <CardHeader>
-              <CardTitle>Stock faible</CardTitle>
+              <CardTitle>{t('dashboard.lowStock')}</CardTitle>
               <span className="rounded-full bg-danger-bg px-2.5 py-1 text-xs font-bold text-danger-strong">
-                {lowStockArticles.length} alerte{lowStockArticles.length > 1 ? 's' : ''}
+                {t('dashboard.alertCount', { count: lowStockArticles.length })}
               </span>
             </CardHeader>
             <div className="flex flex-col gap-1">
@@ -715,7 +727,7 @@ export default function DashboardPage() {
                     <span className="flex justify-between text-sm">
                       <span className="font-semibold text-ink">{article.name}</span>
                       <span className="font-bold text-danger-strong">
-                        {article.remaining_quantity} restants
+                        {t('dashboard.remainingQuantity', { count: article.remaining_quantity })}
                       </span>
                     </span>
                     <span className="h-[5px] rounded-full bg-divider">
@@ -729,7 +741,7 @@ export default function DashboardPage() {
               ))}
             </div>
             <Button variant="secondary" asChild className="mt-auto">
-              <Link href="/products">Voir le stock</Link>
+              <Link href="/products">{t('dashboard.viewStock')}</Link>
             </Button>
           </Card>
         ) : null}

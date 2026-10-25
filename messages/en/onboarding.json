@@ -1,0 +1,90 @@
+{
+  "title": "Initial Setup",
+  "description": "Complete your profile to start using the application",
+  "submitting": "Saving...",
+  "submit": "Complete Setup",
+  "step": "Step",
+  "previous": "Previous",
+  "next": "Next",
+  "steps": {
+    "basicInfo": {
+      "title": "Basic Information",
+      "description": "Start with the essential information about your company"
+    },
+    "contactInfo": {
+      "title": "Contact Details",
+      "description": "Add contact and location information"
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Configure your account basic settings"
+    },
+    "finalization": {
+      "title": "Finalization",
+      "description": "Final step to complete your setup"
+    }
+  },
+  "companyInfo": {
+    "title": "Company Information",
+    "name": "Company Name",
+    "namePlaceholder": "Ex: My Company LLC",
+    "sector": "Business Sector",
+    "sectorPlaceholder": "Ex: Commerce, Services, etc.",
+    "headquarters": "Headquarters",
+    "headquartersPlaceholder": "Ex: 123 Example Street, City, Country",
+    "email": "Company Email",
+    "emailPlaceholder": "contact@company.com",
+    "legalStatus": "Legal Status",
+    "legalStatusPlaceholder": "Ex: LLC, Inc, Ltd, etc.",
+    "bankAccount": "Bank Account Number",
+    "bankAccountPlaceholder": "Ex: 1234567890",
+    "logo": "Company Logo (URL)",
+    "logoPlaceholder": "https://example.com/logo.png",
+    "logoHint": "You will be able to upload an image later"
+  },
+  "settings": {
+    "title": "Settings",
+    "currency": "Currency",
+    "currencyPlaceholder": "Select a currency",
+    "currencies": {
+      "FCFA": "CFA Franc",
+      "EUR": "Euro",
+      "USD": "US Dollar",
+      "XOF": "West African CFA Franc",
+      "GBP": "British Pound",
+      "JPY": "Japanese Yen",
+      "CNY": "Chinese Yuan",
+      "INR": "Indian Rupee",
+      "BRL": "Brazilian Real",
+      "CAD": "Canadian Dollar",
+      "AUD": "Australian Dollar",
+      "CHF": "Swiss Franc",
+      "NGN": "Nigerian Naira",
+      "ZAR": "South African Rand",
+      "EGP": "Egyptian Pound"
+    },
+    "lowStockThreshold": "Low Stock Threshold (%)",
+    "lowStockThresholdDescription": "An item will be considered low stock below this percentage (default: 80%)",
+    "language": "Language",
+    "languagePlaceholder": "Select a language",
+    "languages": {
+      "fr": "Français",
+      "en": "English"
+    }
+  },
+  "validation": {
+    "companyNameRequired": "Company name is required",
+    "sectorRequired": "Business sector is required",
+    "headquartersRequired": "Headquarters is required",
+    "legalStatusRequired": "Legal status is required",
+    "invalidEmail": "Invalid email",
+    "currencyRequired": "Currency is required"
+  },
+  "success": {
+    "title": "Onboarding Completed",
+    "description": "Your information has been saved successfully"
+  },
+  "errors": {
+    "submitFailed": "Error saving information"
+  }
+}

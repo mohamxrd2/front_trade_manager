@@ -1,0 +1,9 @@
+{
+  "totalSalesAndExpenses": "Total des ventes et dépenses",
+  "totalSalesAndExpensesDescription": "Évolution des ventes et dépenses sur la période sélectionnée",
+  "totalSalesAndExpensesShort": "Évolution des ventes et dépenses",
+  "last3Months": "3 derniers mois",
+  "last30Days": "30 derniers jours",
+  "last7Days": "7 derniers jours",
+  "selectPeriod": "Sélectionner une période"
+}

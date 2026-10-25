@@ -1,0 +1,83 @@
+{
+  "pageTitle": "Settings",
+  "pageSubtitle": "Profile, company, preferences and security",
+  "sectionsAria": "Sections",
+  "tabs": {
+    "profile": "Profile",
+    "company": "Company",
+    "preferences": "Preferences",
+    "security": "Security"
+  },
+  "saveSuccess": "Changes saved",
+  "saveFailed": "Failed to save",
+  "profile": {
+    "title": "My profile",
+    "changePhoto": "Change photo",
+    "fullName": "Full name",
+    "email": "Email",
+    "connectedAccounts": "Connected accounts",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "disconnect": "Disconnect",
+    "connect": "Connect",
+    "notAvailable": "This action isn't available yet.",
+    "editProfile": "Edit profile"
+  },
+  "company": {
+    "title": "Company profile",
+    "changeLogo": "Change logo",
+    "name": "Company name",
+    "sector": "Sector",
+    "headquarters": "Headquarters",
+    "legalStatus": "Legal status",
+    "bankAccount": "IBAN / bank account",
+    "bankAccountPlaceholder": "CI00 0000 0000 0000 0000",
+    "mobileSubtitle": "Logo, legal status, bank account"
+  },
+  "preferences": {
+    "currency": "Currency",
+    "currencyHelp": "Used for your prices, sales and invoices",
+    "lowStockThreshold": "Low stock threshold",
+    "lowStockThresholdHelp": "You're alerted when an item drops below this number",
+    "lowStockThresholdHelpShort": "Alert below this number",
+    "decreaseThreshold": "Decrease threshold",
+    "increaseThreshold": "Increase threshold",
+    "language": "Language",
+    "languageHelp": "Application language",
+    "theme": "Theme",
+    "themeHelp": "Light, dark, or match your device",
+    "themeDarkModeToggle": "Dark theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAuto": "Auto"
+  },
+  "security": {
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "passwordMinLength": "At least 8 characters",
+    "passwordMismatch": "Passwords don't match",
+    "passwordUpdated": "Password updated",
+    "passwordUpdateFailed": "Failed to update password",
+    "dangerZone": "Danger zone",
+    "deleteAccount": "Delete my account",
+    "deleteAccountWarning": "Deleting permanently erases your items, sales, invoices and clients.",
+    "deleteAccountConfirmTitle": "Permanently delete your account?",
+    "deleteAccountConfirmDescription": "Deleting permanently erases your items, sales, invoices and clients. Type \"{{name}}\" to confirm.",
+    "deleteAccountPlaceholder": "Company name",
+    "deleteAccountConfirmButton": "Delete permanently",
+    "deleteAccountNotAvailable": "Account deletion isn't available yet."
+  },
+  "mobile": {
+    "backAria": "Back",
+    "edit": "Edit",
+    "companySection": "Company",
+    "collaborators": "Collaborators",
+    "collaboratorsCount": "{count, plural, one {# member · shares and roles} other {# members · shares and roles}}",
+    "preferencesSection": "Preferences",
+    "accountSection": "Account"
+  }
+}

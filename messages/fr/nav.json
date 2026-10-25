@@ -1,0 +1,20 @@
+{
+  "dashboard": "Tableau de bord",
+  "home": "Accueil",
+  "stock": "Stock",
+  "wallet": "Portefeuille",
+  "invoices": "Factures",
+  "clients": "Clients",
+  "analytics": "Analyses",
+  "collaborators": "Collaborateurs",
+  "notifications": "Notifications",
+  "settings": "Paramètres",
+  "newSale": "Nouvelle vente",
+  "menu": "Menu",
+  "mainNav": "Navigation principale",
+  "activitySection": "Activité",
+  "accountSection": "Compte",
+  "logout": "Se déconnecter",
+  "logoutConfirmTitle": "Se déconnecter ?",
+  "logoutConfirmDescription": "Vous devrez vous reconnecter pour accéder à votre compte."
+}

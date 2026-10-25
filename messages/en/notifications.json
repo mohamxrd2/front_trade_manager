@@ -1,0 +1,16 @@
+{
+  "title": "Notifications",
+  "unreadCount": "{{count}} notification{{plural}} unread",
+  "allRead": "All your notifications are read",
+  "markAllRead": "Mark all as read",
+  "markAllAsRead": "Mark all as read",
+  "noNotifications": "No notifications",
+  "noNotificationsDescription": "You have no notifications at the moment",
+  "markAsRead": "Mark as read",
+  "markAsUnread": "Mark as unread",
+  "viewDetails": "View details",
+  "delete": "Delete",
+  "view": "View",
+  "warning": "Warning",
+  "info": "Information"
+}

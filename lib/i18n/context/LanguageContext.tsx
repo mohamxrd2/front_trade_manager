@@ -2,8 +2,13 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
+import {
+  type AppLanguage,
+  setCurrentLanguage,
+  writeLanguageCookie,
+} from '@/lib/i18n/current-language'
 
-type Language = 'fr' | 'en'
+type Language = AppLanguage
 
 interface LanguageContextType {
   language: Language
@@ -12,55 +17,56 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const { settings, updateSettings } = useSettings()
-  const [language, setLanguageState] = useState<Language>('fr')
-  const [mounted, setMounted] = useState(false)
+interface LanguageProviderProps {
+  children: ReactNode
+  /**
+   * Langue déjà résolue côté serveur (cookie `app-language` lu dans
+   * app/layout.tsx via next/headers) — évite tout clignotement : le premier
+   * rendu client est identique au rendu serveur (même valeur), pas besoin
+   * d'un garde-fou "mounted" qui affiche un état transitoire différent.
+   */
+  initialLanguage: Language
+}
 
-  // Charger la langue depuis les settings ou localStorage au montage
+export function LanguageProvider({ children, initialLanguage }: LanguageProviderProps) {
+  const { settings, updateSettings } = useSettings()
+  const [language, setLanguageState] = useState<Language>(initialLanguage)
+
+  // Applique la langue partout où React ne peut pas intervenir directement :
+  // <html lang>, le cookie (pages publiques + prochain SSR), et le pont lu
+  // par l'intercepteur axios (en-tête Accept-Language, hors arbre React).
   useEffect(() => {
-    // Garde anti-hydratation SSR : `mounted` doit rester `false` au premier
-    // rendu client (identique au rendu serveur) puis passer à `true` juste
-    // après, uniquement côté client. Un état initial calculé (`typeof
-    // window`) casserait ce contrat et réintroduirait le mismatch
-    // d'hydratation que ce flag existe pour éviter.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true)
-    if (settings?.language) {
-      // Priorité aux settings de l'API
-      setLanguageState(settings.language as Language)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('app-language', settings.language)
-      }
-    } else if (typeof window !== 'undefined') {
-      // Fallback sur localStorage
-      const savedLanguage = localStorage.getItem('app-language') as Language
-      if (savedLanguage && (savedLanguage === 'fr' || savedLanguage === 'en')) {
-        setLanguageState(savedLanguage)
-      }
+    document.documentElement.lang = language
+    writeLanguageCookie(language)
+    setCurrentLanguage(language)
+  }, [language])
+
+  // Une fois les settings du compte chargés, ils font autorité (ex. un
+  // utilisateur qui se connecte sur un nouvel appareil où le cookie local
+  // dit encore "fr" mais dont le compte est en "en").
+  useEffect(() => {
+    if (settings?.language && (settings.language === 'fr' || settings.language === 'en')) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronise un store externe (SettingsContext, lui-même alimenté par une requête réseau) dans l'état local ; pas dérivable pendant le rendu.
+      setLanguageState(settings.language)
     }
   }, [settings?.language])
 
-  // Mettre à jour la langue dans les settings
+  // Changement immédiat (avant même la réponse serveur) : l'UI entière
+  // bascule tout de suite, la persistance en base suit en arrière-plan — en
+  // cas d'échec, le prochain chargement des settings resynchronisera de
+  // toute façon (pas de rollback visuel nécessaire pour un simple réglage
+  // d'affichage, contrairement à une mutation de données métier).
   const setLanguage = useCallback(async (lang: Language) => {
     setLanguageState(lang)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app-language', lang)
-    }
-    
-    // Mettre à jour dans les settings via l'API
+
     try {
-      await updateSettings({ language: lang })
-    } catch (error) {
-      // L'erreur est déjà gérée dans updateSettings
-      console.error('Erreur lors de la mise à jour de la langue:', error)
+      await updateSettings({ language: lang }, { silent: true })
+    } catch {
+      // Déjà notifié par updateSettings (toast d'erreur) — l'état local
+      // reste sur la langue choisie, l'utilisateur n'est pas bloqué par un
+      // échec de sauvegarde pour un simple changement d'affichage.
     }
   }, [updateSettings])
-
-  // Éviter les problèmes d'hydratation
-  if (!mounted) {
-    return <>{children}</>
-  }
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage }}>
@@ -76,4 +82,3 @@ export function useLanguage() {
   }
   return context
 }
-

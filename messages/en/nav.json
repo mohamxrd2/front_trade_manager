@@ -1,0 +1,20 @@
+{
+  "dashboard": "Dashboard",
+  "home": "Home",
+  "stock": "Inventory",
+  "wallet": "Wallet",
+  "invoices": "Invoices",
+  "clients": "Clients",
+  "analytics": "Analytics",
+  "collaborators": "Collaborators",
+  "notifications": "Notifications",
+  "settings": "Settings",
+  "newSale": "New sale",
+  "menu": "Menu",
+  "mainNav": "Main navigation",
+  "activitySection": "Activity",
+  "accountSection": "Account",
+  "logout": "Log out",
+  "logoutConfirmTitle": "Log out?",
+  "logoutConfirmDescription": "You'll need to sign in again to access your account."
+}

@@ -1,0 +1,83 @@
+{
+  "pageTitle": "Paramètres",
+  "pageSubtitle": "Profil, entreprise, préférences et sécurité",
+  "sectionsAria": "Sections",
+  "tabs": {
+    "profile": "Profil",
+    "company": "Entreprise",
+    "preferences": "Préférences",
+    "security": "Sécurité"
+  },
+  "saveSuccess": "Modifications enregistrées",
+  "saveFailed": "Échec de l'enregistrement",
+  "profile": {
+    "title": "Mon profil",
+    "changePhoto": "Changer la photo",
+    "fullName": "Nom complet",
+    "email": "E-mail",
+    "connectedAccounts": "Comptes connectés",
+    "connected": "Connecté",
+    "notConnected": "Non connecté",
+    "disconnect": "Dissocier",
+    "connect": "Connecter",
+    "notAvailable": "Cette action n'est pas encore disponible.",
+    "editProfile": "Modifier le profil"
+  },
+  "company": {
+    "title": "Profil de l'entreprise",
+    "changeLogo": "Changer le logo",
+    "name": "Nom de l'entreprise",
+    "sector": "Secteur",
+    "headquarters": "Siège",
+    "legalStatus": "Statut légal",
+    "bankAccount": "IBAN / compte bancaire",
+    "bankAccountPlaceholder": "CI00 0000 0000 0000 0000",
+    "mobileSubtitle": "Logo, statut légal, compte bancaire"
+  },
+  "preferences": {
+    "currency": "Devise",
+    "currencyHelp": "Utilisée pour vos prix, ventes et factures",
+    "lowStockThreshold": "Seuil de stock faible",
+    "lowStockThresholdHelp": "Vous êtes alerté quand un article passe sous ce nombre",
+    "lowStockThresholdHelpShort": "Alerte sous ce nombre",
+    "decreaseThreshold": "Diminuer le seuil",
+    "increaseThreshold": "Augmenter le seuil",
+    "language": "Langue",
+    "languageHelp": "Langue de l'application",
+    "theme": "Thème",
+    "themeHelp": "Clair, sombre ou selon votre appareil",
+    "themeDarkModeToggle": "Thème sombre",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "themeAuto": "Auto"
+  },
+  "security": {
+    "changePassword": "Changer le mot de passe",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmer",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
+    "passwordMinLength": "8 caractères minimum",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "passwordUpdated": "Mot de passe mis à jour",
+    "passwordUpdateFailed": "Échec de la mise à jour du mot de passe",
+    "dangerZone": "Zone sensible",
+    "deleteAccount": "Supprimer mon compte",
+    "deleteAccountWarning": "La suppression efface définitivement vos articles, ventes, factures et clients.",
+    "deleteAccountConfirmTitle": "Supprimer définitivement votre compte ?",
+    "deleteAccountConfirmDescription": "La suppression efface définitivement vos articles, ventes, factures et clients. Tapez « {{name}} » pour confirmer.",
+    "deleteAccountPlaceholder": "Nom de l'entreprise",
+    "deleteAccountConfirmButton": "Supprimer définitivement",
+    "deleteAccountNotAvailable": "La suppression de compte n'est pas encore disponible."
+  },
+  "mobile": {
+    "backAria": "Retour",
+    "edit": "Modifier",
+    "companySection": "Entreprise",
+    "collaborators": "Collaborateurs",
+    "collaboratorsCount": "{count, plural, one {# membre · parts et rôles} other {# membres · parts et rôles}}",
+    "preferencesSection": "Préférences",
+    "accountSection": "Compte"
+  }
+}

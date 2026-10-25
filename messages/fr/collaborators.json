@@ -1,0 +1,42 @@
+{
+  "title": "Collaborateurs",
+  "addCollaborator": "Ajouter un collaborateur",
+  "editCollaborator": "Modifier le collaborateur",
+  "deleteCollaborator": "Supprimer le collaborateur",
+  "name": "Nom",
+  "phone": "Téléphone",
+  "email": "Email",
+  "share": "Part",
+  "wallet": "Portefeuille",
+  "actions": "Actions",
+  "noCollaborators": "Aucun collaborateur",
+  "noCollaboratorsDescription": "Commencez par ajouter votre premier collaborateur",
+  "addCollaboratorTitle": "Ajouter un collaborateur",
+  "nameLabel": "Nom",
+  "namePlaceholder": "Ex: Jean Dupont",
+  "phoneLabel": "Téléphone",
+  "phonePlaceholder": "Ex: +33 6 12 34 56 78",
+  "shareLabel": "Part (%)",
+  "sharePlaceholder": "Ex: 25.50",
+  "availableShare": "Part disponible",
+  "validation": {
+    "nameRequired": "Le nom est requis",
+    "nameMax": "Le nom ne peut pas dépasser 255 caractères",
+    "phoneRequired": "Le téléphone est requis",
+    "phoneMax": "Le téléphone ne peut pas dépasser 20 caractères",
+    "shareRange": "La part doit être entre 0.01% et 99.99%",
+    "shareExceeds": "La part ne peut pas dépasser {{share}}% (part disponible)"
+  },
+  "success": {
+    "added": "Collaborateur ajouté avec succès",
+    "updated": "Collaborateur modifié avec succès",
+    "deleted": "Collaborateur supprimé avec succès"
+  },
+  "errors": {
+    "create": "Erreur lors de la création du collaborateur",
+    "update": "Erreur lors de la modification du collaborateur",
+    "delete": "Erreur lors de la suppression"
+  },
+  "deleteConfirmTitle": "Supprimer le collaborateur ?",
+  "deleteConfirmDescription": "Cette action est irréversible. La part du collaborateur sera restituée à votre compte."
+}

@@ -1,0 +1,42 @@
+{
+  "title": "Collaborators",
+  "addCollaborator": "Add collaborator",
+  "editCollaborator": "Edit collaborator",
+  "deleteCollaborator": "Delete collaborator",
+  "name": "Name",
+  "phone": "Phone",
+  "email": "Email",
+  "share": "Share",
+  "wallet": "Wallet",
+  "actions": "Actions",
+  "noCollaborators": "No collaborators",
+  "noCollaboratorsDescription": "Start by adding your first collaborator",
+  "addCollaboratorTitle": "Add a collaborator",
+  "deleteConfirmTitle": "Delete this collaborator?",
+  "deleteConfirmDescription": "This action is irreversible. The collaborator's share will be returned to your account.",
+  "nameLabel": "Name",
+  "namePlaceholder": "Ex: John Doe",
+  "phoneLabel": "Phone",
+  "phonePlaceholder": "Ex: +1 234 567 8900",
+  "shareLabel": "Share (%)",
+  "sharePlaceholder": "Ex: 25.50",
+  "availableShare": "Available share",
+  "validation": {
+    "nameRequired": "Name is required",
+    "nameMax": "Name cannot exceed 255 characters",
+    "phoneRequired": "Phone is required",
+    "phoneMax": "Phone cannot exceed 20 characters",
+    "shareRange": "Share must be between 0.01% and 99.99%",
+    "shareExceeds": "Share cannot exceed {{share}}% (available share)"
+  },
+  "success": {
+    "added": "Collaborator added successfully",
+    "updated": "Collaborator updated successfully",
+    "deleted": "Collaborator deleted successfully"
+  },
+  "errors": {
+    "create": "Error creating collaborator",
+    "update": "Error updating collaborator",
+    "delete": "Error deleting"
+  }
+}

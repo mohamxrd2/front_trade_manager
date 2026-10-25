@@ -7,7 +7,8 @@ import { BarChart3, FileText, Home, Package, Wallet, type LucideIcon } from 'luc
  */
 export interface TabDefinition {
   id: string
-  label: string
+  /** Clé de traduction (nav.*) — résolue au rendu via t(), voir BottomTabBar.tsx. */
+  labelKey: string
   href: string
   icon: LucideIcon
   /** Routes additionnelles qui doivent aussi allumer cet onglet (ex. /clients → Factures). */
@@ -15,18 +16,18 @@ export interface TabDefinition {
 }
 
 export const TABS: TabDefinition[] = [
-  { id: 'home', label: 'Accueil', href: '/dashboard', icon: Home },
-  { id: 'stock', label: 'Stock', href: '/products', icon: Package },
-  { id: 'wallet', label: 'Portefeuille', href: '/wallet', icon: Wallet },
+  { id: 'home', labelKey: 'nav.home', href: '/dashboard', icon: Home },
+  { id: 'stock', labelKey: 'nav.stock', href: '/products', icon: Package },
+  { id: 'wallet', labelKey: 'nav.wallet', href: '/wallet', icon: Wallet },
   {
     id: 'invoices',
-    label: 'Factures',
+    labelKey: 'nav.invoices',
     href: '/invoices',
     icon: FileText,
     // Les clients font partie de la facturation (pas d'onglet dédié).
     activeMatch: /^\/clients(\/|$)/,
   },
-  { id: 'analytics', label: 'Analyses', href: '/analytics', icon: BarChart3 },
+  { id: 'analytics', labelKey: 'nav.analytics', href: '/analytics', icon: BarChart3 },
 ]
 
 /**
