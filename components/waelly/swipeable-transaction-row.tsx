@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { Trash2 } from 'lucide-react'
 
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+
 const ACTION_WIDTH = 88
 // Au-delà de cette fraction de la largeur de la ligne, le relâchement
 // déclenche directement la confirmation (pas besoin de relâcher sur le
@@ -29,6 +31,7 @@ interface SwipeableTransactionRowProps {
  * ne pas gêner le défilement vertical de la liste.
  */
 function SwipeableTransactionRow({ children, onRequestDelete, disabled = false, exiting = false, className }: SwipeableTransactionRowProps) {
+  const { t } = useTranslation()
   const [dragX, setDragX] = React.useState(0)
   const [dragging, setDragging] = React.useState(false)
   const startXRef = React.useRef(0)
@@ -94,12 +97,12 @@ function SwipeableTransactionRow({ children, onRequestDelete, disabled = false, 
           resetDrag()
           onRequestDelete()
         }}
-        aria-label="Supprimer"
+        aria-label={t('common.delete')}
         className="absolute inset-y-0 right-0 flex items-center justify-center gap-1.5 text-sm font-bold text-white"
         style={{ width: ACTION_WIDTH, backgroundColor: '#D92D20' }}
       >
         <Trash2 className="size-4" strokeWidth={2.2} />
-        Supprimer
+        {t('common.delete')}
       </button>
       <div
         onPointerDown={onPointerDown}

@@ -1,33 +1,35 @@
-import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
-
 import type { Transaction } from '@/lib/services/transactions'
+import type { AppLanguage } from '@/lib/i18n/current-language'
+import { formatNumber, formatDate } from '@/lib/i18n/format'
+import { translate } from '@/lib/i18n/translate'
 
-dayjs.locale('fr')
-
-function formatAmount(n: number): string {
-  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n)} F`
+function formatAmount(n: number, language: AppLanguage): string {
+  return `${formatNumber(n, language, { maximumFractionDigits: 0 })} F`
 }
 
 /**
  * Ligne de résumé affichée dans la confirmation de suppression, ex.
  * « Robe wax · Taille M ×2 — 25 000 F, le 24/10 à 14:32 ». Pure fonction
- * (pas de hook) pour rester testable sans contexte React/Query.
+ * (pas de hook) pour rester testable sans contexte React/Query — reçoit
+ * `language` en paramètre plutôt que de lire un contexte React.
  */
-export function formatTransactionSummary(t: Transaction): string {
+export function formatTransactionSummary(transaction: Transaction, language: AppLanguage): string {
   const parts: string[] = []
-  if (t.type === 'sale') {
-    parts.push(t.article_name || t.name)
-    if (t.variation_name) parts.push(t.variation_name)
+  if (transaction.type === 'sale') {
+    parts.push(transaction.article_name || transaction.name)
+    if (transaction.variation_name) parts.push(transaction.variation_name)
   } else {
-    parts.push(t.name)
+    parts.push(transaction.name)
   }
   let title = parts.join(' · ')
-  if (t.type === 'sale' && t.quantity && t.quantity > 1) title += ` ×${t.quantity}`
+  if (transaction.type === 'sale' && transaction.quantity && transaction.quantity > 1) title += ` ×${transaction.quantity}`
 
-  const amount = formatAmount(t.amount ?? 0)
-  const when = dayjs(t.date).format('D/MM [à] HH:mm')
-  return `${title} — ${amount}, le ${when}`
+  const amount = formatAmount(transaction.amount ?? 0, language)
+  const when =
+    language === 'en'
+      ? `on ${formatDate(transaction.date, language, 'M/D [at] h:mm A')}`
+      : `le ${formatDate(transaction.date, language, 'D/MM [à] HH:mm')}`
+  return `${title} — ${amount}, ${when}`
 }
 
 /**
@@ -38,14 +40,23 @@ export function formatTransactionSummary(t: Transaction): string {
  * `null` quand l'article/variation n'a pas pu être résolu (ex. article déjà
  * supprimé) — la phrase retombe alors sur une formulation générique.
  */
-export function describeDeletionConsequence(t: Transaction, remainingAfterRestore: number | null): string {
-  if (t.type === 'expense') {
-    return `Le solde augmentera de ${formatAmount(t.amount ?? 0)}.`
+export function describeDeletionConsequence(
+  transaction: Transaction,
+  remainingAfterRestore: number | null,
+  language: AppLanguage
+): string {
+  if (transaction.type === 'expense') {
+    return translate('transactions.summary.balanceIncreasesBy', language, {
+      amount: formatAmount(transaction.amount ?? 0, language),
+    })
   }
 
-  const targetName = t.variation_name || t.article_name || t.name
+  const targetName = transaction.variation_name || transaction.article_name || transaction.name
   if (remainingAfterRestore === null) {
-    return `Le stock de ${targetName} sera mis à jour.`
+    return translate('transactions.summary.stockWillUpdate', language, { name: targetName })
   }
-  return `Le stock de ${targetName} reviendra à ${remainingAfterRestore}.`
+  return translate('transactions.summary.stockWillReturnTo', language, {
+    name: targetName,
+    quantity: remainingAfterRestore,
+  })
 }

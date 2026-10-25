@@ -1,6 +1,12 @@
 import api from '../api'
 import type { AxiosError } from 'axios'
 import { isSilentError } from '../utils/error-handler'
+import { translate } from '../i18n/translate'
+import { getCurrentLanguage } from '../i18n/current-language'
+
+function t(key: string, params?: Record<string, string | number>): string {
+  return translate(key, getCurrentLanguage(), params)
+}
 
 /**
  * Types pour les transactions
@@ -151,20 +157,20 @@ export async function getWalletStats(): Promise<WalletStats> {
     
     if (axiosError.response?.status === 401) {
       // Redirection vers /login gérée par l'intercepteur axios
-      throw new Error('Non authentifié')
+      throw new Error('Non authentifié') // i18n:allow — sentinelle interne, testée via .includes() ailleurs, jamais affichée telle quelle
     }
 
     if (axiosError.response?.status === 500) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('Erreur serveur lors de la récupération des statistiques:', axiosError.response.data)
       }
-      throw new Error('Erreur serveur lors du chargement des statistiques')
+      throw new Error(t('transactions.serviceErrors.serverErrorStats'))
     }
 
     if (process.env.NODE_ENV !== 'production') {
       console.error('Erreur lors de la récupération des statistiques:', error)
     }
-    throw new Error('Erreur lors du chargement des statistiques')
+    throw new Error(t('transactions.serviceErrors.loadStatsFailed'))
   }
 }
 
@@ -204,20 +210,20 @@ export async function getTransactions(): Promise<Transaction[]> {
     
     if (axiosError.response?.status === 401) {
       // Redirection vers /login gérée par l'intercepteur axios
-      throw new Error('Non authentifié')
+      throw new Error('Non authentifié') // i18n:allow — sentinelle interne, testée via .includes() ailleurs, jamais affichée telle quelle
     }
 
     if (axiosError.response?.status === 500) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('Erreur serveur lors de la récupération des transactions:', axiosError.response.data)
       }
-      throw new Error('Erreur serveur lors du chargement des transactions')
+      throw new Error(t('transactions.serviceErrors.serverErrorList'))
     }
 
     if (process.env.NODE_ENV !== 'production') {
       console.error('Erreur lors de la récupération des transactions:', error)
     }
-    throw new Error('Erreur lors du chargement des transactions')
+    throw new Error(t('transactions.serviceErrors.loadListFailed'))
   }
 }
 
@@ -255,22 +261,22 @@ export async function updateTransaction(
     }
 
     if (!response.data.data) {
-      throw new Error('Réponse API invalide')
+      throw new Error(t('transactions.serviceErrors.invalidApiResponse'))
     }
 
     return mapApiTransactionToTransaction(response.data.data)
   } catch (error) {
     const axiosError = error as AxiosError<ApiResponse<unknown> | { message?: string }>
-    
+
     if (axiosError.response?.status === 401) {
-      throw new Error('Non authentifié')
+      throw new Error('Non authentifié') // i18n:allow — sentinelle interne, testée via .includes() ailleurs, jamais affichée telle quelle
     }
 
     if (axiosError.response?.status === 400) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('❌ Erreur 400 - Bad Request:', axiosError.response.data)
       }
-      const message = (axiosError.response.data as { message?: string })?.message || 'Erreur lors de la modification'
+      const message = (axiosError.response.data as { message?: string })?.message || t('transactions.serviceErrors.updateFailedGeneric')
       throw new Error(message)
     }
 
@@ -323,26 +329,26 @@ export async function updateTransaction(
       // Dernier recours : erreur générique
       throw {
         validationErrors: {
-          _general: ['Erreur de validation. Veuillez vérifier les données saisies.']
+          _general: [t('transactions.serviceErrors.validationGeneric')]
         }
       }
     }
 
     if (axiosError.response?.status === 404) {
-      throw new Error('Transaction non trouvée')
+      throw new Error(t('transactions.errors.transactionNotFound'))
     }
 
     if (axiosError.response?.status === 500) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('Erreur serveur lors de la modification:', axiosError.response.data)
       }
-      throw new Error('Erreur serveur lors de la modification')
+      throw new Error(t('transactions.serviceErrors.serverErrorUpdate'))
     }
 
     if (process.env.NODE_ENV !== 'production') {
       console.error('Erreur lors de la modification de la transaction:', error)
     }
-    throw new Error('Erreur lors de la modification de la transaction')
+    throw new Error(t('transactions.serviceErrors.updateFailed'))
   }
 }
 
@@ -357,15 +363,15 @@ export async function deleteTransaction(id: string): Promise<void> {
     const axiosError = error as AxiosError<{ message?: string; invoice_id?: string }>
 
     if (axiosError.response?.status === 401) {
-      throw new Error('Non authentifié')
+      throw new Error('Non authentifié') // i18n:allow — sentinelle interne, testée via .includes() ailleurs, jamais affichée telle quelle
     }
 
     if (axiosError.response?.status === 403) {
-      throw new Error(axiosError.response?.data?.message || 'Non autorisé à supprimer cette transaction')
+      throw new Error(axiosError.response?.data?.message || t('transactions.serviceErrors.notAuthorizedDelete'))
     }
 
     if (axiosError.response?.status === 404) {
-      throw new Error('Transaction non trouvée')
+      throw new Error(t('transactions.errors.transactionNotFound'))
     }
 
     if (axiosError.response?.status === 422) {
@@ -373,20 +379,20 @@ export async function deleteTransaction(id: string): Promise<void> {
       // sécurité final (le frontend masque déjà le bouton Supprimer dans ce
       // cas, voir TransactionDetailSheet / TransactionDetailsDialog), mais
       // une facture a pu être payée entre l'ouverture de l'écran et le clic.
-      throw new Error(axiosError.response?.data?.message || 'Cette vente est liée à une facture et ne peut pas être supprimée ici.')
+      throw new Error(axiosError.response?.data?.message || t('transactions.serviceErrors.linkedToInvoice'))
     }
 
     if (axiosError.response?.status === 500) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('Erreur serveur lors de la suppression:', axiosError.response.data)
       }
-      throw new Error('Erreur serveur lors de la suppression')
+      throw new Error(t('transactions.serviceErrors.serverErrorDelete'))
     }
 
     if (process.env.NODE_ENV !== 'production') {
       console.error('Erreur lors de la suppression de la transaction:', error)
     }
-    throw new Error('Erreur lors de la suppression de la transaction')
+    throw new Error(t('transactions.serviceErrors.deleteFailed'))
   }
 }
 
@@ -399,7 +405,7 @@ export async function restoreTransaction(id: string): Promise<Transaction> {
     const response = await api.post<ApiResponse<ApiTransaction>>(`/api/transactions/${id}/restore`)
 
     if (!response.data.data) {
-      throw new Error('Réponse API invalide')
+      throw new Error(t('transactions.serviceErrors.invalidApiResponse'))
     }
 
     return mapApiTransactionToTransaction(response.data.data)
@@ -407,21 +413,21 @@ export async function restoreTransaction(id: string): Promise<Transaction> {
     const axiosError = error as AxiosError<{ message?: string }>
 
     if (axiosError.response?.status === 401) {
-      throw new Error('Non authentifié')
+      throw new Error('Non authentifié') // i18n:allow — sentinelle interne, testée via .includes() ailleurs, jamais affichée telle quelle
     }
 
     if (axiosError.response?.status === 403) {
-      throw new Error(axiosError.response?.data?.message || 'Non autorisé à restaurer cette transaction')
+      throw new Error(axiosError.response?.data?.message || t('transactions.serviceErrors.notAuthorizedRestore'))
     }
 
     if (axiosError.response?.status === 404) {
-      throw new Error('Transaction non trouvée')
+      throw new Error(t('transactions.errors.transactionNotFound'))
     }
 
     if (process.env.NODE_ENV !== 'production') {
       console.error('Erreur lors de la restauration de la transaction:', error)
     }
-    throw new Error('Erreur lors de la restauration de la transaction')
+    throw new Error(t('transactions.serviceErrors.restoreFailed'))
   }
 }
 

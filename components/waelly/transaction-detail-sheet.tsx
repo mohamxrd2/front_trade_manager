@@ -2,19 +2,18 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
 import { ArrowDownLeft, ArrowUpRight, X } from 'lucide-react'
 
 import type { Transaction } from '@/lib/services/transactions'
 import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatDate, formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 
-dayjs.locale('fr')
-
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 interface DetailRow {
   label: string
@@ -35,6 +34,7 @@ interface TransactionDetailSheetProps {
  * commentaire dans le spec produit).
  */
 function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onRequestDelete }: TransactionDetailSheetProps) {
+  const { t, language } = useTranslation()
   const open = transaction !== null
   if (!transaction) return null
 
@@ -43,37 +43,40 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
   const unitPrice = transaction.sale_price ?? transaction.unit_price ?? null
   const canDelete = isDeletableFromList(transaction, invoiceEntry?.status)
 
-  const rows: DetailRow[] = [{ label: 'Type', value: isSale ? 'Vente' : 'Dépense' }]
-  rows.push({ label: 'Date et heure', value: dayjs(transaction.date).format('D MMMM YYYY à HH:mm') })
+  const rows: DetailRow[] = [{ label: t('transactions.type'), value: isSale ? t('transactions.sale') : t('transactions.expense') }]
+  rows.push({
+    label: t('transactions.detail.dateTime'),
+    value: formatDate(transaction.date, language, language === 'en' ? 'MMMM D, YYYY [at] h:mm A' : 'D MMMM YYYY à HH:mm'),
+  })
   if (isSale) {
-    rows.push({ label: 'Article', value: transaction.article_name || transaction.name })
-    if (transaction.variation_name) rows.push({ label: 'Variation', value: transaction.variation_name })
-    if (transaction.quantity) rows.push({ label: 'Quantité', value: transaction.quantity })
-    if (unitPrice != null) rows.push({ label: 'Prix unitaire', value: `${formatAmount(unitPrice)} F` })
+    rows.push({ label: t('transactions.article'), value: transaction.article_name || transaction.name })
+    if (transaction.variation_name) rows.push({ label: t('transactions.detail.variant'), value: transaction.variation_name })
+    if (transaction.quantity) rows.push({ label: t('transactions.quantity'), value: transaction.quantity })
+    if (unitPrice != null) rows.push({ label: t('transactions.unitPrice'), value: `${formatAmount(unitPrice, language)} F` })
   }
   rows.push({
-    label: transaction.invoice_id ? 'Facture' : 'Client ou facture',
+    label: transaction.invoice_id ? t('transactions.detail.invoice') : t('transactions.detail.clientOrInvoice'),
     value: transaction.invoice_id ? (
       <Link href={`/invoices/${transaction.invoice_id}`} className="font-semibold text-brand-700">
-        {invoiceEntry?.invoice_number || 'Voir la facture'}
+        {invoiceEntry?.invoice_number || t('transactions.detail.viewInvoice')}
       </Link>
     ) : (
-      <span className="text-ink-3">—</span>
+      <span className="text-ink-3">{t('transactions.detail.notLinkedToInvoice')}</span>
     ),
   })
   if (invoiceEntry?.client_name) {
-    rows.push({ label: 'Client', value: invoiceEntry.client_name })
+    rows.push({ label: t('transactions.detail.client'), value: invoiceEntry.client_name })
   }
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="px-5 pb-8 pt-2.5">
         <DrawerHeader className="mt-1.5">
-          <DrawerTitle>Détail de la transaction</DrawerTitle>
+          <DrawerTitle>{t('transactions.detail.title')}</DrawerTitle>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            aria-label="Fermer"
+            aria-label={t('common.close')}
             className="flex size-10 items-center justify-center rounded-full bg-canvas text-ink"
           >
             <X className="size-4" strokeWidth={2} />
@@ -95,7 +98,7 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
                 className={`text-xl font-bold tracking-[-0.02em] ${isSale ? 'text-success' : 'text-danger'}`}
               >
                 {isSale ? '+' : '−'}
-                {formatAmount(transaction.amount ?? 0)} F
+                {formatAmount(transaction.amount ?? 0, language)} F
               </span>
             </span>
           </div>
@@ -116,14 +119,14 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
               className="flex min-h-11 items-center justify-center rounded-full border text-sm font-bold"
               style={{ color: '#A3213A', borderColor: '#F3C7CF' }}
             >
-              Supprimer la transaction
+              {t('transactions.detail.deleteTransaction')}
             </button>
           ) : (
             <Link
               href={`/invoices/${transaction.invoice_id}`}
               className="flex min-h-11 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
             >
-              Voir la facture
+              {t('transactions.detail.viewInvoice')}
             </Link>
           )}
         </div>

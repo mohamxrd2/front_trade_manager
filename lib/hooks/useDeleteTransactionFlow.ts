@@ -2,6 +2,7 @@ import { toast } from 'sonner'
 
 import { useDeleteTransaction, useRestoreTransaction } from '@/lib/hooks/useDeleteTransaction'
 import type { Transaction } from '@/lib/services/transactions'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 /**
  * Orchestration partagée mobile/ordinateur : suppression optimiste puis
@@ -14,20 +15,21 @@ import type { Transaction } from '@/lib/services/transactions'
  * toast, partout.
  */
 export function useDeleteTransactionFlow() {
+  const { t } = useTranslation()
   const deleteMutation = useDeleteTransaction()
   const restoreMutation = useRestoreTransaction()
 
   const requestDelete = (transaction: Transaction) => {
     deleteMutation.mutate(transaction, {
       onSuccess: () => {
-        toast.success('Transaction supprimée', {
+        toast.success(t('transactions.deleteFlow.deleted'), {
           duration: 5000,
           action: {
-            label: 'Annuler',
+            label: t('transactions.deleteFlow.undo'),
             onClick: () => {
               restoreMutation.mutate(transaction, {
                 onError: (error) => {
-                  toast.error(error instanceof Error ? error.message : 'Échec de la restauration')
+                  toast.error(error instanceof Error ? error.message : t('transactions.deleteFlow.restoreFailed'))
                 },
               })
             },
@@ -35,7 +37,7 @@ export function useDeleteTransactionFlow() {
         })
       },
       onError: (error) => {
-        toast.error(error instanceof Error ? error.message : 'Échec de la suppression')
+        toast.error(error instanceof Error ? error.message : t('transactions.deleteFlow.deleteFailed'))
       },
     })
   }

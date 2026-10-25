@@ -3,7 +3,6 @@
 import * as React from 'react'
 import Link from 'next/link'
 import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
 import { toast } from 'sonner'
 import { AlertCircle, ArrowDownLeft, ArrowUpRight, Check, Download } from 'lucide-react'
 
@@ -16,6 +15,9 @@ import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { keys } from '@/lib/query-keys'
 import { useQueryClient } from '@tanstack/react-query'
 import { exportToExcel } from '@/lib/utils/export'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber, formatDate } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,21 +40,21 @@ import {
   TransactionDetailSheet,
 } from '@/components/waelly'
 
-dayjs.locale('fr')
-
 const PAGE_SIZE = 10
 
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 type TypeFilter = 'all' | 'sale' | 'expense'
 type Period = 'all' | 'current' | 'previous' | '30d' | 'custom'
 
-const TYPE_CHIPS = [
-  { value: 'all', label: 'Tout' },
-  { value: 'sale', label: 'Ventes' },
-  { value: 'expense', label: 'Dépenses' },
-]
+function buildTypeChips(t: ReturnType<typeof useTranslation>['t']) {
+  return [
+    { value: 'all', label: t('wallet.list.typeAll') },
+    { value: 'sale', label: t('wallet.list.typeSales') },
+    { value: 'expense', label: t('wallet.list.typeExpenses') },
+  ]
+}
 
 function getPeriodRange(period: Period, customStart: string, customEnd: string) {
   const now = dayjs()
@@ -72,12 +74,12 @@ function getPeriodRange(period: Period, customStart: string, customEnd: string) 
   return { start: now.startOf('month'), end: now.endOf('month') }
 }
 
-function dayLabel(dateStr: string): string {
+function dayLabel(dateStr: string, language: AppLanguage, t: ReturnType<typeof useTranslation>['t']): string {
   const d = dayjs(dateStr)
   const today = dayjs()
-  if (d.isSame(today, 'day')) return "Aujourd'hui"
-  if (d.isSame(today.subtract(1, 'day'), 'day')) return 'Hier'
-  return d.format('D MMMM')
+  if (d.isSame(today, 'day')) return t('wallet.today')
+  if (d.isSame(today.subtract(1, 'day'), 'day')) return t('wallet.yesterday')
+  return formatDate(dateStr, language, 'D MMMM')
 }
 
 function transactionTitle(t: Transaction): string {
@@ -117,8 +119,10 @@ function transactionTitle(t: Transaction): string {
  */
 export default function WalletPage() {
   const queryClient = useQueryClient()
+  const { t, language } = useTranslation()
+  const typeChips = React.useMemo(() => buildTypeChips(t), [t])
   const { data: transactions = [], isLoading: loadingTx, error: txErrorObj, refetch: refetchTransactions } = useTransactionsQuery()
-  const txError = txErrorObj ? (txErrorObj as Error).message || 'Impossible de charger les opérations.' : null
+  const txError = txErrorObj ? (txErrorObj as Error).message || t('wallet.list.loadError') : null
   const invoiceLookup = useInvoiceLookup()
   const { requestDelete } = useDeleteTransactionFlow()
 
@@ -193,39 +197,39 @@ export default function WalletPage() {
 
   const groupedMobileRows = React.useMemo(() => {
     const groups: { label: string; items: Transaction[] }[] = []
-    visibleMobileRows.forEach((t) => {
-      const label = dayLabel(t.date)
+    visibleMobileRows.forEach((tx) => {
+      const label = dayLabel(tx.date, language, t)
       const last = groups[groups.length - 1]
       if (last && last.label === label) {
-        last.items.push(t)
+        last.items.push(tx)
       } else {
-        groups.push({ label, items: [t] })
+        groups.push({ label, items: [tx] })
       }
     })
     return groups
-  }, [visibleMobileRows])
+  }, [visibleMobileRows, language, t])
 
   const periodLabel =
     period === 'all'
-      ? 'depuis toujours'
+      ? t('wallet.list.periodAll')
       : period === 'current'
-        ? dayjs().format('MMMM YYYY')
+        ? formatDate(dayjs().toISOString(), language, 'MMMM YYYY')
         : period === 'previous'
-          ? dayjs().subtract(1, 'month').format('MMMM YYYY')
+          ? formatDate(dayjs().subtract(1, 'month').toISOString(), language, 'MMMM YYYY')
           : period === '30d'
-            ? '30 derniers jours'
-            : 'Personnalisé'
+            ? t('wallet.list.periodLast30Days')
+            : t('wallet.list.periodCustom')
 
   const periodShort =
     period === 'all'
-      ? 'depuis toujours'
+      ? t('wallet.list.periodAll')
       : period === 'current'
-        ? dayjs().format('MMM')
+        ? formatDate(dayjs().toISOString(), language, 'MMM')
         : period === 'previous'
-          ? dayjs().subtract(1, 'month').format('MMM')
+          ? formatDate(dayjs().subtract(1, 'month').toISOString(), language, 'MMM')
           : period === '30d'
-            ? '30j'
-            : 'perso.'
+            ? t('wallet.list.periodShort30d')
+            : t('wallet.list.periodShortCustom')
 
   const toggleRow = (id: string) => {
     setSelectedIds((prev) => {
@@ -263,9 +267,11 @@ export default function WalletPage() {
 
   const confirmDescription = (() => {
     const notes: string[] = []
-    if (selectionHasSale) notes.push('le stock des articles vendus sera restauré')
-    if (selectionHasInvoice) notes.push('les factures déjà émises ne seront pas supprimées')
-    return notes.length ? `Cette action est définitive : ${notes.join(', ')}.` : 'Cette action est définitive.'
+    if (selectionHasSale) notes.push(t('wallet.list.deleteConfirmNoteStock'))
+    if (selectionHasInvoice) notes.push(t('wallet.list.deleteConfirmNoteInvoices'))
+    return notes.length
+      ? t('wallet.list.deleteConfirmDefinitive', { notes: notes.join(', ') })
+      : t('wallet.list.deleteConfirmDefinitiveGeneric')
   })()
 
   const handleDeleteSelected = async () => {
@@ -275,8 +281,8 @@ export default function WalletPage() {
     const failedCount = results.filter((r) => r.status === 'rejected').length
     const okCount = ids.length - failedCount
 
-    if (okCount > 0) toast.success(`${okCount} opération(s) supprimée(s)`)
-    if (failedCount > 0) toast.error(`${failedCount} suppression(s) ont échoué`)
+    if (okCount > 0) toast.success(t('wallet.list.deletedCount', { count: okCount }))
+    if (failedCount > 0) toast.error(t('wallet.list.deleteFailedCount', { count: failedCount }))
 
     setSelectedIds(new Set())
     setMobileSelecting(false)
@@ -295,37 +301,42 @@ export default function WalletPage() {
 
   const handleExport = () => {
     if (filteredRows.length === 0) {
-      toast.error('Aucune opération à exporter')
+      toast.error(t('wallet.list.noExportData'))
       return
     }
-    const rows = filteredRows.map((t) => ({
-      Opération: transactionTitle(t),
-      Type: t.type === 'sale' ? 'Vente' : 'Dépense',
-      Date: dayjs(t.date).format('DD/MM/YYYY HH:mm'),
-      Facture: t.invoice_id ? invoiceLookup[t.invoice_id]?.invoice_number || t.invoice_id : '—',
-      Montant: `${t.type === 'sale' ? '+' : '−'}${formatAmount(t.amount ?? 0)} F`,
+    const exportColumnOperation = t('wallet.list.exportColumnOperation')
+    const exportColumnType = t('wallet.list.exportColumnType')
+    const exportColumnDate = t('wallet.list.exportColumnDate')
+    const exportColumnInvoice = t('wallet.list.exportColumnInvoice')
+    const exportColumnAmount = t('wallet.list.exportColumnAmount')
+    const rows = filteredRows.map((tx) => ({
+      [exportColumnOperation]: transactionTitle(tx),
+      [exportColumnType]: tx.type === 'sale' ? t('transactions.sale') : t('transactions.expense'),
+      [exportColumnDate]: dayjs(tx.date).format('DD/MM/YYYY HH:mm'),
+      [exportColumnInvoice]: tx.invoice_id ? invoiceLookup[tx.invoice_id]?.invoice_number || tx.invoice_id : '—',
+      [exportColumnAmount]: `${tx.type === 'sale' ? '+' : '−'}${formatAmount(tx.amount ?? 0, language)} F`,
     }))
-    exportToExcel(rows, `waelly-portefeuille-${dayjs().format('YYYY-MM')}`, 'Portefeuille')
-    toast.success('Export généré')
+    exportToExcel(rows, `waelly-portefeuille-${dayjs().format('YYYY-MM')}`, t('wallet.title'))
+    toast.success(t('wallet.list.exportGenerated'))
   }
 
   const selectionBar = selectedIds.size > 0 && (
     <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-tile bg-active px-4.5 py-2.5 text-white">
-      <span className="text-sm font-semibold">{selectedIds.size} opération(s) sélectionnée(s)</span>
+      <span className="text-sm font-semibold">{t('wallet.list.selectionCount', { count: selectedIds.size })}</span>
       <span className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={clearSelection}
           className="flex min-h-10 items-center rounded-full border border-white/30 px-3.5 text-[13px] font-semibold text-white"
         >
-          Annuler
+          {t('common.cancel')}
         </button>
         <button
           type="button"
           onClick={() => setDeleteDialogOpen(true)}
           className="flex min-h-10 items-center rounded-full bg-danger-dot px-4 text-[13px] font-bold text-white"
         >
-          Supprimer
+          {t('common.delete')}
         </button>
       </span>
     </div>
@@ -335,13 +346,13 @@ export default function WalletPage() {
     <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Supprimer {selectedIds.size} opération(s) ?</AlertDialogTitle>
+          <AlertDialogTitle>{t('wallet.list.deleteConfirmTitle', { count: selectedIds.size })}</AlertDialogTitle>
           <AlertDialogDescription>{confirmDescription}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+          <AlertDialogCancel disabled={deleting}>{t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction onClick={handleDeleteSelected} disabled={deleting}>
-            {deleting ? 'Suppression…' : 'Supprimer'}
+            {deleting ? t('products.detail.deleting') : t('common.delete')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -354,7 +365,7 @@ export default function WalletPage() {
         <AlertCircle className="size-12 text-subtle" />
         <p className="text-sm text-subtle">{txError}</p>
         <Button variant="secondary" onClick={fetchTransactions}>
-          Réessayer
+          {t('wallet.list.retry')}
         </Button>
       </div>
     )
@@ -383,7 +394,7 @@ export default function WalletPage() {
       {/* --- Mobile (< 1024px) --- */}
       <div className="flex flex-col gap-4 pb-28 lg:hidden">
         <div className="flex items-center justify-between">
-          <h1 className="text-[28px] font-bold tracking-tight text-ink">Portefeuille</h1>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('wallet.title')}</h1>
           <button
             type="button"
             onClick={() => {
@@ -392,45 +403,45 @@ export default function WalletPage() {
             }}
             className="flex min-h-11 items-center rounded-xl border border-line-strong bg-surface px-3.5 text-sm font-semibold text-ink"
           >
-            {mobileSelecting ? 'Annuler' : 'Sélectionner'}
+            {mobileSelecting ? t('common.cancel') : t('wallet.list.selectBulk')}
           </button>
         </div>
 
         <div className="flex flex-col gap-1.5 rounded-tile bg-[radial-gradient(120%_120%_at_100%_100%,#3A3AF0_0%,#1717A0_40%,#0A0A4A_85%)] p-3.5 text-white">
-          <span className="text-[13px] text-navy-text">Solde · {periodLabel}</span>
-          <span className="text-2xl font-bold tracking-[-0.02em]">{formatAmount(summary.balance)} F</span>
+          <span className="text-[13px] text-navy-text">{t('wallet.list.balanceLabel', { period: periodLabel })}</span>
+          <span className="text-2xl font-bold tracking-[-0.02em]">{formatAmount(summary.balance, language)} F</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
           <div className="flex flex-col gap-1.5 rounded-tile border border-line bg-surface p-3.5">
             <span className="flex items-center gap-1.5 text-[13px] text-subtle">
               <span className="size-2 rounded-full bg-brand-500" />
-              Entrées ({periodShort})
+              {t('wallet.list.entriesLabelWithPeriod', { period: periodShort })}
             </span>
-            <span className="text-xl font-bold text-success">{formatAmount(summary.entries)}</span>
+            <span className="text-xl font-bold text-success">{formatAmount(summary.entries, language)}</span>
           </div>
           <div className="flex flex-col gap-1.5 rounded-tile border border-line bg-surface p-3.5">
             <span className="flex items-center gap-1.5 text-[13px] text-subtle">
               <span className="size-2 rounded-full bg-danger" />
-              Sorties ({periodShort})
+              {t('wallet.list.exitsLabelWithPeriod', { period: periodShort })}
             </span>
-            <span className="text-xl font-bold text-danger">{formatAmount(summary.exits)}</span>
+            <span className="text-xl font-bold text-danger">{formatAmount(summary.exits, language)}</span>
           </div>
         </div>
 
-        <FilterChips options={TYPE_CHIPS} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
+        <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
 
         {mobileSelecting && selectedIds.size > 0 ? (
           <span className="text-sm font-semibold text-ink-2">
-            {selectedIds.size} opération(s) sélectionnée(s)
+            {t('wallet.list.selectionCount', { count: selectedIds.size })}
           </span>
         ) : null}
 
         {filteredRows.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <p className="text-sm text-subtle">Aucune opération sur cette période</p>
+            <p className="text-sm text-subtle">{t('wallet.list.noTransactionsInPeriod')}</p>
             <Button variant="primary" asChild>
-              <Link href="/wallet/new?type=sale">+ Vente</Link>
+              <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
             </Button>
           </div>
         ) : (
@@ -440,48 +451,48 @@ export default function WalletPage() {
                 <span className="px-1 pb-0.5 pt-2.5 text-xs font-bold uppercase tracking-wide text-subtle">
                   {group.label}
                 </span>
-                {group.items.map((t) => (
+                {group.items.map((tx) => (
                   <SwipeableTransactionRow
-                    key={t.id}
+                    key={tx.id}
                     className="rounded-tile border border-line"
-                    exiting={exitingRowId === t.id}
-                    disabled={mobileSelecting || !isDeletableFromList(t, t.invoice_id ? invoiceLookup[t.invoice_id]?.status : undefined)}
-                    onRequestDelete={() => setSingleDeleteTarget(t)}
+                    exiting={exitingRowId === tx.id}
+                    disabled={mobileSelecting || !isDeletableFromList(tx, tx.invoice_id ? invoiceLookup[tx.invoice_id]?.status : undefined)}
+                    onRequestDelete={() => setSingleDeleteTarget(tx)}
                   >
                     <label
-                      onClick={mobileSelecting ? undefined : () => setMobileDetailTransaction(t)}
+                      onClick={mobileSelecting ? undefined : () => setMobileDetailTransaction(tx)}
                       className="flex min-h-11 items-center gap-3 bg-surface p-3.5"
                     >
                       {mobileSelecting ? (
                         <input
                           type="checkbox"
-                          aria-label={`Sélectionner ${transactionTitle(t)}`}
-                          checked={selectedIds.has(t.id)}
-                          onChange={() => toggleRow(t.id)}
+                          aria-label={t('wallet.list.selectRowAria', { name: transactionTitle(tx) })}
+                          checked={selectedIds.has(tx.id)}
+                          onChange={() => toggleRow(tx.id)}
                           className="size-[22px] accent-brand-500"
                         />
                       ) : null}
                       <span
                         className={`flex size-10 shrink-0 items-center justify-center rounded-tile text-lg font-bold ${
-                          t.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
+                          tx.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
                         }`}
                       >
-                        {t.type === 'sale' ? '+' : '−'}
+                        {tx.type === 'sale' ? '+' : '−'}
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="truncate text-sm font-semibold text-ink">{transactionTitle(t)}</span>
+                        <span className="truncate text-sm font-semibold text-ink">{transactionTitle(tx)}</span>
                         <span className="truncate text-xs text-subtle">
-                          {t.type === 'sale' ? 'Vente' : 'Dépense'} ·{' '}
-                          {t.invoice_id
-                            ? `Facture ${invoiceLookup[t.invoice_id]?.invoice_number || ''}`.trim()
-                            : dayjs(t.date).format('HH:mm')}
+                          {tx.type === 'sale' ? t('transactions.sale') : t('transactions.expense')} ·{' '}
+                          {tx.invoice_id
+                            ? t('wallet.list.invoiceNumberPrefix', { number: invoiceLookup[tx.invoice_id]?.invoice_number || '' }).trim()
+                            : formatDate(tx.date, language, 'HH:mm')}
                         </span>
                       </span>
                       <span
-                        className={`shrink-0 text-sm font-bold ${t.type === 'sale' ? 'text-success' : 'text-danger'}`}
+                        className={`shrink-0 text-sm font-bold ${tx.type === 'sale' ? 'text-success' : 'text-danger'}`}
                       >
-                        {t.type === 'sale' ? '+' : '−'}
-                        {formatAmount(t.amount ?? 0)}
+                        {tx.type === 'sale' ? '+' : '−'}
+                        {formatAmount(tx.amount ?? 0, language)}
                       </span>
                     </label>
                   </SwipeableTransactionRow>
@@ -494,7 +505,7 @@ export default function WalletPage() {
                 onClick={() => setMobileVisibleCount((c) => c + PAGE_SIZE)}
                 className="flex min-h-11 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
               >
-                Charger plus ({filteredRows.length - mobileVisibleCount} restante(s))
+                {t('wallet.list.loadMore', { count: filteredRows.length - mobileVisibleCount })}
               </button>
             ) : null}
           </div>
@@ -507,7 +518,7 @@ export default function WalletPage() {
               className="w-full bg-danger text-white"
               onClick={() => setDeleteDialogOpen(true)}
             >
-              Supprimer la sélection ({selectedIds.size})
+              {t('wallet.list.deleteSelectionCount', { count: selectedIds.size })}
             </Button>
           </div>
         ) : null}
@@ -517,44 +528,44 @@ export default function WalletPage() {
       <div className="hidden flex-col gap-5 lg:flex">
         <div className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Portefeuille</h1>
-            <span className="text-sm text-subtle">Toutes vos ventes et dépenses</span>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('wallet.title')}</h1>
+            <span className="text-sm text-subtle">{t('wallet.list.subtitleDesktop')}</span>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <Button variant="glass" asChild>
-              <Link href="/wallet/new?type=expense">− Dépense</Link>
+              <Link href="/wallet/new?type=expense">{t('wallet.list.addExpense')}</Link>
             </Button>
             <Button variant="primary" asChild>
-              <Link href="/wallet/new?type=sale">+ Vente</Link>
+              <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5 rounded-[24px] bg-[radial-gradient(120%_120%_at_100%_100%,#3A3AF0_0%,#1717A0_40%,#0A0A4A_85%)] p-5 text-white shadow-[0_14px_30px_rgba(16,16,120,0.24)]">
-            <span className="text-[13px] text-navy-text">Solde · {periodLabel}</span>
-            <span className="text-[30px] font-bold tracking-[-0.02em]">{formatAmount(summary.balance)} F</span>
+            <span className="text-[13px] text-navy-text">{t('wallet.list.balanceLabel', { period: periodLabel })}</span>
+            <span className="text-[30px] font-bold tracking-[-0.02em]">{formatAmount(summary.balance, language)} F</span>
           </div>
           <div className="flex flex-col gap-1.5 rounded-[24px] bg-surface p-5 shadow-card">
-            <span className="text-[13px] text-subtle">Entrées</span>
+            <span className="text-[13px] text-subtle">{t('wallet.list.entriesLabel')}</span>
             <span className="text-[30px] font-bold tracking-[-0.02em] text-success">
-              +{formatAmount(summary.entries)} F
+              +{formatAmount(summary.entries, language)} F
             </span>
           </div>
           <div className="flex flex-col gap-1.5 rounded-[24px] bg-surface p-5 shadow-card">
-            <span className="text-[13px] text-subtle">Sorties</span>
+            <span className="text-[13px] text-subtle">{t('wallet.list.exitsLabel')}</span>
             <span className="text-[30px] font-bold tracking-[-0.02em] text-danger">
-              −{formatAmount(summary.exits)} F
+              −{formatAmount(summary.exits, language)} F
             </span>
           </div>
         </div>
 
         <Card className="flex flex-col gap-3.5 rounded-panel">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <FilterChips options={TYPE_CHIPS} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
+            <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="wallet-period" className="sr-only">
-                Période
+                {t('wallet.list.periodSelectAria')}
               </label>
               <select
                 id="wallet-period"
@@ -562,11 +573,11 @@ export default function WalletPage() {
                 onChange={(e) => setPeriod(e.target.value as Period)}
                 className="h-[42px] rounded-full border border-line-strong bg-surface px-3.5 text-[13px] font-semibold text-ink"
               >
-                <option value="all">Depuis toujours</option>
-                <option value="current">{dayjs().format('MMMM YYYY')}</option>
-                <option value="previous">{dayjs().subtract(1, 'month').format('MMMM YYYY')}</option>
-                <option value="30d">30 derniers jours</option>
-                <option value="custom">Personnalisé…</option>
+                <option value="all">{t('wallet.list.periodAll')}</option>
+                <option value="current">{formatDate(dayjs().toISOString(), language, 'MMMM YYYY')}</option>
+                <option value="previous">{formatDate(dayjs().subtract(1, 'month').toISOString(), language, 'MMMM YYYY')}</option>
+                <option value="30d">{t('wallet.list.periodLast30Days')}</option>
+                <option value="custom">{t('wallet.list.periodCustomOption')}</option>
               </select>
               {period === 'custom' ? (
                 <>
@@ -590,7 +601,7 @@ export default function WalletPage() {
                 className="flex h-[42px] items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3.5 text-[13px] font-semibold text-ink"
               >
                 <Download className="size-4" />
-                Exporter
+                {t('wallet.list.export')}
               </button>
             </div>
           </div>
@@ -599,9 +610,9 @@ export default function WalletPage() {
 
           {filteredRows.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <p className="text-sm text-subtle">Aucune opération sur cette période</p>
+              <p className="text-sm text-subtle">{t('wallet.list.noTransactionsInPeriod')}</p>
               <Button variant="primary" asChild>
-                <Link href="/wallet/new?type=sale">+ Vente</Link>
+                <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
               </Button>
             </div>
           ) : (
@@ -615,7 +626,7 @@ export default function WalletPage() {
                           type="button"
                           role="checkbox"
                           aria-checked={allOnPageSelected}
-                          aria-label="Sélectionner toute la page"
+                          aria-label={t('wallet.list.selectAllPageAria')}
                           disabled={selectablePaginatedRows.length === 0}
                           onClick={toggleSelectAllOnPage}
                           className={`flex size-6 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-40 ${
@@ -625,21 +636,21 @@ export default function WalletPage() {
                           {allOnPageSelected ? <Check className="size-3.5 text-white" strokeWidth={3} /> : null}
                         </button>
                       </th>
-                      <th className="px-2 py-2.5">Opération</th>
-                      <th className="px-2 py-2.5">Type</th>
-                      <th className="px-2 py-2.5">Date</th>
-                      <th className="px-2 py-2.5">Facture</th>
-                      <th className="px-2 py-2.5 text-right">Montant</th>
+                      <th className="px-2 py-2.5">{t('wallet.list.columnOperation')}</th>
+                      <th className="px-2 py-2.5">{t('transactions.type')}</th>
+                      <th className="px-2 py-2.5">{t('wallet.list.columnDate')}</th>
+                      <th className="px-2 py-2.5">{t('transactions.detail.invoice')}</th>
+                      <th className="px-2 py-2.5 text-right">{t('transactions.amount')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedRows.map((t) => {
-                      const checked = selectedIds.has(t.id)
-                      const selectable = canSelectForDeletion(t)
+                    {paginatedRows.map((tx) => {
+                      const checked = selectedIds.has(tx.id)
+                      const selectable = canSelectForDeletion(tx)
                       return (
                         <tr
-                          key={t.id}
-                          onClick={() => setDesktopDetailTransaction(t)}
+                          key={tx.id}
+                          onClick={() => setDesktopDetailTransaction(tx)}
                           className={`cursor-pointer border-t border-divider hover:bg-surface-soft ${checked ? 'bg-brand-50' : ''}`}
                         >
                           <td className="px-2 py-2.5">
@@ -649,12 +660,12 @@ export default function WalletPage() {
                               aria-checked={checked}
                               aria-label={
                                 selectable
-                                  ? `Sélectionner ${transactionTitle(t)}`
-                                  : `${transactionTitle(t)} : liée à une facture payée, non sélectionnable`
+                                  ? t('wallet.list.selectRowAria', { name: transactionTitle(tx) })
+                                  : t('wallet.list.notSelectableAria', { name: transactionTitle(tx) })
                               }
                               disabled={!selectable}
-                              title={selectable ? undefined : 'Liée à une facture payée — à gérer depuis la facture'}
-                              onClick={(e) => { e.stopPropagation(); toggleRow(t.id) }}
+                              title={selectable ? undefined : t('wallet.list.notSelectableTitle')}
+                              onClick={(e) => { e.stopPropagation(); toggleRow(tx.id) }}
                               className={`flex size-6 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-40 ${
                                 checked ? 'bg-brand-500' : 'border-[1.5px] border-line-strong bg-surface'
                               }`}
@@ -666,37 +677,37 @@ export default function WalletPage() {
                             <span className="flex items-center gap-3">
                               <span
                                 className={`flex size-9 shrink-0 items-center justify-center rounded-full text-base font-bold ${
-                                  t.type === 'sale'
+                                  tx.type === 'sale'
                                     ? 'bg-success-bg text-success-strong'
                                     : 'bg-danger-bg text-danger-strong'
                                 }`}
                               >
-                                {t.type === 'sale' ? (
+                                {tx.type === 'sale' ? (
                                   <ArrowUpRight className="size-4" strokeWidth={2.2} />
                                 ) : (
                                   <ArrowDownLeft className="size-4" strokeWidth={2.2} />
                                 )}
                               </span>
-                              <span className="font-semibold text-ink">{transactionTitle(t)}</span>
+                              <span className="font-semibold text-ink">{transactionTitle(tx)}</span>
                             </span>
                           </td>
                           <td className="px-2 py-2.5">
                             <StatusBadge
-                              tone={t.type === 'sale' ? 'success' : 'danger'}
-                              label={t.type === 'sale' ? 'Vente' : 'Dépense'}
+                              tone={tx.type === 'sale' ? 'success' : 'danger'}
+                              label={tx.type === 'sale' ? t('transactions.sale') : t('transactions.expense')}
                             />
                           </td>
                           <td className="whitespace-nowrap px-2 py-2.5 text-ink-3">
-                            {dayjs(t.date).format('D MMM · HH:mm')}
+                            {formatDate(tx.date, language, 'D MMM · HH:mm')}
                           </td>
                           <td className="px-2 py-2.5">
-                            {t.invoice_id ? (
+                            {tx.invoice_id ? (
                               <Link
-                                href={`/invoices/${t.invoice_id}`}
+                                href={`/invoices/${tx.invoice_id}`}
                                 onClick={(e) => e.stopPropagation()}
                                 className="font-semibold text-brand-700"
                               >
-                                {invoiceLookup[t.invoice_id]?.invoice_number || 'Voir'}
+                                {invoiceLookup[tx.invoice_id]?.invoice_number || t('wallet.list.viewInvoiceShort')}
                               </Link>
                             ) : (
                               <span className="text-ink-3">—</span>
@@ -704,11 +715,11 @@ export default function WalletPage() {
                           </td>
                           <td
                             className={`whitespace-nowrap px-2 py-2.5 text-right font-bold ${
-                              t.type === 'sale' ? 'text-success' : 'text-danger'
+                              tx.type === 'sale' ? 'text-success' : 'text-danger'
                             }`}
                           >
-                            {t.type === 'sale' ? '+' : '−'}
-                            {formatAmount(t.amount ?? 0)} F
+                            {tx.type === 'sale' ? '+' : '−'}
+                            {formatAmount(tx.amount ?? 0, language)} F
                           </td>
                         </tr>
                       )
@@ -721,7 +732,7 @@ export default function WalletPage() {
                 page={page}
                 pageCount={pageCount}
                 onPageChange={setPage}
-                summary={`${paginatedRows.length} opération(s) affichée(s) sur ${filteredRows.length}`}
+                summary={t('wallet.list.shownOfTotal', { shown: paginatedRows.length, total: filteredRows.length })}
               />
             </>
           )}

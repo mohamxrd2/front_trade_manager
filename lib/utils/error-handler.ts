@@ -54,8 +54,8 @@ export function isSilentError(error: unknown): boolean {
     'Ignoring',
     'Redirecting to login',
     '(silent)',
-    'Déconnexion en cours',
-    'Session expirée',
+    'Déconnexion en cours', // i18n:allow — sentinelle interne, jamais affichée (test .includes() sur error.message)
+    'Session expirée', // i18n:allow — sentinelle interne, jamais affichée (test .includes() sur error.message)
     'Redirection vers login',
   ]
 

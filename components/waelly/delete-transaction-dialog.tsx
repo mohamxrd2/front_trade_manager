@@ -5,6 +5,7 @@ import * as React from 'react'
 import type { Transaction } from '@/lib/services/transactions'
 import { useDeletionConsequence } from '@/lib/hooks/useDeletionConsequence'
 import { formatTransactionSummary } from '@/lib/transactions/transaction-summary'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ interface DeleteTransactionDialogProps {
  * (Annuler/Supprimer, 44px minimum — déjà la hauteur par défaut d'AlertDialog).
  */
 function DeleteTransactionDialog({ transaction, onOpenChange, onConfirm, confirming = false }: DeleteTransactionDialogProps) {
+  const { t, language } = useTranslation()
   const consequence = useDeletionConsequence(transaction)
   const open = transaction !== null
 
@@ -38,21 +40,21 @@ function DeleteTransactionDialog({ transaction, onOpenChange, onConfirm, confirm
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            Supprimer cette {transaction?.type === 'expense' ? 'dépense' : 'vente'} ?
+            {transaction?.type === 'expense' ? t('transactions.deleteDialog.titleExpense') : t('transactions.deleteDialog.titleSale')}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {transaction ? formatTransactionSummary(transaction) : ''}
+            {transaction ? formatTransactionSummary(transaction, language) : ''}
             <br />
             {consequence}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={confirming}>Annuler</AlertDialogCancel>
+          <AlertDialogCancel disabled={confirming}>{t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => transaction && onConfirm(transaction)}
             disabled={confirming}
           >
-            {confirming ? 'Suppression…' : 'Supprimer'}
+            {confirming ? t('products.detail.deleting') : t('common.delete')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

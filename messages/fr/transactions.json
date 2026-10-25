@@ -64,5 +64,49 @@
     "expenseAdded": "Dépense enregistrée avec succès !",
     "updated": "Transaction modifiée avec succès",
     "deleted": "Transaction supprimée avec succès"
+  },
+  "serviceErrors": {
+    "serverErrorStats": "Erreur serveur lors du chargement des statistiques",
+    "loadStatsFailed": "Erreur lors du chargement des statistiques",
+    "serverErrorList": "Erreur serveur lors du chargement des transactions",
+    "loadListFailed": "Erreur lors du chargement des transactions",
+    "updateFailedGeneric": "Erreur lors de la modification",
+    "validationGeneric": "Erreur de validation. Veuillez vérifier les données saisies.",
+    "serverErrorUpdate": "Erreur serveur lors de la modification",
+    "updateFailed": "Erreur lors de la modification de la transaction",
+    "notAuthorizedDelete": "Non autorisé à supprimer cette transaction",
+    "linkedToInvoice": "Cette vente est liée à une facture et ne peut pas être supprimée ici.",
+    "serverErrorDelete": "Erreur serveur lors de la suppression",
+    "deleteFailed": "Erreur lors de la suppression de la transaction",
+    "invalidApiResponse": "Réponse API invalide",
+    "notAuthorizedRestore": "Non autorisé à restaurer cette transaction",
+    "restoreFailed": "Erreur lors de la restauration de la transaction"
+  },
+  "detail": {
+    "title": "Détail de la transaction",
+    "dateTime": "Date et heure",
+    "variant": "Variante",
+    "saleName": "Nom de la vente",
+    "invoice": "Facture",
+    "clientOrInvoice": "Client ou facture",
+    "client": "Client",
+    "viewInvoice": "Voir la facture",
+    "deleteTransaction": "Supprimer la transaction",
+    "notLinkedToInvoice": "—"
+  },
+  "deleteFlow": {
+    "deleted": "Transaction supprimée",
+    "undo": "Annuler",
+    "restoreFailed": "Échec de la restauration",
+    "deleteFailed": "Échec de la suppression"
+  },
+  "summary": {
+    "balanceIncreasesBy": "Le solde augmentera de {{amount}}.",
+    "stockWillUpdate": "Le stock de {{name}} sera mis à jour.",
+    "stockWillReturnTo": "Le stock de {{name}} reviendra à {{quantity}}."
+  },
+  "deleteDialog": {
+    "titleExpense": "Supprimer cette dépense ?",
+    "titleSale": "Supprimer cette vente ?"
   }
 }

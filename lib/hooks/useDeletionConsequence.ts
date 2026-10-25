@@ -1,6 +1,7 @@
 import { useArticles } from '@/lib/hooks/useArticles'
 import type { Transaction } from '@/lib/services/transactions'
 import { describeDeletionConsequence } from '@/lib/transactions/transaction-summary'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 /**
  * Résout, à partir du cache articles déjà chargé (pas de requête dédiée),
@@ -13,24 +14,25 @@ import { describeDeletionConsequence } from '@/lib/transactions/transaction-summ
  */
 export function useDeletionConsequence(transaction: Transaction | null): string {
   const { articles } = useArticles()
+  const { language } = useTranslation()
 
   if (!transaction) return ''
   if (transaction.type === 'expense') {
-    return describeDeletionConsequence(transaction, null)
+    return describeDeletionConsequence(transaction, null, language)
   }
 
   const article = articles.find((a) => String(a.id) === String(transaction.article_id))
   if (!article) {
-    return describeDeletionConsequence(transaction, null)
+    return describeDeletionConsequence(transaction, null, language)
   }
 
   const quantity = transaction.quantity ?? 0
 
   if (transaction.variable_id) {
     const variation = article.variations?.find((v) => v.id === transaction.variable_id)
-    if (!variation) return describeDeletionConsequence(transaction, null)
-    return describeDeletionConsequence(transaction, variation.remaining_quantity + quantity)
+    if (!variation) return describeDeletionConsequence(transaction, null, language)
+    return describeDeletionConsequence(transaction, variation.remaining_quantity + quantity, language)
   }
 
-  return describeDeletionConsequence(transaction, article.remaining_quantity + quantity)
+  return describeDeletionConsequence(transaction, article.remaining_quantity + quantity, language)
 }

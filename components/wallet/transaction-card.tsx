@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/hooks/useTranslation";
+import { formatDate, formatNumber } from "@/lib/i18n/format";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,9 +18,6 @@ import {
 import { Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrency } from '@/lib/utils/currency';
-
-// Configurer dayjs en français
-dayjs.locale('fr')
 
 export type TransactionType = 'sale' | 'expense';
 
@@ -46,7 +42,7 @@ interface TransactionCardProps {
  * Composant affichant une carte de transaction (vente ou dépense)
  */
 export function TransactionCard({ transaction, onEdit, onDelete }: TransactionCardProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const { currency } = useCurrency()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -58,9 +54,9 @@ export function TransactionCard({ transaction, onEdit, onDelete }: TransactionCa
     onDelete?.(transaction.id);
     setShowDeleteDialog(false);
   };
-  // Formater la date avec dayjs (YYYY-MM-DD ou ISO -> "12 mai 2025")
-  const formatDate = (dateString: string) => {
-    return dayjs(dateString).format('DD MMMM YYYY');
+  // Formater la date ("12 mai 2025" / "May 12, 2025")
+  const formatTransactionDate = (dateString: string) => {
+    return formatDate(dateString, language, language === 'en' ? 'MMMM D, YYYY' : 'DD MMMM YYYY');
   };
 
   // Calculer le montant total
@@ -73,15 +69,11 @@ export function TransactionCard({ transaction, onEdit, onDelete }: TransactionCa
 
   // Formater le montant
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("fr-FR", {
+    return formatNumber(value, language, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(value);
+    });
   };
-
-  // Obtenir le titre de la transaction
-
-
   return (
     <div className="border rounded-xl p-4 sm:p-5 hover:shadow-lg transition-all bg-card hover:border-primary/30 border-border/50">
       {/* Layout Desktop : Horizontal */}
@@ -97,7 +89,7 @@ export function TransactionCard({ transaction, onEdit, onDelete }: TransactionCa
                 : 'text-red-700 border-red-300 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-950'
             )}
           >
-            {transaction.type === 'sale' ? 'Vente' : 'Dépense'}
+            {transaction.type === 'sale' ? t('transactions.sale') : t('transactions.expense')}
           </Badge>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-base truncate text-foreground">{transaction.name}</h3>
@@ -123,7 +115,7 @@ export function TransactionCard({ transaction, onEdit, onDelete }: TransactionCa
 
         {/* Colonne 3 : Date */}
         <div className="text-sm text-muted-foreground shrink-0 min-w-[150px] text-right font-medium">
-          {formatDate(transaction.date)}
+          {formatTransactionDate(transaction.date)}
         </div>
 
         {/* Colonne 4 : Actions */}
@@ -196,7 +188,7 @@ export function TransactionCard({ transaction, onEdit, onDelete }: TransactionCa
           )}
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground font-medium">
-              {formatDate(transaction.date)}
+              {formatTransactionDate(transaction.date)}
             </span>
             <span className={cn(
               "text-lg font-bold",

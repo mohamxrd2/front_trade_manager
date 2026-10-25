@@ -2,19 +2,18 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 
 import type { Transaction } from '@/lib/services/transactions'
 import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatDate, formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTitle } from '@/components/ui/dialog'
 
-dayjs.locale('fr')
-
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 interface DetailRow {
   label: string
@@ -39,6 +38,7 @@ interface TransactionDetailsDialogProps {
  * deux côtés, pas besoin d'un Drawer séparé pour mobile).
  */
 function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, invoiceEntry, onRequestDelete }: TransactionDetailsDialogProps) {
+  const { t, language } = useTranslation()
   const open = transaction !== null
   if (!transaction) return null
 
@@ -48,25 +48,28 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
   const canDelete = isDeletableFromList(transaction, invoiceEntry?.status)
 
   const rows: DetailRow[] = []
-  if (isSale && transaction.quantity) rows.push({ label: 'Quantité', value: transaction.quantity })
-  if (isSale && unitPrice != null) rows.push({ label: 'Prix unitaire', value: `${formatAmount(unitPrice)} F` })
-  if (isSale && transaction.variation_name) rows.push({ label: 'Variante', value: transaction.variation_name })
+  if (isSale && transaction.quantity) rows.push({ label: t('transactions.quantity'), value: transaction.quantity })
+  if (isSale && unitPrice != null) rows.push({ label: t('transactions.unitPrice'), value: `${formatAmount(unitPrice, language)} F` })
+  if (isSale && transaction.variation_name) rows.push({ label: t('transactions.detail.variant'), value: transaction.variation_name })
   if (isSale && transaction.article_name && transaction.article_name !== transaction.name) {
-    rows.push({ label: 'Nom de la vente', value: transaction.name })
+    rows.push({ label: t('transactions.detail.saleName'), value: transaction.name })
   }
-  rows.push({ label: 'Date', value: dayjs(transaction.date).format('D MMMM YYYY à HH:mm') })
   rows.push({
-    label: 'Facture',
+    label: t('transactions.date'),
+    value: formatDate(transaction.date, language, language === 'en' ? 'MMMM D, YYYY [at] h:mm A' : 'D MMMM YYYY à HH:mm'),
+  })
+  rows.push({
+    label: t('transactions.detail.invoice'),
     value: transaction.invoice_id ? (
       <Link href={`/invoices/${transaction.invoice_id}`} className="font-semibold text-brand-700">
-        {invoiceNumber || invoiceEntry?.invoice_number || 'Voir la facture'}
+        {invoiceNumber || invoiceEntry?.invoice_number || t('transactions.detail.viewInvoice')}
       </Link>
     ) : (
-      <span className="text-ink-3">—</span>
+      <span className="text-ink-3">{t('transactions.detail.notLinkedToInvoice')}</span>
     ),
   })
   if (invoiceEntry?.client_name) {
-    rows.push({ label: 'Client', value: invoiceEntry.client_name })
+    rows.push({ label: t('transactions.detail.client'), value: invoiceEntry.client_name })
   }
 
   return (
@@ -87,7 +90,7 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <DialogTitle className="truncate text-lg font-bold text-ink">{title}</DialogTitle>
-              <span className="text-sm text-subtle">{isSale ? 'Vente' : 'Dépense'}</span>
+              <span className="text-sm text-subtle">{isSale ? t('transactions.sale') : t('transactions.expense')}</span>
             </span>
           </div>
 
@@ -95,7 +98,7 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
             className={`text-[32px] font-bold tracking-[-0.02em] ${isSale ? 'text-success' : 'text-danger'}`}
           >
             {isSale ? '+' : '−'}
-            {formatAmount(transaction.amount ?? 0)} F
+            {formatAmount(transaction.amount ?? 0, language)} F
           </span>
 
           <div className="flex flex-col divide-y divide-divider rounded-tile border border-line">
@@ -113,7 +116,7 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
               onClick={() => onOpenChange(false)}
               className="flex min-h-11 flex-1 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
             >
-              Fermer
+              {t('common.close')}
             </button>
             {onRequestDelete ? (
               canDelete ? (
@@ -123,14 +126,14 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
                   className="flex min-h-11 flex-1 items-center justify-center rounded-full border text-sm font-bold"
                   style={{ color: '#A3213A', borderColor: '#F3C7CF' }}
                 >
-                  Supprimer
+                  {t('common.delete')}
                 </button>
               ) : (
                 <Link
                   href={`/invoices/${transaction.invoice_id}`}
                   className="flex min-h-11 flex-1 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
                 >
-                  Voir la facture
+                  {t('transactions.detail.viewInvoice')}
                 </Link>
               )
             ) : null}

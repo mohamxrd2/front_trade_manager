@@ -10,8 +10,6 @@
   "app/(dashboard)/collaborators/page.tsx",
   "app/(dashboard)/layout.tsx",
   "app/(dashboard)/notifications/page.tsx",
-  "app/(dashboard)/wallet/new/page.tsx",
-  "app/(dashboard)/wallet/page.tsx",
   "app/(marketing)/layout.tsx",
   "app/auth/callback/page.tsx",
   "app/auth/facebook/callback/page.tsx",
@@ -79,16 +77,10 @@
   "components/waelly/button.tsx",
   "components/waelly/card.tsx",
   "components/waelly/category-donut.tsx",
-  "components/waelly/delete-transaction-dialog.tsx",
   "components/waelly/filter-chips.tsx",
   "components/waelly/hero-card.tsx",
   "components/waelly/kpi-card.tsx",
   "components/waelly/pagination.tsx",
   "components/waelly/segmented-control.tsx",
-  "components/waelly/status-badge.tsx",
-  "components/waelly/swipeable-transaction-row.tsx",
-  "components/waelly/transaction-detail-sheet.tsx",
-  "components/waelly/transaction-details-dialog.tsx",
-  "components/waelly/transaction-row.tsx",
-  "components/wallet/transaction-card.tsx"
+  "components/waelly/status-badge.tsx"
 ]

@@ -64,5 +64,49 @@
     "expenseAdded": "Expense recorded successfully!",
     "updated": "Transaction updated successfully",
     "deleted": "Transaction deleted successfully"
+  },
+  "serviceErrors": {
+    "serverErrorStats": "Server error while loading statistics",
+    "loadStatsFailed": "Error loading statistics",
+    "serverErrorList": "Server error while loading transactions",
+    "loadListFailed": "Error loading transactions",
+    "updateFailedGeneric": "Update failed",
+    "validationGeneric": "Validation error. Please check the data entered.",
+    "serverErrorUpdate": "Server error during update",
+    "updateFailed": "Error updating the transaction",
+    "notAuthorizedDelete": "Not authorized to delete this transaction",
+    "linkedToInvoice": "This sale is linked to an invoice and can't be deleted here.",
+    "serverErrorDelete": "Server error during deletion",
+    "deleteFailed": "Error deleting the transaction",
+    "invalidApiResponse": "Invalid API response",
+    "notAuthorizedRestore": "Not authorized to restore this transaction",
+    "restoreFailed": "Error restoring the transaction"
+  },
+  "detail": {
+    "title": "Transaction details",
+    "dateTime": "Date and time",
+    "variant": "Variant",
+    "saleName": "Sale name",
+    "invoice": "Invoice",
+    "clientOrInvoice": "Client or invoice",
+    "client": "Client",
+    "viewInvoice": "View invoice",
+    "deleteTransaction": "Delete transaction",
+    "notLinkedToInvoice": "—"
+  },
+  "deleteFlow": {
+    "deleted": "Transaction deleted",
+    "undo": "Undo",
+    "restoreFailed": "Restore failed",
+    "deleteFailed": "Delete failed"
+  },
+  "summary": {
+    "balanceIncreasesBy": "The balance will increase by {{amount}}.",
+    "stockWillUpdate": "{{name}}'s stock will be updated.",
+    "stockWillReturnTo": "{{name}}'s stock will return to {{quantity}}."
+  },
+  "deleteDialog": {
+    "titleExpense": "Delete this expense?",
+    "titleSale": "Delete this sale?"
   }
 }
