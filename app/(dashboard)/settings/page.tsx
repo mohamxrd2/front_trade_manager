@@ -484,7 +484,7 @@ export default function SettingsPage() {
   const { user, logout, checkAuth } = useAuth()
   const { settings, updateSettings } = useSettings()
   const { t } = useTranslation()
-  const { language, setLanguage } = useLanguage()
+  const { language, setLanguage, pseudoMode, togglePseudoMode } = useLanguage()
   const { unreadCount } = useNotifications()
   const { theme, resolvedTheme, setTheme } = useTheme()
   const [mountedTheme, setMountedTheme] = React.useState(false)
@@ -847,6 +847,29 @@ export default function SettingsPage() {
                 })}
               </span>
             </div>
+
+            {/* Outil de développement, jamais affiché en production — pas de clé i18n (i18n:allow sur chaque ligne, texte volontairement non traduit). */}
+            {process.env.NODE_ENV !== 'production' ? (
+              <div className="flex flex-wrap items-center gap-3 border-t border-divider py-4.5">
+                <span className="flex flex-[1_1_240px] flex-col gap-0.5">
+                  <span className="text-[15px] font-bold text-ink">Pseudo-langue xx (dev)</span> {/* i18n:allow */}
+                  <span className="text-[13px] text-subtle">
+                    Entoure chaque texte traduit — tout texte sans crochets est en dur, non traduit. {/* i18n:allow */}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={pseudoMode}
+                  onClick={togglePseudoMode}
+                  className={`flex min-h-[38px] items-center rounded-full px-4 text-[13px] font-bold ${
+                    pseudoMode ? 'bg-brand-500 text-white' : 'border border-line-strong bg-surface text-ink'
+                  }`}
+                >
+                  {pseudoMode ? 'On' : 'Off'}
+                </button>
+              </div>
+            ) : null}
           </section>
         ) : null}
 

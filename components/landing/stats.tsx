@@ -4,6 +4,7 @@ import * as React from 'react'
 import { m } from 'motion/react'
 
 import { fadeUp, revealViewport, transitionBase } from '@/lib/motion'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 /** Décompte 0→1 déclenché une seule fois quand la section entre dans le viewport (seuil 30 %), easing cubique sur 1700ms — reprend exactement la logique de Presentation.dc.html. */
 function useCountK() {
@@ -61,6 +62,7 @@ function StatItem({ value, suffix, caption }: { value: number; suffix: string; c
 }
 
 export function Stats() {
+  const { t } = useTranslation()
   const { ref, k } = useCountK()
   const ring = 78 * k
   const dash = `${((CIRCUMFERENCE * ring) / 100).toFixed(1)} ${CIRCUMFERENCE.toFixed(1)}`
@@ -76,12 +78,12 @@ export function Stats() {
         className="flex flex-wrap items-end gap-7 gap-x-12"
       >
         <p className="m-0 max-w-[360px] flex-[1_1_300px] text-lg leading-[1.5] text-[#4B4B5C]">
-          Suivez, vendez et facturez avec des outils pensés pour les commerces d&apos;Afrique francophone.
+          {t('landing.stats.intro')}
         </p>
         <div className="grid flex-[2_1_520px] grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-6">
-          <StatItem value={Math.round(6 * k)} suffix="modules" caption="stock, ventes, dépenses, factures, clients, équipe" />
-          <StatItem value={Math.round(2 * k)} suffix="écrans" caption="téléphone et ordinateur, mêmes données" />
-          <StatItem value={Math.round(3 * k)} suffix="étapes" caption="pour démarrer, sans formation" />
+          <StatItem value={Math.round(6 * k)} suffix={t('landing.stats.modulesSuffix')} caption={t('landing.stats.modulesCaption')} />
+          <StatItem value={Math.round(2 * k)} suffix={t('landing.stats.screensSuffix')} caption={t('landing.stats.screensCaption')} />
+          <StatItem value={Math.round(3 * k)} suffix={t('landing.stats.stepsSuffix')} caption={t('landing.stats.stepsCaption')} />
         </div>
       </m.div>
 
@@ -107,10 +109,10 @@ export function Stats() {
                   KY
                 </span>
               </span>
-              <span className="text-xl font-extrabold">Tous commerces</span>
+              <span className="text-xl font-extrabold">{t('landing.stats.allBusinesses')}</span>
             </div>
             <p className="m-0 text-[13px] leading-[1.5] text-[#6B6B7B]">
-              Boutiques de mode, épiceries, cosmétiques, électronique : Waelly s&apos;adapte à votre activité.
+              {t('landing.stats.allBusinessesDescription')}
             </p>
           </div>
           <div
@@ -121,9 +123,9 @@ export function Stats() {
             }}
           >
             <span className="flex flex-col gap-1">
-              <span className="text-xs text-[#C8C8F0]">Objectif du mois</span>
-              <span className="text-[22px] font-extrabold">1,6 M F</span>
-              <span className="text-xs text-[#C8C8F0]">1 245 000 atteints</span>
+              <span className="text-xs text-[#C8C8F0]">{t('landing.stats.monthlyGoal')}</span>
+              <span className="text-[22px] font-extrabold">{t('landing.stats.monthlyGoalTarget')}</span>
+              <span className="text-xs text-[#C8C8F0]">{t('landing.stats.monthlyGoalReached')}</span>
             </span>
             <span className="relative size-[74px] shrink-0">
               <svg width="74" height="74" viewBox="0 0 74 74" aria-hidden="true">
@@ -153,9 +155,9 @@ export function Stats() {
               <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />
             </svg>
           </span>
-          <span className="text-base font-bold">Suivi en temps réel</span>
+          <span className="text-base font-bold">{t('landing.stats.realtimeTitle')}</span>
           <span className="text-[13px] leading-[1.5] text-[#6B6B7B]">
-            Chaque vente met à jour votre stock, votre solde et vos analyses instantanément.
+            {t('landing.stats.realtimeDescription')}
           </span>
         </div>
 
@@ -166,9 +168,9 @@ export function Stats() {
               <path d="M14 3v5h5M9 13h6M9 17h6" />
             </svg>
           </span>
-          <span className="text-base font-bold">Factures en un clic</span>
+          <span className="text-base font-bold">{t('landing.stats.invoicingTitle')}</span>
           <span className="text-[13px] leading-[1.5] text-[#6B6B7B]">
-            Des factures PDF soignées, à votre logo, envoyées et suivies jusqu&apos;au paiement.
+            {t('landing.stats.invoicingDescription')}
           </span>
         </div>
       </m.div>

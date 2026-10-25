@@ -4,11 +4,13 @@ import * as React from 'react'
 import Link from 'next/link'
 import { AnimatePresence, m } from 'motion/react'
 
-import { PRICING_PLANS, YEARLY_DISCOUNT_LABEL, periodSuffix, type BillingPeriod } from '@/lib/pricing'
+import { PRICING_PLANS, YEARLY_DISCOUNT_KEY, periodSuffixKey, type BillingPeriod } from '@/lib/pricing'
 import { EASE, fadeUp, revealViewport, transitionBase } from '@/lib/motion'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 function BillingToggle({ period, onChange }: { period: BillingPeriod; onChange: (p: BillingPeriod) => void }) {
+  const { t } = useTranslation()
   const pillBase = 'flex min-h-10 cursor-pointer items-center gap-2 rounded-full border-0 px-3.5 font-sans text-sm font-semibold'
 
   return (
@@ -19,7 +21,7 @@ function BillingToggle({ period, onChange }: { period: BillingPeriod; onChange: 
       variants={fadeUp}
       transition={transitionBase}
       role="group"
-      aria-label="Période de facturation"
+      aria-label={t('landing.pricing.billingPeriodAria')}
       className="flex items-center gap-3 text-sm font-semibold"
     >
       <button
@@ -31,12 +33,12 @@ function BillingToggle({ period, onChange }: { period: BillingPeriod; onChange: 
           period === 'monthly' ? 'bg-white text-[#0E0E1A] shadow-[0_2px_8px_rgba(17,17,80,.1)]' : 'bg-transparent text-[#6B6B7B]'
         )}
       >
-        Mensuel
+        {t('landing.pricing.monthly')}
       </button>
       <button
         type="button"
         onClick={() => onChange(period === 'monthly' ? 'yearly' : 'monthly')}
-        aria-label="Basculer mensuel / annuel"
+        aria-label={t('landing.pricing.toggleAria')}
         className="relative flex h-[30px] w-[52px] items-center rounded-full border-0 bg-[#5B3FE6] p-[3px]"
       >
         <m.span
@@ -55,9 +57,9 @@ function BillingToggle({ period, onChange }: { period: BillingPeriod; onChange: 
           period === 'yearly' ? 'bg-white text-[#0E0E1A] shadow-[0_2px_8px_rgba(17,17,80,.1)]' : 'bg-transparent text-[#6B6B7B]'
         )}
       >
-        Annuel
+        {t('landing.pricing.yearly')}
         <span className="rounded-full bg-[#E3F5EA] px-2 py-0.5 text-[11px] font-extrabold text-[#0B6B39]">
-          {YEARLY_DISCOUNT_LABEL}
+          {t(YEARLY_DISCOUNT_KEY)}
         </span>
       </button>
     </m.div>
@@ -65,6 +67,7 @@ function BillingToggle({ period, onChange }: { period: BillingPeriod; onChange: 
 }
 
 export function Pricing() {
+  const { t } = useTranslation()
   const [period, setPeriod] = React.useState<BillingPeriod>('monthly')
 
   return (
@@ -78,9 +81,9 @@ export function Pricing() {
         className="flex flex-col items-center gap-3 text-center"
       >
         <h2 className="m-0 text-[clamp(30px,3.6vw,46px)] font-extrabold leading-[1.08] tracking-[-0.035em]">
-          Un prix simple, en FCFA
+          {t('landing.pricing.title')}
         </h2>
-        <p className="m-0 text-base text-[#6B6B7B]">Choisissez l&apos;offre qui suit le rythme de votre commerce.</p>
+        <p className="m-0 text-base text-[#6B6B7B]">{t('landing.pricing.subtitle')}</p>
       </m.div>
 
       <BillingToggle period={period} onChange={setPeriod} />
@@ -105,14 +108,14 @@ export function Pricing() {
             }
           >
             <div className="flex items-center justify-between">
-              <span className="text-lg font-extrabold">{plan.name}</span>
+              <span className="text-lg font-extrabold">{t(plan.nameKey)}</span>
               {plan.featured ? (
                 <span className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-extrabold text-white">
-                  Le plus choisi
+                  {t('landing.pricing.mostChosen')}
                 </span>
               ) : null}
             </div>
-            <span className={cn('text-[13px]', plan.featured ? 'text-[#DCDCF7]' : 'text-[#6B6B7B]')}>{plan.tagline}</span>
+            <span className={cn('text-[13px]', plan.featured ? 'text-[#DCDCF7]' : 'text-[#6B6B7B]')}>{t(plan.taglineKey)}</span>
             <span className="flex items-baseline gap-1.5 overflow-hidden">
               <AnimatePresence mode="wait" initial={false}>
                 <m.span
@@ -127,12 +130,12 @@ export function Pricing() {
                 </m.span>
               </AnimatePresence>
               <span className={cn('text-[13px]', plan.featured ? 'text-[#DCDCF7]' : 'text-[#6B6B7B]')}>
-                {periodSuffix(period)}
+                {t(periodSuffixKey(period))}
               </span>
             </span>
             <ul className="m-0 mt-1.5 flex flex-1 list-none flex-col gap-2.5 p-0">
-              {plan.features.map((feature) => (
-                <li key={feature} className="flex items-center gap-2.5 text-sm">
+              {plan.featureKeys.map((featureKey) => (
+                <li key={featureKey} className="flex items-center gap-2.5 text-sm">
                   <span
                     className={cn(
                       'flex size-[22px] shrink-0 items-center justify-center rounded-full text-xs font-extrabold',
@@ -141,7 +144,7 @@ export function Pricing() {
                   >
                     ✓
                   </span>
-                  {feature}
+                  {t(featureKey)}
                 </li>
               ))}
             </ul>
@@ -157,7 +160,7 @@ export function Pricing() {
                   : { background: 'radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%)' }
               }
             >
-              {plan.cta}
+              {t(plan.ctaKey)}
             </Link>
           </m.div>
         ))}

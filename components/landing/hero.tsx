@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { m, useMotionValue, useSpring } from 'motion/react'
 
 import { EASE, fadeUpBlur, staggerContainer } from '@/lib/motion'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 const item = { transition: { duration: 0.8, ease: EASE } }
 
 function HeroScene() {
+  const { t } = useTranslation()
   const ref = React.useRef<HTMLDivElement>(null)
   const rawRotateX = useMotionValue(0)
   const rawRotateY = useMotionValue(0)
@@ -62,11 +64,11 @@ function HeroScene() {
           }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs text-[#C8C8F0]">Facture</span>
-            <span className="rounded-full bg-[#0B6B39] px-2 py-0.5 text-[11px] font-bold">Payée</span>
+            <span className="text-xs text-[#C8C8F0]">{t('landing.hero.mockup.invoiceLabel')}</span>
+            <span className="rounded-full bg-[#0B6B39] px-2 py-0.5 text-[11px] font-bold">{t('landing.hero.mockup.invoicePaid')}</span>
           </div>
-          <span className="text-xl font-extrabold tracking-[-0.02em]">138 200 F</span>
-          <span className="text-xs text-[#C8C8F0]">Awa Couture</span>
+          <span className="text-xl font-extrabold tracking-[-0.02em]">{t('landing.hero.mockup.invoiceAmount')}</span>
+          <span className="text-xs text-[#C8C8F0]">{t('landing.hero.mockup.invoiceClient')}</span>
         </div>
 
         {/* Téléphone, écran d'accueil */}
@@ -75,19 +77,19 @@ function HeroScene() {
           style={{ boxShadow: '0 30px 60px rgba(17,17,80,.22)', transform: 'rotate(-6deg)' }}
         >
           <div className="flex items-center justify-between px-0.5">
-            <span className="text-[11px] font-bold text-[#0E0E1A]">Waelly</span>
+            <span className="text-[11px] font-bold text-[#0E0E1A]">{t('landing.hero.mockup.appName')}</span>
             <span className="size-5 rounded-full bg-[#5B3FE6]" />
           </div>
           <div
             className="flex flex-col gap-1 rounded-[16px] p-3 text-white"
             style={{ background: 'radial-gradient(120% 120% at 100% 100%, #3A3AF0 0%, #1717A0 60%, #0A0A4A 100%)' }}
           >
-            <span className="text-[10px] text-[#C8C8F0]">Solde</span>
-            <span className="text-lg font-extrabold">1 245 000 F</span>
+            <span className="text-[10px] text-[#C8C8F0]">{t('landing.hero.mockup.balanceLabel')}</span>
+            <span className="text-lg font-extrabold">{t('landing.hero.mockup.balanceAmount')}</span>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
-            <span className="rounded-[10px] bg-[#F6F5FB] p-2 text-[10px] font-semibold text-[#0B8A43]">+ Vente</span>
-            <span className="rounded-[10px] bg-[#F6F5FB] p-2 text-[10px] font-semibold text-[#D92D20]">− Dépense</span>
+            <span className="rounded-[10px] bg-[#F6F5FB] p-2 text-[10px] font-semibold text-[#0B8A43]">{t('landing.hero.mockup.quickSale')}</span>
+            <span className="rounded-[10px] bg-[#F6F5FB] p-2 text-[10px] font-semibold text-[#D92D20]">{t('landing.hero.mockup.quickExpense')}</span>
           </div>
           <div className="flex flex-1 items-end gap-1 rounded-[14px] bg-[#F6F5FB] p-2.5">
             {[40, 65, 50, 80, 60, 95, 70].map((h, i) => (
@@ -101,20 +103,20 @@ function HeroScene() {
           className="wl-float3 absolute left-[-12px] top-0 rounded-full bg-white px-3.5 py-2 text-[12px] font-bold text-[#0E0E1A]"
           style={{ boxShadow: '0 14px 30px rgba(17,17,80,.16)' }}
         >
-          <span className="mr-1 text-[#0B8A43]">✓</span>Facture payée · +36 000 F
+          <span className="mr-1 text-[#0B8A43]">✓</span>{t('landing.hero.mockup.bubbleInvoicePaid')}
         </m.div>
         <div
           className="wl-float absolute bottom-16 left-[-20px] rounded-full bg-white px-3.5 py-2 text-[12px] font-bold text-[#0E0E1A]"
           style={{ boxShadow: '0 14px 30px rgba(17,17,80,.16)' }}
         >
-          <span className="mr-1 text-[#0B8A43]">↑</span>12 % ventes cette semaine
+          <span className="mr-1 text-[#0B8A43]">↑</span>{t('landing.hero.mockup.bubbleSalesWeek')}
         </div>
         <div
           className="wl-float2 absolute bottom-0 right-6 flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold text-[#3F3F50]"
           style={{ boxShadow: '0 14px 30px rgba(17,17,80,.16)' }}
         >
           <span className="size-2 rounded-full bg-[#F77F00]" />
-          XOF · FCFA
+          {t('landing.hero.mockup.bubbleCurrency')}
         </div>
       </m.div>
     </m.div>
@@ -122,6 +124,8 @@ function HeroScene() {
 }
 
 export function Hero() {
+  const { t } = useTranslation()
+
   return (
     <section id="top" className="relative overflow-hidden px-5 pb-10 pt-[136px] scroll-mt-24">
       <m.div
@@ -135,12 +139,12 @@ export function Hero() {
           {...item}
           className="inline-flex items-center gap-1.5 rounded-full bg-[#F4F1FF] px-4 py-1.5 text-[13px] font-bold text-[#3A20B8]"
         >
-          Nouveau · Factures PDF à vos couleurs
+          {t('landing.hero.badge')}
         </m.span>
 
         <h1 className="flex flex-col text-[clamp(42px,6.4vw,88px)] font-extrabold leading-[1.02] tracking-[-0.045em] text-[#0E0E1A]">
           <m.span variants={fadeUpBlur} {...item}>
-            Votre commerce,
+            {t('landing.hero.titleLine1')}
           </m.span>
           <m.span
             variants={fadeUpBlur}
@@ -152,13 +156,12 @@ export function Hero() {
               color: 'transparent',
             }}
           >
-            simplement géré.
+            {t('landing.hero.titleLine2')}
           </m.span>
         </h1>
 
         <m.p variants={fadeUpBlur} {...item} className="max-w-[560px] text-lg text-[#4B4B5C]">
-          Stock, ventes, dépenses, factures et équipe : tout votre commerce dans une seule application, sur
-          téléphone comme sur ordinateur.
+          {t('landing.hero.subtitle')}
         </m.p>
 
         <m.div variants={fadeUpBlur} {...item} className="flex flex-wrap items-center justify-center gap-3">
@@ -170,13 +173,13 @@ export function Hero() {
               boxShadow: '0 10px 24px rgba(75,47,214,.3)',
             }}
           >
-            Commencer gratuitement
+            {t('landing.hero.ctaPrimary')}
           </Link>
           <a
             href="#fonctionnalites"
             className="wl-btn-hover flex h-14 items-center justify-center rounded-full border border-[#E2E2EA] bg-white px-7 text-[16px] font-bold text-[#0E0E1A] max-[520px]:w-full"
           >
-            Voir comment ça marche
+            {t('landing.hero.ctaSecondary')}
           </a>
         </m.div>
       </m.div>

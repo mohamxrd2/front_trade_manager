@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -27,26 +27,53 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
 });
 
-const SITE_DESCRIPTION =
-  "Waelly gère votre stock, vos ventes et vos factures depuis une seule application, sur téléphone comme sur ordinateur.";
+const SITE_METADATA: Record<AppLanguage, { title: string; description: string; keywords: string }> = {
+  fr: {
+    title: "Waelly — Gérez stock, ventes et factures de votre commerce",
+    description:
+      "Waelly gère votre stock, vos ventes et vos factures depuis une seule application, sur téléphone comme sur ordinateur.",
+    keywords: "gestion de stock, gestion commerciale, factures PDF, ventes, dépenses, Afrique francophone, FCFA",
+  },
+  en: {
+    title: "Waelly — Manage your inventory, sales and invoices",
+    description:
+      "Waelly manages your inventory, sales and invoices from a single app, on phone and on computer.",
+    keywords: "inventory management, business management, PDF invoices, sales, expenses, French-speaking Africa, FCFA",
+  },
+}
 
-export const metadata: Metadata = {
-  title: "Waelly — Gérez stock, ventes et factures de votre commerce",
-  description: SITE_DESCRIPTION,
-  keywords: "gestion de stock, gestion commerciale, factures PDF, ventes, dépenses, Afrique francophone, FCFA",
-  openGraph: {
-    title: "Waelly — Gérez stock, ventes et factures de votre commerce",
-    description: SITE_DESCRIPTION,
-    type: "website",
-    locale: "fr_FR",
-    siteName: "Waelly",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Waelly — Gérez stock, ventes et factures de votre commerce",
-    description: SITE_DESCRIPTION,
-  },
-};
+/** Même résolution que RootLayout (cookie, puis Accept-Language) — métadonnées ET premier rendu doivent toujours s'accorder. */
+async function resolveInitialLanguage(): Promise<AppLanguage> {
+  const cookieStore = await cookies()
+  const cookieLanguage = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value
+  if (cookieLanguage === "en" || cookieLanguage === "fr") return cookieLanguage
+
+  const acceptLanguage = (await headers()).get("accept-language") ?? ""
+  return acceptLanguage.toLowerCase().startsWith("en") ? "en" : "fr"
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await resolveInitialLanguage()
+  const { title, description, keywords } = SITE_METADATA[language]
+
+  return {
+    title,
+    description,
+    keywords,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      locale: language === "en" ? "en_US" : "fr_FR",
+      siteName: "Waelly",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  }
+}
 
 export const viewport: Viewport = {
   themeColor: "#5B3FE6",
@@ -61,9 +88,7 @@ export default async function RootLayout({
   // ET client à l'hydratation — affiche directement la bonne langue, sans
   // clignotement (<html lang> correct dès le départ, LanguageProvider
   // n'a pas besoin d'un état "mounted" transitoire différent du serveur).
-  const cookieStore = await cookies();
-  const cookieLanguage = cookieStore.get(LANGUAGE_COOKIE_NAME)?.value;
-  const initialLanguage: AppLanguage = cookieLanguage === "en" ? "en" : "fr";
+  const initialLanguage = await resolveInitialLanguage();
 
   return (
     <html lang={initialLanguage} suppressHydrationWarning>

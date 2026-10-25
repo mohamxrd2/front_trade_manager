@@ -3,8 +3,10 @@
 import { m } from 'motion/react'
 
 import { EASE, fadeUp, fadeUpBlur, revealViewport, staggerContainer, transitionBase } from '@/lib/motion'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 function SectionHeading() {
+  const { t } = useTranslation()
   return (
     <m.div
       initial="hidden"
@@ -14,23 +16,24 @@ function SectionHeading() {
       className="flex max-w-[680px] flex-col items-center gap-3.5 text-center"
     >
       <m.span variants={fadeUp} transition={transitionBase} className="text-[13px] font-bold uppercase tracking-[0.06em] text-[#5B3FE6]">
-        Fonctionnalités
+        {t('landing.features.eyebrow')}
       </m.span>
       <m.h2
         variants={fadeUp}
         transition={transitionBase}
         className="m-0 text-[clamp(32px,4.2vw,52px)] font-extrabold leading-[1.08] tracking-[-0.035em]"
       >
-        Tout ce qu&apos;il faut pour piloter votre boutique
+        {t('landing.features.title')}
       </m.h2>
       <m.p variants={fadeUp} transition={transitionBase} className="m-0 text-[17px] leading-[1.55] text-[#6B6B7B]">
-        Du premier article en stock à la facture payée, chaque étape est simple et reliée.
+        {t('landing.features.subtitle')}
       </m.p>
     </m.div>
   )
 }
 
 function SalesChartCard() {
+  const { t } = useTranslation()
   return (
     <m.div
       initial="hidden"
@@ -43,16 +46,16 @@ function SalesChartCard() {
       <span className="flex size-10 items-center justify-center rounded-xl bg-[#EEEAFE] text-lg font-extrabold text-[#5B3FE6]">
         ↗
       </span>
-      <span className="text-xl font-bold">Ventes &amp; dépenses</span>
+      <span className="text-xl font-bold">{t('landing.features.salesCard.title')}</span>
       <span className="text-sm leading-[1.55] text-[#6B6B7B]">
-        Enregistrez une vente en quelques secondes, notez vos dépenses, et gardez un portefeuille toujours juste.
+        {t('landing.features.salesCard.description')}
       </span>
       <div className="mt-2 rounded-[20px] border border-[#F0EEF8] bg-[#F7F6FC] p-4">
         <div className="flex items-baseline justify-between">
-          <span className="text-[13px] font-bold">Ventes · 7 jours</span>
+          <span className="text-[13px] font-bold">{t('landing.features.salesCard.chartLabel')}</span>
           <span className="text-xs font-bold text-[#0B8A43]">↑ 12 %</span>
         </div>
-        <svg viewBox="0 0 320 120" width="100%" height="120" role="img" aria-label="Ventes en hausse sur 7 jours" className="mt-2 block">
+        <svg viewBox="0 0 320 120" width="100%" height="120" role="img" aria-label={t('landing.features.salesCard.chartAria')} className="mt-2 block">
           <defs>
             <linearGradient id="wl-sales-grad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#6A4CF0" stopOpacity="0.32" />
@@ -89,6 +92,7 @@ function SalesChartCard() {
 }
 
 function ForecastChartCard() {
+  const { t } = useTranslation()
   return (
     <m.div
       initial="hidden"
@@ -104,21 +108,21 @@ function ForecastChartCard() {
           <path d="M14 7h7v7" />
         </svg>
       </span>
-      <span className="text-xl font-bold">Analyses &amp; prévisions</span>
+      <span className="text-xl font-bold">{t('landing.features.forecastCard.title')}</span>
       <span className="text-sm leading-[1.55] text-[#6B6B7B]">
-        Comparez vos périodes, voyez ce qui se vend le mieux et anticipez les mois à venir.
+        {t('landing.features.forecastCard.description')}
       </span>
       <div className="mt-2 rounded-[20px] border border-[#F0EEF8] bg-[#F7F6FC] p-4">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[13px] font-bold">Ventes vs dépenses</span>
+          <span className="text-[13px] font-bold">{t('landing.features.forecastCard.chartLabel')}</span>
           <span className="flex gap-2.5 text-[11px] text-[#6B6B7B]">
             <span className="flex items-center gap-1">
               <span className="size-2 rounded-full bg-[#5B3FE6]" />
-              Ventes
+              {t('landing.features.forecastCard.legendSales')}
             </span>
             <span className="flex items-center gap-1">
               <span className="size-2 rounded-full bg-[#0E0E1A]" />
-              Dépenses
+              {t('landing.features.forecastCard.legendExpenses')}
             </span>
           </span>
         </div>
@@ -127,7 +131,7 @@ function ForecastChartCard() {
           width="100%"
           height="120"
           role="img"
-          aria-label="Les ventes dépassent les dépenses depuis trois mois"
+          aria-label={t('landing.features.forecastCard.chartAria')}
           className="mt-2 block"
         >
           <line x1="0" y1="30" x2="320" y2="30" stroke="#E6E3F3" strokeDasharray="3 4" />
@@ -165,10 +169,11 @@ function ForecastChartCard() {
 }
 
 function StockCard() {
+  const { t } = useTranslation()
   const items = [
-    { name: 'Robe wax · M, L, XL', swatch: '#EEEAFE', count: 24, tone: 'ok' as const },
-    { name: 'Sac en raphia', swatch: '#FFF0E0', count: 2, tone: 'low' as const },
-    { name: 'Bazin riche · 6 coloris', swatch: '#E6EEFF', count: 41, tone: 'ok' as const },
+    { name: t('landing.features.stockCard.item1'), swatch: '#EEEAFE', count: 24, tone: 'ok' as const },
+    { name: t('landing.features.stockCard.item2'), swatch: '#FFF0E0', count: 2, tone: 'low' as const },
+    { name: t('landing.features.stockCard.item3'), swatch: '#E6EEFF', count: 41, tone: 'ok' as const },
   ]
 
   return (
@@ -187,14 +192,13 @@ function StockCard() {
             <path d="M3 8l9 5 9-5M12 13v8" />
           </svg>
         </span>
-        <span className="text-xl font-bold">Stock &amp; variations</span>
+        <span className="text-xl font-bold">{t('landing.features.stockCard.title')}</span>
         <span className="max-w-[420px] text-sm leading-[1.55] text-[#6B6B7B]">
-          Articles simples ou à variations (tailles, couleurs), réapprovisionnements avec historique et alerte
-          automatique quand un article passe sous votre seuil.
+          {t('landing.features.stockCard.description')}
         </span>
       </div>
       <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-2 rounded-[20px] border border-[#F0EEF8] bg-[#F7F6FC] p-4">
-        <span className="text-xs text-[#6B6B7B]">Valeur du stock</span>
+        <span className="text-xs text-[#6B6B7B]">{t('landing.features.stockCard.stockValue')}</span>
         <span className="text-[26px] font-extrabold tracking-[-0.02em]">
           4 580 000 <span className="text-[13px] font-semibold text-[#6B6B7B]">FCFA</span>
         </span>
@@ -208,7 +212,7 @@ function StockCard() {
             transition={{ duration: 1, ease: EASE }}
           />
         </span>
-        <span className="text-xs text-[#6B6B7B]">72 % des articles au-dessus du seuil</span>
+        <span className="text-xs text-[#6B6B7B]">{t('landing.features.stockCard.stockValueAboveThreshold')}</span>
       </div>
       <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-2">
         {items.map((item) => (

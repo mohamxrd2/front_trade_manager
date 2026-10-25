@@ -6,17 +6,19 @@ import { m } from 'motion/react'
 import { toast } from 'sonner'
 
 import { fadeUpBlur, revealViewport, transitionBase } from '@/lib/motion'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 function NewsletterForm() {
+  const { t } = useTranslation()
   const [email, setEmail] = React.useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error('Saisissez une adresse e-mail valide.')
+      toast.error(t('landing.ctaFooter.newsletterInvalidEmail'))
       return
     }
-    toast.success('Merci ! Vous êtes bien inscrit à la newsletter.')
+    toast.success(t('landing.ctaFooter.newsletterSuccess'))
     setEmail('')
   }
 
@@ -26,14 +28,14 @@ function NewsletterForm() {
       className="flex gap-1.5 rounded-[27px] border border-white/15 bg-white/10 p-1.5"
     >
       <label htmlFor="newsletter-email" className="sr-only">
-        Votre e-mail
+        {t('landing.ctaFooter.newsletterEmailLabel')}
       </label>
       <input
         id="newsletter-email"
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="Votre e-mail"
+        placeholder={t('landing.ctaFooter.newsletterEmailPlaceholder')}
         className="h-[42px] min-w-0 flex-1 border-0 bg-transparent px-3.5 font-sans text-sm text-white outline-none placeholder:text-[#8E8EC0]"
       />
       <button
@@ -41,13 +43,14 @@ function NewsletterForm() {
         className="h-[42px] cursor-pointer rounded-full border-0 px-4.5 font-sans text-sm font-bold text-white"
         style={{ background: 'radial-gradient(100% 140% at 20% 0%, #8C74FF 0%, #5B3FE6 50%, #3420B8 100%)' }}
       >
-        S&apos;abonner
+        {t('landing.ctaFooter.newsletterSubscribe')}
       </button>
     </form>
   )
 }
 
 export function CtaFooter() {
+  const { t } = useTranslation()
   return (
     <div className="relative mt-[140px]">
       <div className="relative z-[2] mx-auto max-w-[1180px] px-5">
@@ -74,11 +77,10 @@ export function CtaFooter() {
             }}
           />
           <h2 className="relative m-0 max-w-[640px] text-[clamp(30px,4vw,50px)] font-extrabold leading-[1.06] tracking-[-0.035em]">
-            Votre boutique mérite mieux qu&apos;un cahier.
+            {t('landing.ctaFooter.title')}
           </h2>
           <p className="relative m-0 max-w-[480px] text-base leading-[1.55] text-[#DCDCF7]">
-            Créez votre compte et enregistrez votre première vente aujourd&apos;hui. Sur téléphone comme sur
-            ordinateur.
+            {t('landing.ctaFooter.subtitle')}
           </p>
           <div className="relative mt-2 flex flex-wrap justify-center gap-3">
             <Link
@@ -86,13 +88,13 @@ export function CtaFooter() {
               className="wl-btn-hover flex h-[52px] items-center justify-center rounded-full bg-white px-6.5 text-[15px] font-extrabold text-[#3A20B8]"
               style={{ boxShadow: '0 10px 24px rgba(10,10,60,.25)' }}
             >
-              Créer mon compte
+              {t('landing.ctaFooter.createAccount')}
             </Link>
             <Link
               href="/login"
               className="wl-btn-hover flex h-[52px] items-center justify-center rounded-full border border-white/35 bg-white/15 px-6 text-[15px] font-bold text-white"
             >
-              J&apos;ai déjà un compte
+              {t('landing.ctaFooter.alreadyHaveAccount')}
             </Link>
           </div>
         </m.div>
@@ -115,38 +117,38 @@ export function CtaFooter() {
                 <span className="text-xl font-extrabold">Waelly</span>
               </span>
               <span className="text-sm leading-[1.55] text-[#B9B9E0]">
-                Recevez nos conseils de gestion et les nouveautés de l&apos;application.
+                {t('landing.ctaFooter.newsletterTagline')}
               </span>
               <NewsletterForm />
             </div>
 
             <div className="grid flex-[2_1_420px] grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-6">
               <div className="flex flex-col gap-2">
-                <span className="mb-1 text-sm font-bold">Produit</span>
-                <a href="#fonctionnalites" className="py-1">Fonctionnalités</a>
-                <a href="#tarifs" className="py-1">Tarifs</a>
-                <a href="#faq" className="py-1">FAQ</a>
+                <span className="mb-1 text-sm font-bold">{t('landing.ctaFooter.productSection')}</span>
+                <a href="#fonctionnalites" className="py-1">{t('landing.navbar.features')}</a>
+                <a href="#tarifs" className="py-1">{t('landing.navbar.pricing')}</a>
+                <a href="#faq" className="py-1">{t('landing.navbar.faq')}</a>
               </div>
               <div className="flex flex-col gap-2">
-                <span className="mb-1 text-sm font-bold">Compte</span>
+                <span className="mb-1 text-sm font-bold">{t('landing.ctaFooter.accountSection')}</span>
                 <Link href="/login" className="py-1 text-sm text-[#B9B9E0] no-underline hover:text-white">
-                  Se connecter
+                  {t('landing.ctaFooter.login')}
                 </Link>
                 <Link href="/signup" className="py-1 text-sm text-[#B9B9E0] no-underline hover:text-white">
-                  Créer un compte
+                  {t('landing.ctaFooter.createAccountLink')}
                 </Link>
               </div>
               <div className="flex flex-col gap-2">
-                <span className="mb-1 text-sm font-bold">Légal</span>
-                <a href="#" className="py-1">[Mentions légales]</a>
-                <a href="#" className="py-1">[Confidentialité]</a>
-                <a href="#" className="py-1">[Contact]</a>
+                <span className="mb-1 text-sm font-bold">{t('landing.ctaFooter.legalSection')}</span>
+                <a href="#" className="py-1">{t('landing.ctaFooter.legalNotice')}</a>
+                <a href="#" className="py-1">{t('landing.ctaFooter.privacy')}</a>
+                <a href="#" className="py-1">{t('landing.ctaFooter.contact')}</a>
               </div>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-5.5">
-            <span className="text-[13px] text-[#8E8EC0]">© 2026 Waelly. Tous droits réservés.</span>
+            <span className="text-[13px] text-[#8E8EC0]">{t('landing.ctaFooter.copyright')}</span>
             <div className="flex gap-2">
               <a
                 href="#"

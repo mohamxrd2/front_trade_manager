@@ -8,51 +8,61 @@ export type BillingPeriod = 'monthly' | 'yearly'
 
 export interface PricingPlan {
   id: 'decouverte' | 'pro' | 'equipe'
-  name: string
-  tagline: string
-  features: string[]
-  cta: string
+  nameKey: string
+  taglineKey: string
+  featureKeys: string[]
+  ctaKey: string
   featured: boolean
   price: Record<BillingPeriod, string>
 }
 
-export const YEARLY_DISCOUNT_LABEL = '2 mois offerts'
+export const YEARLY_DISCOUNT_KEY = 'landing.pricing.yearlyDiscount'
 
 export const PRICING_PLANS: PricingPlan[] = [
   {
     id: 'decouverte',
-    name: 'Découverte',
-    tagline: 'Pour démarrer seul',
-    features: ['1 utilisateur', 'Stock et ventes illimités', 'Factures PDF', 'Analyses de base'],
-    cta: 'Commencer',
+    nameKey: 'landing.pricing.plans.decouverte.name',
+    taglineKey: 'landing.pricing.plans.decouverte.tagline',
+    featureKeys: [
+      'landing.pricing.plans.decouverte.feature1',
+      'landing.pricing.plans.decouverte.feature2',
+      'landing.pricing.plans.decouverte.feature3',
+      'landing.pricing.plans.decouverte.feature4',
+    ],
+    ctaKey: 'landing.pricing.plans.decouverte.cta',
     featured: false,
     price: { monthly: '[PRIX]', yearly: '[PRIX]' },
   },
   {
     id: 'pro',
-    name: 'Pro',
-    tagline: 'Pour les boutiques qui grandissent',
-    features: [
-      'Jusqu’à 5 collaborateurs',
-      'Articles à variations',
-      'Factures à vos couleurs',
-      'Prévisions et comparaisons',
+    nameKey: 'landing.pricing.plans.pro.name',
+    taglineKey: 'landing.pricing.plans.pro.tagline',
+    featureKeys: [
+      'landing.pricing.plans.pro.feature1',
+      'landing.pricing.plans.pro.feature2',
+      'landing.pricing.plans.pro.feature3',
+      'landing.pricing.plans.pro.feature4',
     ],
-    cta: 'Essayer Pro',
+    ctaKey: 'landing.pricing.plans.pro.cta',
     featured: true,
     price: { monthly: '[PRIX]', yearly: '[PRIX]' },
   },
   {
     id: 'equipe',
-    name: 'Équipe',
-    tagline: 'Pour plusieurs points de vente',
-    features: ['Collaborateurs illimités', 'Parts et rôles', 'Support prioritaire', 'Export des données'],
-    cta: 'Nous contacter',
+    nameKey: 'landing.pricing.plans.equipe.name',
+    taglineKey: 'landing.pricing.plans.equipe.tagline',
+    featureKeys: [
+      'landing.pricing.plans.equipe.feature1',
+      'landing.pricing.plans.equipe.feature2',
+      'landing.pricing.plans.equipe.feature3',
+      'landing.pricing.plans.equipe.feature4',
+    ],
+    ctaKey: 'landing.pricing.plans.equipe.cta',
     featured: false,
     price: { monthly: '[PRIX]', yearly: '[PRIX]' },
   },
 ]
 
-export function periodSuffix(period: BillingPeriod): string {
-  return period === 'yearly' ? 'FCFA / an' : 'FCFA / mois'
+export function periodSuffixKey(period: BillingPeriod): string {
+  return period === 'yearly' ? 'landing.pricing.perYear' : 'landing.pricing.perMonth'
 }

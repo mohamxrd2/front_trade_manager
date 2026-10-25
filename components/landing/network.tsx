@@ -3,6 +3,7 @@
 import { m } from 'motion/react'
 
 import { fadeUp, revealViewport, transitionBase } from '@/lib/motion'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 const CITIES = [
   { code: 'AD', name: 'Dakar', left: '14%', top: '45%', size: 40, bg: '#EEEAFE', color: '#4B2FD6', fontSize: 12 },
@@ -13,6 +14,7 @@ const CITIES = [
 ]
 
 export function Network() {
+  const { t } = useTranslation()
   return (
     <section className="mx-auto flex max-w-[1180px] flex-col items-center gap-6 px-5 pt-[120px]">
       <m.h2
@@ -23,9 +25,9 @@ export function Network() {
         transition={transitionBase}
         className="m-0 text-center text-[clamp(30px,3.6vw,46px)] font-extrabold leading-[1.08] tracking-[-0.035em]"
       >
-        De Dakar à Douala,
+        {t('landing.network.titleLine1')}
         <br />
-        votre équipe reste connectée
+        {t('landing.network.titleLine2')}
       </m.h2>
 
       <m.div

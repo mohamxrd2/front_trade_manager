@@ -1,0 +1,230 @@
+{
+  "hero": {
+    "badge": "Nouveau · Factures PDF à vos couleurs",
+    "titleLine1": "Votre commerce,",
+    "titleLine2": "simplement géré.",
+    "subtitle": "Stock, ventes, dépenses, factures et équipe : tout votre commerce dans une seule application, sur téléphone comme sur ordinateur.",
+    "ctaPrimary": "Commencer gratuitement",
+    "ctaSecondary": "Voir comment ça marche",
+    "mockup": {
+      "invoiceLabel": "Facture",
+      "invoicePaid": "Payée",
+      "invoiceAmount": "138 200 F",
+      "invoiceClient": "Awa Couture",
+      "appName": "Waelly",
+      "balanceLabel": "Solde",
+      "balanceAmount": "1 245 000 F",
+      "quickSale": "+ Vente",
+      "quickExpense": "− Dépense",
+      "bubbleInvoicePaid": "Facture payée · +36 000 F",
+      "bubbleSalesWeek": "12 % ventes cette semaine",
+      "bubbleCurrency": "XOF · FCFA"
+    }
+  },
+  "stats": {
+    "intro": "Suivez, vendez et facturez avec des outils pensés pour les commerces d'Afrique francophone.",
+    "modulesSuffix": "modules",
+    "modulesCaption": "stock, ventes, dépenses, factures, clients, équipe",
+    "screensSuffix": "écrans",
+    "screensCaption": "téléphone et ordinateur, mêmes données",
+    "stepsSuffix": "étapes",
+    "stepsCaption": "pour démarrer, sans formation",
+    "allBusinesses": "Tous commerces",
+    "allBusinessesDescription": "Boutiques de mode, épiceries, cosmétiques, électronique : Waelly s'adapte à votre activité.",
+    "monthlyGoal": "Objectif du mois",
+    "monthlyGoalTarget": "1,6 M F",
+    "monthlyGoalReached": "1 245 000 atteints",
+    "realtimeTitle": "Suivi en temps réel",
+    "realtimeDescription": "Chaque vente met à jour votre stock, votre solde et vos analyses instantanément.",
+    "invoicingTitle": "Factures en un clic",
+    "invoicingDescription": "Des factures PDF soignées, à votre logo, envoyées et suivies jusqu'au paiement."
+  },
+  "features": {
+    "eyebrow": "Fonctionnalités",
+    "title": "Tout ce qu'il faut pour piloter votre boutique",
+    "subtitle": "Du premier article en stock à la facture payée, chaque étape est simple et reliée.",
+    "salesCard": {
+      "title": "Ventes & dépenses",
+      "description": "Enregistrez une vente en quelques secondes, notez vos dépenses, et gardez un portefeuille toujours juste.",
+      "chartLabel": "Ventes · 7 jours",
+      "chartAria": "Ventes en hausse sur 7 jours"
+    },
+    "forecastCard": {
+      "title": "Analyses & prévisions",
+      "description": "Comparez vos périodes, voyez ce qui se vend le mieux et anticipez les mois à venir.",
+      "chartLabel": "Ventes vs dépenses",
+      "legendSales": "Ventes",
+      "legendExpenses": "Dépenses",
+      "chartAria": "Les ventes dépassent les dépenses depuis trois mois"
+    },
+    "stockCard": {
+      "title": "Stock & variations",
+      "description": "Articles simples ou à variations (tailles, couleurs), réapprovisionnements avec historique et alerte automatique quand un article passe sous votre seuil.",
+      "stockValue": "Valeur du stock",
+      "stockValueAboveThreshold": "72 % des articles au-dessus du seuil",
+      "item1": "Robe wax · M, L, XL",
+      "item2": "Sac en raphia",
+      "item3": "Bazin riche · 6 coloris"
+    }
+  },
+  "saleSteps": {
+    "title": "Encaissez une vente en trois gestes",
+    "subtitle": "Choisissez l'article, la quantité, le mode de paiement. Waelly met à jour le stock, le solde et la facture tout seul.",
+    "step1Title": "Facture automatique",
+    "step1Body": "La vente peut générer sa facture PDF immédiatement, prête à partager.",
+    "step2Title": "Historique clair",
+    "step2Body": "Chaque opération est datée, rangée et retrouvable en un instant.",
+    "step3Title": "Tous les moyens de paiement",
+    "step3Body": "Espèces, Mobile Money, virement, chèque ou carte.",
+    "mockup": {
+      "newSale": "Nouvelle vente",
+      "articleName": "Robe wax",
+      "articleVariant": "Taille M · 24 en stock",
+      "quantity": "Quantité",
+      "cashMethod": "Espèces",
+      "mobileMoneyMethod": "Mobile Money",
+      "cardMethod": "Carte",
+      "total": "Total",
+      "validate": "Valider la vente",
+      "stockUpdated": "Stock mis à jour"
+    }
+  },
+  "countries": {
+    "title": "Pensé pour l'Afrique francophone",
+    "subtitle": "FCFA, Mobile Money, factures en français : Waelly parle la langue de votre commerce, où que vous soyez.",
+    "searchPlaceholder": "Rechercher votre pays",
+    "noResults": "Votre pays n'est pas listé ? Waelly fonctionne partout : choisissez simplement votre devise.",
+    "list": {
+      "ci": "Côte d'Ivoire",
+      "sn": "Sénégal",
+      "ml": "Mali",
+      "bf": "Burkina Faso",
+      "bj": "Bénin",
+      "tg": "Togo",
+      "ne": "Niger",
+      "gn": "Guinée",
+      "cm": "Cameroun",
+      "ga": "Gabon",
+      "cg": "Congo",
+      "cd": "RD Congo",
+      "td": "Tchad",
+      "mg": "Madagascar",
+      "mr": "Mauritanie",
+      "ma": "Maroc"
+    }
+  },
+  "network": {
+    "titleLine1": "De Dakar à Douala,",
+    "titleLine2": "votre équipe reste connectée"
+  },
+  "navbar": {
+    "home": "Accueil",
+    "features": "Fonctionnalités",
+    "pricing": "Tarifs",
+    "faq": "FAQ",
+    "openApp": "Ouvrir l'application",
+    "login": "Se connecter",
+    "mainNav": "Navigation principale",
+    "closeMenu": "Fermer le menu",
+    "openMenu": "Ouvrir le menu"
+  },
+  "faq": {
+    "titleLine1": "Des questions ?",
+    "titleLine2": "Nous avons les réponses.",
+    "subtitle": "Tout ce qu'il faut savoir avant de vous lancer.",
+    "tabsAria": "Thèmes",
+    "tabs": { "general": "Général", "factures": "Factures", "compte": "Compte" },
+    "general": {
+      "q1": "Puis-je utiliser Waelly sur mon téléphone ?",
+      "a1": "Oui. Waelly fonctionne sur téléphone et sur ordinateur, avec le même compte et les mêmes données, mises à jour en temps réel.",
+      "q2": "Faut-il une connexion internet ?",
+      "a2": "Une connexion est nécessaire pour enregistrer et synchroniser vos opérations. Les pages déjà ouvertes restent consultables.",
+      "q3": "Quelle devise est utilisée ?",
+      "a3": "Le FCFA par défaut. Vous pouvez choisir une autre devise dans les paramètres, ainsi que la langue et le seuil de stock faible.",
+      "q4": "Mes données sont-elles en sécurité ?",
+      "a4": "Vos données sont chiffrées pendant leur transfert et sauvegardées. Vous seul et les collaborateurs que vous invitez y avez accès."
+    },
+    "factures": {
+      "q1": "Puis-je personnaliser mes factures ?",
+      "a1": "Oui : logo, informations légales et bancaires, thème visuel, remises, taxes et frais de port.",
+      "q2": "Comment envoyer une facture à un client ?",
+      "a2": "Téléchargez le PDF ou partagez-le directement, puis suivez son statut : brouillon, envoyée, payée.",
+      "q3": "Une facture payée crée-t-elle une vente ?",
+      "a3": "Oui. Quand une facture passe en payée, la vente et le stock sont mis à jour automatiquement.",
+      "q4": "Puis-je facturer des services sans stock ?",
+      "a4": "Oui, ajoutez des lignes libres à côté des articles de votre stock."
+    },
+    "compte": {
+      "q1": "Comment créer mon compte ?",
+      "a1": "Par e-mail avec un code de vérification, ou en un clic avec Google ou Facebook.",
+      "q2": "Mon équipe peut-elle utiliser le même compte ?",
+      "a2": "Ajoutez vos collaborateurs avec leur rôle, leur part et leurs coordonnées.",
+      "q3": "Puis-je changer d'offre à tout moment ?",
+      "a3": "Oui, vous pouvez passer d'une offre à l'autre quand vous le souhaitez.",
+      "q4": "Comment supprimer mon compte ?",
+      "a4": "Depuis Paramètres > Sécurité. La suppression efface définitivement vos données."
+    }
+  },
+  "ctaFooter": {
+    "newsletterEmailLabel": "Votre e-mail",
+    "newsletterEmailPlaceholder": "Votre e-mail",
+    "newsletterSubscribe": "S'abonner",
+    "newsletterInvalidEmail": "Saisissez une adresse e-mail valide.",
+    "newsletterSuccess": "Merci ! Vous êtes bien inscrit à la newsletter.",
+    "title": "Votre boutique mérite mieux qu'un cahier.",
+    "subtitle": "Créez votre compte et enregistrez votre première vente aujourd'hui. Sur téléphone comme sur ordinateur.",
+    "createAccount": "Créer mon compte",
+    "alreadyHaveAccount": "J'ai déjà un compte",
+    "newsletterTagline": "Recevez nos conseils de gestion et les nouveautés de l'application.",
+    "productSection": "Produit",
+    "accountSection": "Compte",
+    "legalSection": "Légal",
+    "login": "Se connecter",
+    "createAccountLink": "Créer un compte",
+    "legalNotice": "[Mentions légales]",
+    "privacy": "[Confidentialité]",
+    "contact": "[Contact]",
+    "copyright": "© 2026 Waelly. Tous droits réservés."
+  },
+  "pricing": {
+    "billingPeriodAria": "Période de facturation",
+    "toggleAria": "Basculer mensuel / annuel",
+    "monthly": "Mensuel",
+    "yearly": "Annuel",
+    "yearlyDiscount": "2 mois offerts",
+    "title": "Un prix simple, en FCFA",
+    "subtitle": "Choisissez l'offre qui suit le rythme de votre commerce.",
+    "mostChosen": "Le plus choisi",
+    "perMonth": "FCFA / mois",
+    "perYear": "FCFA / an",
+    "plans": {
+      "decouverte": {
+        "name": "Découverte",
+        "tagline": "Pour démarrer seul",
+        "feature1": "1 utilisateur",
+        "feature2": "Stock et ventes illimités",
+        "feature3": "Factures PDF",
+        "feature4": "Analyses de base",
+        "cta": "Commencer"
+      },
+      "pro": {
+        "name": "Pro",
+        "tagline": "Pour les boutiques qui grandissent",
+        "feature1": "Jusqu'à 5 collaborateurs",
+        "feature2": "Articles à variations",
+        "feature3": "Factures à vos couleurs",
+        "feature4": "Prévisions et comparaisons",
+        "cta": "Essayer Pro"
+      },
+      "equipe": {
+        "name": "Équipe",
+        "tagline": "Pour plusieurs points de vente",
+        "feature1": "Collaborateurs illimités",
+        "feature2": "Parts et rôles",
+        "feature3": "Support prioritaire",
+        "feature4": "Export des données",
+        "cta": "Nous contacter"
+      }
+    }
+  }
+}

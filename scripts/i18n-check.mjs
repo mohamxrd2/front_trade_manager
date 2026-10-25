@@ -1,24 +1,48 @@
 #!/usr/bin/env node
 /**
- * Garde-fou i18n (npm run i18n:check) :
- *  1. Clés présentes dans messages/fr/*.json mais absentes de messages/en/*.json,
- *     et l'inverse — par domaine (fichier).
- *  2. Texte français codé en dur restant dans les composants (détection
- *     simple : accents + liste de mots français courants), sur les fichiers
- *     PAS listés dans scripts/i18n-check.ignore.json (lot par lot : un
- *     fichier migré est retiré de cette liste, voir CLAUDE.md).
+ * Garde-fou i18n (npm run i18n:check). Deux familles de vérifications :
  *
- * Échoue (code de sortie 1) si la moindre clé manque ou si du texte français
- * en dur est détecté sur un fichier non ignoré.
+ *  1. Clés manquantes entre messages/fr/*.json et messages/en/*.json, par
+ *     domaine (fichier).
+ *  2. Texte français codé en dur, détecté via un vrai parsing TypeScript/JSX
+ *     (pas une regex ligne par ligne) :
+ *     - texte JSX (JsxText) ;
+ *     - attributs placeholder / title / aria-label / alt ;
+ *     - arguments de toast(...)/toast.success/.error/.info/.warning/.loading ;
+ *     - messages d'erreur Zod (.min/.max/.email/.regex/.refine/… avec un
+ *       message littéral) ;
+ *     - tableaux de constantes (options de select, statuts, rôles…) :
+ *       tableaux de chaînes, ou tableaux d'objets avec une propriété
+ *       label/title/message ;
+ *     - formatage de date/nombre fait à la main (Intl.NumberFormat,
+ *       Intl.DateTimeFormat, Intl.RelativeTimeFormat, dayjs.locale(...))
+ *       en dehors de lib/i18n/format.ts — signalé indépendamment de la
+ *       langue, c'est une violation structurelle (lib/i18n/format.ts doit
+ *       être le seul point de formatage).
+ *
+ * Les fichiers listés dans scripts/i18n-check.ignore.json ne sont PAS
+ * scannés pour (2) — on les retire au fur et à mesure qu'ils sont migrés
+ * (lot par lot). La parité des clés (1), elle, s'applique TOUJOURS, sur
+ * tout le projet.
+ *
+ * Suppression ciblée, ligne par ligne : commentaire `i18n:allow` (voir
+ * CLAUDE.md) pour une exception assumée (nom de langue affiché dans sa
+ * propre langue, donnée métier stockée en base, sentinelle interne).
+ *
+ * Échoue (code de sortie 1) si la moindre clé manque ou si du texte
+ * français en dur est détecté sur un fichier non ignoré.
  */
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const MESSAGES_DIR = path.join(ROOT, 'messages')
 const IGNORE_FILE = path.join(ROOT, 'scripts', 'i18n-check.ignore.json')
-const SCAN_DIRS = ['app', 'components']
+const SCAN_DIRS = ['app', 'components', 'lib']
+const FORMAT_HELPER_FILE = 'lib/i18n/format.ts'
+const INLINE_ALLOW_MARKER = 'i18n:allow'
 
 // ============================================================================
 // 1. Clés fr/en manquantes, par domaine
@@ -74,13 +98,10 @@ function checkKeyParity() {
 }
 
 // ============================================================================
-// 2. Texte français en dur restant (détection simple)
+// 2. Texte français en dur — détection par parsing AST
 // ============================================================================
 
 const ACCENTS = /[àâäéèêëïîôöùûüçÀÂÄÉÈÊËÏÎÔÖÙÛÜÇ]/
-// Mots français courants sans accent, repérés dans l'app au fil des lots —
-// liste volontairement non exhaustive (détection "simple", pas un vrai
-// analyseur linguistique).
 const COMMON_FRENCH_WORDS = [
   'Annuler', 'Modifier', 'Ajouter', 'Supprimer', 'Enregistrer', 'Fermer',
   'Suivant', 'Precedent', 'Rechercher', 'Filtrer', 'Exporter', 'Importer',
@@ -88,16 +109,31 @@ const COMMON_FRENCH_WORDS = [
   'Nouveau', 'Nouvelle', 'Toutes', 'Aucun', 'Aucune', 'Disponible',
   'Requis', 'Optionnel', 'Connecter', 'Dissocier', 'Voir',
 ]
-const COMMON_WORDS_RE = new RegExp(`\\b(${COMMON_FRENCH_WORDS.join('|')})\\b`)
+const COMMON_WORDS_RE = new RegExp(`\\b(${COMMON_FRENCH_WORDS.join('|')})\\b`, 'i')
 
-function listTsxFiles() {
+function looksFrench(text) {
+  if (!text) return false
+  const trimmed = text.trim()
+  if (!trimmed) return false
+  return ACCENTS.test(trimmed) || COMMON_WORDS_RE.test(trimmed)
+}
+
+const ZOD_MESSAGE_METHODS = new Set([
+  'min', 'max', 'length', 'email', 'url', 'uuid', 'regex', 'refine',
+  'superRefine', 'includes', 'startsWith', 'endsWith', 'nonempty', 'gte', 'lte',
+])
+const TOAST_METHODS = new Set(['success', 'error', 'info', 'warning', 'loading', 'message'])
+const OPTION_LABEL_KEYS = new Set(['label', 'title', 'message', 'name'])
+
+function listSourceFiles() {
   const files = []
   function walk(dir) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name)
       if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name === '.next') continue
         walk(full)
-      } else if (entry.isFile() && entry.name.endsWith('.tsx')) {
+      } else if (entry.isFile() && /\.(tsx|ts)$/.test(entry.name) && !entry.name.endsWith('.test.ts') && !entry.name.endsWith('.test.tsx')) {
         files.push(path.relative(ROOT, full))
       }
     }
@@ -114,57 +150,176 @@ function loadIgnoreList() {
   return new Set(JSON.parse(readFileSync(IGNORE_FILE, 'utf-8')))
 }
 
-/**
- * Exception explicite et ciblée (ligne par ligne) — ex. nom de langue qui
- * doit s'afficher dans sa propre langue ("Français"/"English", jamais
- * traduit), valeur métier stockée en base, sentinelle interne non visible.
- * Préférer une vraie clé de traduction dès que possible ; `i18n:allow` reste
- * une échappatoire assumée et visible dans le diff, pas un silence discret.
- */
-const INLINE_ALLOW_MARKER = 'i18n:allow'
+/** true si la ligne source contenant `pos` porte le marqueur de suppression. */
+function lineHasAllowMarker(sourceFile, pos) {
+  const { line } = sourceFile.getLineAndCharacterOfPosition(pos)
+  const lineText = sourceFile.text.split('\n')[line] ?? ''
+  return lineText.includes(INLINE_ALLOW_MARKER)
+}
+
+function lineOf(sourceFile, pos) {
+  return sourceFile.getLineAndCharacterOfPosition(pos).line + 1
+}
+
+/** Valeur littérale d'une chaîne simple (StringLiteral ou NoSubstitutionTemplateLiteral), sinon null. */
+function plainStringValue(node) {
+  if (!node) return null
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
+  return null
+}
+
+function scanFile(file, problems) {
+  const text = readFileSync(path.join(ROOT, file), 'utf-8')
+  const isFormatHelper = file === FORMAT_HELPER_FILE
+  let sourceFile
+  try {
+    sourceFile = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  } catch {
+    return // fichier non parsable (ne devrait pas arriver sur du TS valide) — ignoré silencieusement
+  }
+
+  function report(pos, message) {
+    if (lineHasAllowMarker(sourceFile, pos)) return
+    problems.push(`  ✗ ${file}:${lineOf(sourceFile, pos)} — ${message}`)
+  }
+
+  function visit(node) {
+    // --- JSX texte ---
+    if (ts.isJsxText(node)) {
+      if (looksFrench(node.text)) {
+        report(node.getStart(sourceFile), `texte JSX : "${node.text.trim().slice(0, 80)}"`)
+      }
+    }
+
+    // --- Attributs JSX (placeholder, title, aria-label, alt) ---
+    if (ts.isJsxAttribute(node)) {
+      const attrName = node.name.getText(sourceFile)
+      if (['placeholder', 'title', 'aria-label', 'alt'].includes(attrName) && node.initializer) {
+        let value = plainStringValue(node.initializer)
+        if (!value && ts.isJsxExpression(node.initializer) && node.initializer.expression) {
+          value = plainStringValue(node.initializer.expression)
+        }
+        if (value && looksFrench(value)) {
+          report(node.getStart(sourceFile), `attribut ${attrName}="${value.slice(0, 80)}"`)
+        }
+      }
+    }
+
+    // --- Appels de fonction : toast(...), méthodes Zod, Intl.*, dayjs.locale ---
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression
+
+      // toast(...) / toast.success(...) / etc.
+      let isToastCall = false
+      if (ts.isIdentifier(callee) && callee.text === 'toast') isToastCall = true
+      if (
+        ts.isPropertyAccessExpression(callee) &&
+        ts.isIdentifier(callee.expression) &&
+        callee.expression.text === 'toast' &&
+        TOAST_METHODS.has(callee.name.text)
+      ) {
+        isToastCall = true
+      }
+      if (isToastCall) {
+        for (const arg of node.arguments) {
+          const value = plainStringValue(arg)
+          if (value && looksFrench(value)) {
+            report(arg.getStart(sourceFile), `toast(...) : "${value.slice(0, 80)}"`)
+          }
+          // { description: '...' } / { message: '...' } en 2e argument
+          if (ts.isObjectLiteralExpression(arg)) {
+            for (const prop of arg.properties) {
+              if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
+                const v = plainStringValue(prop.initializer)
+                if (v && looksFrench(v)) {
+                  report(prop.getStart(sourceFile), `toast(...) ${prop.name.text}: "${v.slice(0, 80)}"`)
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Méthodes Zod avec message littéral (.min(1, 'texte'), .refine(fn, 'texte')…)
+      if (ts.isPropertyAccessExpression(callee) && ZOD_MESSAGE_METHODS.has(callee.name.text)) {
+        for (const arg of node.arguments) {
+          const value = plainStringValue(arg)
+          if (value && looksFrench(value)) {
+            report(arg.getStart(sourceFile), `message Zod .${callee.name.text}(...) : "${value.slice(0, 80)}"`)
+          }
+          if (ts.isObjectLiteralExpression(arg)) {
+            for (const prop of arg.properties) {
+              if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && prop.name.text === 'message') {
+                const v = plainStringValue(prop.initializer)
+                if (v && looksFrench(v)) {
+                  report(prop.getStart(sourceFile), `message Zod .${callee.name.text}({message: "${v.slice(0, 80)}"})`)
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Intl.NumberFormat / Intl.DateTimeFormat / Intl.RelativeTimeFormat en dehors du helper
+      if (
+        !isFormatHelper &&
+        ts.isPropertyAccessExpression(callee) &&
+        ts.isIdentifier(callee.expression) &&
+        callee.expression.text === 'Intl' &&
+        ['NumberFormat', 'DateTimeFormat', 'RelativeTimeFormat'].includes(callee.name.text)
+      ) {
+        report(node.getStart(sourceFile), `Intl.${callee.name.text}(...) codé en dur — utiliser lib/i18n/format.ts`)
+      }
+
+      // dayjs.locale('fr') — réglage GLOBAL (singleton partagé par toute
+      // l'app), distinct de dayjs(x).locale(lang) (par-appel, autorisé dans
+      // lib/i18n/format.ts). Repéré ici par callee.expression étant
+      // l'identifiant `dayjs` directement (pas un résultat d'appel dayjs()).
+      if (
+        !isFormatHelper &&
+        ts.isPropertyAccessExpression(callee) &&
+        ts.isIdentifier(callee.expression) &&
+        callee.expression.text === 'dayjs' &&
+        callee.name.text === 'locale'
+      ) {
+        report(node.getStart(sourceFile), `dayjs.locale(...) global codé en dur — utiliser lib/i18n/format.ts`)
+      }
+    }
+
+    // --- Tableaux de constantes (options, statuts, rôles…) ---
+    if (ts.isArrayLiteralExpression(node)) {
+      for (const el of node.elements) {
+        const strValue = plainStringValue(el)
+        if (strValue && looksFrench(strValue)) {
+          report(el.getStart(sourceFile), `valeur de tableau : "${strValue.slice(0, 80)}"`)
+          continue
+        }
+        if (ts.isObjectLiteralExpression(el)) {
+          for (const prop of el.properties) {
+            if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name) && OPTION_LABEL_KEYS.has(prop.name.text)) {
+              const v = plainStringValue(prop.initializer)
+              if (v && looksFrench(v)) {
+                report(prop.getStart(sourceFile), `${prop.name.text}: "${v.slice(0, 80)}" dans un tableau d'options`)
+              }
+            }
+          }
+        }
+      }
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(sourceFile)
+}
 
 function checkHardcodedFrench() {
   const ignore = loadIgnoreList()
   const problems = []
 
-  for (const file of listTsxFiles()) {
+  for (const file of listSourceFiles()) {
     if (ignore.has(file)) continue
-
-    const lines = readFileSync(path.join(ROOT, file), 'utf-8').split('\n')
-    let inBlockComment = false
-
-    lines.forEach((line, i) => {
-      const stripped = line.trim()
-
-      if (inBlockComment) {
-        if (stripped.includes('*/')) inBlockComment = false
-        return
-      }
-
-      if (stripped.startsWith('//')) return
-      if (stripped.includes(INLINE_ALLOW_MARKER)) return
-
-      // Commentaire bloc (y compris JSX `{/* ... */}`) : s'il ne se referme
-      // pas sur la même ligne, on ignore aussi toutes les lignes suivantes
-      // jusqu'à la fermeture.
-      const opensBlockComment = /\{?\/\*/.test(stripped)
-      const closesOnSameLine = stripped.includes('*/')
-      if (opensBlockComment) {
-        if (!closesOnSameLine) inBlockComment = true
-        return
-      }
-
-      // Retire un commentaire de fin de ligne ("code, // note en français")
-      // avant de tester — ne coupe que si rien après // ne ressemble à une
-      // chaîne encore ouverte (pas de guillemet), pour éviter de tronquer un
-      // vrai littéral contenant "//" (ex. une URL).
-      const trailingCommentMatch = stripped.match(/\/\/[^'"]*$/)
-      const codePart = trailingCommentMatch ? stripped.slice(0, trailingCommentMatch.index).trimEnd() : stripped
-
-      if (ACCENTS.test(codePart) || COMMON_WORDS_RE.test(codePart)) {
-        problems.push(`  ✗ ${file}:${i + 1} — ${stripped.slice(0, 100)}`)
-      }
-    })
+    scanFile(file, problems)
   }
 
   return problems
@@ -184,7 +339,7 @@ if (keyProblems.length > 0) {
 }
 
 if (textProblems.length > 0) {
-  console.log(`❌ Texte français en dur détecté (${textProblems.length} ligne(s), hors fichiers ignorés) :\n`)
+  console.log(`❌ Texte français en dur détecté (${textProblems.length} occurrence(s), hors fichiers ignorés) :\n`)
   console.log(textProblems.join('\n'))
   console.log('')
 }
@@ -193,6 +348,6 @@ if (keyProblems.length === 0 && textProblems.length === 0) {
   console.log('✅ i18n:check — aucune clé manquante, aucun texte français en dur détecté (hors fichiers pas encore migrés).')
   process.exit(0)
 } else {
-  console.log(`i18n:check a échoué : ${keyProblems.length} clé(s) manquante(s), ${textProblems.length} ligne(s) en dur.`)
+  console.log(`i18n:check a échoué : ${keyProblems.length} clé(s) manquante(s), ${textProblems.length} occurrence(s) en dur.`)
   process.exit(1)
 }

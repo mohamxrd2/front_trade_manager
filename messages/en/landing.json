@@ -1,0 +1,230 @@
+{
+  "hero": {
+    "badge": "New · PDF invoices in your brand colors",
+    "titleLine1": "Your business,",
+    "titleLine2": "simply managed.",
+    "subtitle": "Inventory, sales, expenses, invoices and team: your whole business in a single app, on phone and on computer.",
+    "ctaPrimary": "Start for free",
+    "ctaSecondary": "See how it works",
+    "mockup": {
+      "invoiceLabel": "Invoice",
+      "invoicePaid": "Paid",
+      "invoiceAmount": "138,200 F",
+      "invoiceClient": "Awa Couture",
+      "appName": "Waelly",
+      "balanceLabel": "Balance",
+      "balanceAmount": "1,245,000 F",
+      "quickSale": "+ Sale",
+      "quickExpense": "− Expense",
+      "bubbleInvoicePaid": "Invoice paid · +36,000 F",
+      "bubbleSalesWeek": "12% sales this week",
+      "bubbleCurrency": "XOF · FCFA"
+    }
+  },
+  "stats": {
+    "intro": "Track, sell and invoice with tools built for French-speaking African businesses.",
+    "modulesSuffix": "modules",
+    "modulesCaption": "inventory, sales, expenses, invoices, clients, team",
+    "screensSuffix": "screens",
+    "screensCaption": "phone and computer, same data",
+    "stepsSuffix": "steps",
+    "stepsCaption": "to get started, no training needed",
+    "allBusinesses": "All businesses",
+    "allBusinessesDescription": "Fashion boutiques, grocery stores, cosmetics, electronics: Waelly adapts to your business.",
+    "monthlyGoal": "Monthly goal",
+    "monthlyGoalTarget": "1.6M F",
+    "monthlyGoalReached": "1,245,000 reached",
+    "realtimeTitle": "Real-time tracking",
+    "realtimeDescription": "Every sale instantly updates your stock, balance and analytics.",
+    "invoicingTitle": "Invoicing in one click",
+    "invoicingDescription": "Polished PDF invoices with your logo, sent and tracked all the way to payment."
+  },
+  "features": {
+    "eyebrow": "Features",
+    "title": "Everything you need to run your shop",
+    "subtitle": "From the first item in stock to the paid invoice, every step is simple and connected.",
+    "salesCard": {
+      "title": "Sales & expenses",
+      "description": "Log a sale in seconds, note your expenses, and keep a wallet that's always accurate.",
+      "chartLabel": "Sales · 7 days",
+      "chartAria": "Sales trending up over 7 days"
+    },
+    "forecastCard": {
+      "title": "Analytics & forecasts",
+      "description": "Compare your periods, see what sells best and plan ahead for the coming months.",
+      "chartLabel": "Sales vs expenses",
+      "legendSales": "Sales",
+      "legendExpenses": "Expenses",
+      "chartAria": "Sales have exceeded expenses for three months"
+    },
+    "stockCard": {
+      "title": "Inventory & variants",
+      "description": "Simple or variant items (sizes, colors), restocks with history, and automatic alerts when an item drops below your threshold.",
+      "stockValue": "Inventory value",
+      "stockValueAboveThreshold": "72% of items above threshold",
+      "item1": "Wax dress · M, L, XL",
+      "item2": "Raffia bag",
+      "item3": "Bazin riche · 6 colors"
+    }
+  },
+  "saleSteps": {
+    "title": "Record a sale in three steps",
+    "subtitle": "Pick the item, the quantity, the payment method. Waelly updates the stock, the balance and the invoice on its own.",
+    "step1Title": "Automatic invoice",
+    "step1Body": "The sale can generate its PDF invoice right away, ready to share.",
+    "step2Title": "Clear history",
+    "step2Body": "Every transaction is dated, organized and instantly findable.",
+    "step3Title": "Every payment method",
+    "step3Body": "Cash, Mobile Money, bank transfer, check or card.",
+    "mockup": {
+      "newSale": "New sale",
+      "articleName": "Wax dress",
+      "articleVariant": "Size M · 24 in stock",
+      "quantity": "Quantity",
+      "cashMethod": "Cash",
+      "mobileMoneyMethod": "Mobile Money",
+      "cardMethod": "Card",
+      "total": "Total",
+      "validate": "Confirm sale",
+      "stockUpdated": "Stock updated"
+    }
+  },
+  "countries": {
+    "title": "Built for French-speaking Africa",
+    "subtitle": "FCFA, Mobile Money, invoices in French: Waelly speaks your business's language, wherever you are.",
+    "searchPlaceholder": "Search for your country",
+    "noResults": "Don't see your country? Waelly works everywhere: just pick your currency.",
+    "list": {
+      "ci": "Ivory Coast",
+      "sn": "Senegal",
+      "ml": "Mali",
+      "bf": "Burkina Faso",
+      "bj": "Benin",
+      "tg": "Togo",
+      "ne": "Niger",
+      "gn": "Guinea",
+      "cm": "Cameroon",
+      "ga": "Gabon",
+      "cg": "Congo",
+      "cd": "DR Congo",
+      "td": "Chad",
+      "mg": "Madagascar",
+      "mr": "Mauritania",
+      "ma": "Morocco"
+    }
+  },
+  "network": {
+    "titleLine1": "From Dakar to Douala,",
+    "titleLine2": "your team stays connected"
+  },
+  "navbar": {
+    "home": "Home",
+    "features": "Features",
+    "pricing": "Pricing",
+    "faq": "FAQ",
+    "openApp": "Open the app",
+    "login": "Log in",
+    "mainNav": "Main navigation",
+    "closeMenu": "Close menu",
+    "openMenu": "Open menu"
+  },
+  "faq": {
+    "titleLine1": "Got questions?",
+    "titleLine2": "We've got answers.",
+    "subtitle": "Everything you need to know before getting started.",
+    "tabsAria": "Topics",
+    "tabs": { "general": "General", "factures": "Invoices", "compte": "Account" },
+    "general": {
+      "q1": "Can I use Waelly on my phone?",
+      "a1": "Yes. Waelly works on phone and computer, with the same account and the same data, updated in real time.",
+      "q2": "Do I need an internet connection?",
+      "a2": "A connection is needed to record and sync your transactions. Pages already open remain viewable.",
+      "q3": "Which currency is used?",
+      "a3": "FCFA by default. You can choose another currency in settings, along with the language and low-stock threshold.",
+      "q4": "Is my data secure?",
+      "a4": "Your data is encrypted in transit and backed up. Only you and the collaborators you invite have access."
+    },
+    "factures": {
+      "q1": "Can I customize my invoices?",
+      "a1": "Yes: logo, legal and bank details, visual theme, discounts, taxes and shipping fees.",
+      "q2": "How do I send an invoice to a client?",
+      "a2": "Download the PDF or share it directly, then track its status: draft, sent, paid.",
+      "q3": "Does a paid invoice create a sale?",
+      "a3": "Yes. When an invoice is marked paid, the sale and the stock are updated automatically.",
+      "q4": "Can I invoice services with no stock?",
+      "a4": "Yes, add free-form lines alongside your stock items."
+    },
+    "compte": {
+      "q1": "How do I create my account?",
+      "a1": "By email with a verification code, or in one click with Google or Facebook.",
+      "q2": "Can my team use the same account?",
+      "a2": "Add your collaborators with their role, their share and their contact details.",
+      "q3": "Can I change plans at any time?",
+      "a3": "Yes, you can switch between plans whenever you like.",
+      "q4": "How do I delete my account?",
+      "a4": "From Settings > Security. Deletion permanently erases your data."
+    }
+  },
+  "ctaFooter": {
+    "newsletterEmailLabel": "Your email",
+    "newsletterEmailPlaceholder": "Your email",
+    "newsletterSubscribe": "Subscribe",
+    "newsletterInvalidEmail": "Enter a valid email address.",
+    "newsletterSuccess": "Thanks! You're now subscribed to the newsletter.",
+    "title": "Your shop deserves better than a notebook.",
+    "subtitle": "Create your account and record your first sale today. On phone and on computer.",
+    "createAccount": "Create my account",
+    "alreadyHaveAccount": "I already have an account",
+    "newsletterTagline": "Get our management tips and the app's latest updates.",
+    "productSection": "Product",
+    "accountSection": "Account",
+    "legalSection": "Legal",
+    "login": "Log in",
+    "createAccountLink": "Create an account",
+    "legalNotice": "[Legal notice]",
+    "privacy": "[Privacy]",
+    "contact": "[Contact]",
+    "copyright": "© 2026 Waelly. All rights reserved."
+  },
+  "pricing": {
+    "billingPeriodAria": "Billing period",
+    "toggleAria": "Toggle monthly / yearly",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "yearlyDiscount": "2 months free",
+    "title": "Simple pricing, in FCFA",
+    "subtitle": "Choose the plan that matches your business pace.",
+    "mostChosen": "Most popular",
+    "perMonth": "FCFA / month",
+    "perYear": "FCFA / year",
+    "plans": {
+      "decouverte": {
+        "name": "Starter",
+        "tagline": "To get started on your own",
+        "feature1": "1 user",
+        "feature2": "Unlimited inventory and sales",
+        "feature3": "PDF invoices",
+        "feature4": "Basic analytics",
+        "cta": "Get started"
+      },
+      "pro": {
+        "name": "Pro",
+        "tagline": "For growing shops",
+        "feature1": "Up to 5 collaborators",
+        "feature2": "Variant items",
+        "feature3": "Invoices in your brand colors",
+        "feature4": "Forecasts and comparisons",
+        "cta": "Try Pro"
+      },
+      "equipe": {
+        "name": "Team",
+        "tagline": "For multiple points of sale",
+        "feature1": "Unlimited collaborators",
+        "feature2": "Shares and roles",
+        "feature3": "Priority support",
+        "feature4": "Data export",
+        "cta": "Contact us"
+      }
+    }
+  }
+}

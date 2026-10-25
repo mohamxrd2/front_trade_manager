@@ -8,12 +8,13 @@ import { Menu, X } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { EASE } from '@/lib/motion'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 const NAV_LINKS = [
-  { href: '#top', label: 'Accueil' },
-  { href: '#fonctionnalites', label: 'Fonctionnalités' },
-  { href: '#tarifs', label: 'Tarifs' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '#top', labelKey: 'landing.navbar.home' },
+  { href: '#fonctionnalites', labelKey: 'landing.navbar.features' },
+  { href: '#tarifs', labelKey: 'landing.navbar.pricing' },
+  { href: '#faq', labelKey: 'landing.navbar.faq' },
 ]
 
 const SECTION_IDS = ['top', 'fonctionnalites', 'tarifs', 'faq']
@@ -37,6 +38,7 @@ function Logo({ light }: { light?: boolean }) {
 
 function AuthCta({ className }: { className?: string }) {
   const { isAuthenticated } = useAuth()
+  const { t } = useTranslation()
   return (
     <Link
       href={isAuthenticated ? '/dashboard' : '/login'}
@@ -49,7 +51,7 @@ function AuthCta({ className }: { className?: string }) {
         boxShadow: '0 8px 20px rgba(75,47,214,.35)',
       }}
     >
-      {isAuthenticated ? 'Ouvrir l’application' : 'Se connecter'}
+      {isAuthenticated ? t('landing.navbar.openApp') : t('landing.navbar.login')}
     </Link>
   )
 }
@@ -77,6 +79,7 @@ function useActiveSection() {
 }
 
 export function Navbar() {
+  const { t } = useTranslation()
   const [scrolled, setScrolled] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
   const active = useActiveSection()
@@ -107,7 +110,7 @@ export function Navbar() {
       style={{ padding: scrolled ? '12px 20px 0' : '18px 20px 0' }}
     >
       <nav
-        aria-label="Navigation principale"
+        aria-label={t('landing.navbar.mainNav')}
         className={cn(
           'flex w-full items-center justify-between transition-[max-width,padding,border-radius,background,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)]',
           scrolled ? 'max-w-[940px] rounded-full py-2 pr-2 pl-4' : 'max-w-[1180px] rounded-none px-1 py-2'
@@ -136,7 +139,7 @@ export function Navbar() {
                 active === link.href.slice(1) ? 'bg-[#0E0E1A] text-white' : 'text-[#3F3F50] hover:text-[#0E0E1A]'
               )}
             >
-              {link.label}
+              {t(link.labelKey)}
             </a>
           ))}
         </div>
@@ -148,7 +151,7 @@ export function Navbar() {
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          aria-label={menuOpen ? t('landing.navbar.closeMenu') : t('landing.navbar.openMenu')}
           aria-expanded={menuOpen}
           className="flex size-11 items-center justify-center rounded-full text-[#0E0E1A] md:hidden"
         >
@@ -182,7 +185,7 @@ export function Navbar() {
                 transition={{ duration: 0.3, delay: i * 0.06, ease: EASE }}
                 className="flex min-h-11 items-center rounded-[18px] px-4 text-[15px] font-semibold text-[#0E0E1A]"
               >
-                {link.label}
+                {t(link.labelKey)}
               </m.a>
             ))}
             <div className="mt-1 px-1 pb-1">

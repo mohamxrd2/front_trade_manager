@@ -6,6 +6,8 @@ import {
   type AppLanguage,
   setCurrentLanguage,
   writeLanguageCookie,
+  isPseudoModeEnabled,
+  setPseudoMode as setPseudoModeBridge,
 } from '@/lib/i18n/current-language'
 
 type Language = AppLanguage
@@ -13,6 +15,9 @@ type Language = AppLanguage
 interface LanguageContextType {
   language: Language
   setLanguage: (lang: Language) => Promise<void>
+  /** Toujours `false` en production (voir lib/i18n/current-language.ts). */
+  pseudoMode: boolean
+  togglePseudoMode: () => void
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
@@ -31,6 +36,23 @@ interface LanguageProviderProps {
 export function LanguageProvider({ children, initialLanguage }: LanguageProviderProps) {
   const { settings, updateSettings } = useSettings()
   const [language, setLanguageState] = useState<Language>(initialLanguage)
+  // Lu une seule fois ici : état initial identique sur serveur et client
+  // (toujours `false` côté serveur, isPseudoModeEnabled() dépend de
+  // window/sessionStorage) — le flag réel ne s'applique qu'après montage,
+  // ce qui est le comportement voulu pour un outil de développement.
+  const [pseudoMode, setPseudoModeState] = useState(false)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lit sessionStorage/l'URL, indisponibles pendant le rendu serveur.
+    setPseudoModeState(isPseudoModeEnabled())
+  }, [])
+
+  const togglePseudoMode = useCallback(() => {
+    setPseudoModeState((prev) => {
+      const next = !prev
+      setPseudoModeBridge(next)
+      return next
+    })
+  }, [])
 
   // Applique la langue partout où React ne peut pas intervenir directement :
   // <html lang>, le cookie (pages publiques + prochain SSR), et le pont lu
@@ -69,7 +91,7 @@ export function LanguageProvider({ children, initialLanguage }: LanguageProvider
   }, [updateSettings])
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, pseudoMode, togglePseudoMode }}>
       {children}
     </LanguageContext.Provider>
   )
