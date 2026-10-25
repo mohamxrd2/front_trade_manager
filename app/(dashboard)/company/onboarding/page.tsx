@@ -7,6 +7,7 @@ import { Loader2, Building2, Mail, Image as ImageIcon, X, CheckCircle } from 'lu
 import { toast } from 'sonner'
 
 import { useCompanyOnboarding, completeOnboarding, type MissingField } from '@/hooks/useCompanyOnboarding'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { Button, Card } from '@/components/waelly'
 
 /**
@@ -20,6 +21,7 @@ import { Button, Card } from '@/components/waelly'
  */
 export default function CompanyOnboardingPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const { status, isLoading: isLoadingStatus, refresh } = useCompanyOnboarding()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -45,11 +47,11 @@ export default function CompanyOnboardingPage() {
     if (!file) return
 
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('Le logo ne doit pas dépasser 2 Mo')
+      toast.error(t('onboarding.companyGate.logoTooLarge'))
       return
     }
     if (!file.type.startsWith('image/')) {
-      toast.error('Le fichier doit être une image')
+      toast.error(t('onboarding.companyGate.logoMustBeImage'))
       return
     }
 
@@ -65,11 +67,11 @@ export default function CompanyOnboardingPage() {
 
   const validateEmail = (value: string) => {
     if (!value.trim()) {
-      setEmailError("L'adresse email est obligatoire")
+      setEmailError(t('onboarding.companyGate.emailRequired'))
       return false
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      setEmailError("L'adresse email n'est pas valide")
+      setEmailError(t('onboarding.companyGate.emailInvalid'))
       return false
     }
     setEmailError('')
@@ -82,7 +84,7 @@ export default function CompanyOnboardingPage() {
     let isValid = true
     if (needsEmail && !validateEmail(email)) isValid = false
     if (needsLogo && !logoFile) {
-      toast.error('Le logo de l&apos;entreprise est obligatoire')
+      toast.error(t('onboarding.companyGate.logoRequired'))
       isValid = false
     }
     if (!isValid) return
@@ -93,12 +95,12 @@ export default function CompanyOnboardingPage() {
         email: needsEmail ? email : undefined,
         logo: needsLogo ? logoFile || undefined : undefined,
       })
-      toast.success('Profil entreprise complété')
+      toast.success(t('onboarding.companyGate.successToast'))
       await refresh()
       router.push('/invoices')
     } catch (error) {
       const err = error as Error & { response?: { data?: { message?: string } } }
-      toast.error(err.response?.data?.message || err.message || "Échec de l'enregistrement")
+      toast.error(err.response?.data?.message || err.message || t('onboarding.companyGate.genericError'))
     } finally {
       setIsSubmitting(false)
     }
@@ -119,8 +121,8 @@ export default function CompanyOnboardingPage() {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 text-center">
         <CheckCircle className="size-12 text-success" />
-        <p className="text-lg font-bold text-ink">Profil déjà complet</p>
-        <p className="text-sm text-subtle">Redirection vers les factures…</p>
+        <p className="text-lg font-bold text-ink">{t('onboarding.companyGate.alreadyComplete')}</p>
+        <p className="text-sm text-subtle">{t('onboarding.companyGate.redirecting')}</p>
       </div>
     )
   }
@@ -132,9 +134,9 @@ export default function CompanyOnboardingPage() {
           <span className="flex size-14 items-center justify-center rounded-full bg-brand-100 text-brand-600">
             <Building2 className="size-7" strokeWidth={1.8} />
           </span>
-          <h1 className="text-xl font-bold text-ink">Complétez votre profil entreprise</h1>
+          <h1 className="text-xl font-bold text-ink">{t('onboarding.companyGate.title')}</h1>
           <p className="text-sm text-subtle">
-            Le logo et l&apos;email de votre entreprise sont nécessaires pour créer des factures.
+            {t('onboarding.companyGate.subtitle')}
           </p>
         </div>
 
@@ -143,12 +145,12 @@ export default function CompanyOnboardingPage() {
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
                 <ImageIcon className="size-4" />
-                Logo de l&apos;entreprise
+                {t('onboarding.companyGate.logoLabel')}
               </label>
 
               {logoPreview ? (
                 <div className="relative inline-flex size-28 items-center justify-center rounded-tile border-2 border-brand-500 bg-brand-50 p-2">
-                  <Image src={logoPreview} alt="Aperçu du logo" fill className="object-contain p-2" unoptimized />
+                  <Image src={logoPreview} alt={t('onboarding.companyGate.logoPreviewAlt')} fill className="object-contain p-2" unoptimized />
                   <button
                     type="button"
                     onClick={removeLogo}
@@ -176,8 +178,8 @@ export default function CompanyOnboardingPage() {
                   <span className="flex size-11 items-center justify-center rounded-full bg-surface">
                     <ImageIcon className="size-5" strokeWidth={1.8} />
                   </span>
-                  <span className="text-sm font-bold">Ajouter le logo</span>
-                  <span className="text-xs text-ink-3">PNG, JPG, GIF, WebP (max. 2 Mo)</span>
+                  <span className="text-sm font-bold">{t('onboarding.companyGate.addLogo')}</span>
+                  <span className="text-xs text-ink-3">{t('onboarding.companyGate.logoHint')}</span>
                 </button>
               )}
             </div>
@@ -187,12 +189,12 @@ export default function CompanyOnboardingPage() {
             <div className="flex flex-col gap-2">
               <label htmlFor="company-email" className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
                 <Mail className="size-4" />
-                Email de l&apos;entreprise
+                {t('onboarding.companyGate.emailLabel')}
               </label>
               <input
                 id="company-email"
                 type="email"
-                placeholder="contact@entreprise.com"
+                placeholder={t('onboarding.companyGate.emailPlaceholder')}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
@@ -212,10 +214,10 @@ export default function CompanyOnboardingPage() {
             {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Enregistrement…
+                {t('onboarding.companyGate.submitBusy')}
               </>
             ) : (
-              'Continuer vers les factures'
+              t('onboarding.companyGate.submitIdle')
             )}
           </Button>
         </form>

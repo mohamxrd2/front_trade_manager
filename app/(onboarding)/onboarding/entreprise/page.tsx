@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { getCompany, updateCompany, uploadCompanyLogo } from '@/lib/services/company'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { SubmitButton } from '@/components/auth'
 import {
   StepsAside,
@@ -39,28 +40,30 @@ import { skipOnboarding } from '@/lib/services/onboarding'
  * formulaire (react-hook-form + zod), deux rendus (hidden md:flex / md:hidden).
  */
 
-const LEGAL_STATUS_OPTIONS = ['Entreprise individuelle', 'SARL', 'SA', 'Auto-entrepreneur']
+const LEGAL_STATUS_OPTIONS = ['Entreprise individuelle', 'SARL', 'SA', 'Auto-entrepreneur'] // i18n:allow — valeur métier stockée en base (company.legal_status), pas encore de clé valeur/affichage séparée
 const DRAFT_KEY = 'onboarding-draft-entreprise'
 
-const companySchema = z
-  .object({
-    name: z.string().min(2, "Le nom de l'entreprise doit contenir au moins 2 caractères"),
-    sector: z.string().min(1, 'Choisissez un secteur'),
-    sectorOther: z.string().optional(),
-    legalStatus: z.string().min(1),
-    headquarters: z.string().optional(),
-    iban: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.sector === 'Autre' && !data.sectorOther?.trim()) {
-      ctx.addIssue({ code: 'custom', path: ['sectorOther'], message: 'Précisez votre activité' })
-    }
-    if (data.iban && !isValidIbanFormat(data.iban)) {
-      ctx.addIssue({ code: 'custom', path: ['iban'], message: 'Numéro de compte invalide' })
-    }
-  })
+function buildCompanySchema(t: ReturnType<typeof useTranslation>['t']) {
+  return z
+    .object({
+      name: z.string().min(2, t('onboarding.company.validationNameMin')),
+      sector: z.string().min(1, t('onboarding.company.validationSectorRequired')),
+      sectorOther: z.string().optional(),
+      legalStatus: z.string().min(1),
+      headquarters: z.string().optional(),
+      iban: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.sector === 'Autre' && !data.sectorOther?.trim()) {
+        ctx.addIssue({ code: 'custom', path: ['sectorOther'], message: t('onboarding.company.validationSectorOtherRequired') })
+      }
+      if (data.iban && !isValidIbanFormat(data.iban)) {
+        ctx.addIssue({ code: 'custom', path: ['iban'], message: t('onboarding.company.validationIbanInvalid') })
+      }
+    })
+}
 
-type CompanyFormValues = z.infer<typeof companySchema>
+type CompanyFormValues = z.infer<ReturnType<typeof buildCompanySchema>>
 
 const DEFAULT_VALUES: CompanyFormValues = {
   name: '',
@@ -106,6 +109,7 @@ function focusFirstError(fieldName: string) {
 
 export default function OnboardingCompanyPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const h1Ref = React.useRef<HTMLHeadingElement>(null)
 
   const [logoFile, setLogoFile] = React.useState<File | null>(null)
@@ -116,6 +120,7 @@ export default function OnboardingCompanyPage() {
   const [skipDialogOpen, setSkipDialogOpen] = React.useState(false)
   const [skipping, setSkipping] = React.useState(false)
 
+  const companySchema = React.useMemo(() => buildCompanySchema(t), [t])
   const {
     control,
     handleSubmit,
@@ -213,7 +218,7 @@ export default function OnboardingCompanyPage() {
       clearDraft()
       router.push('/onboarding/preferences')
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Impossible d'enregistrer. Réessayez.")
+      toast.error(error instanceof Error ? error.message : t('onboarding.company.saveError'))
     }
   }
 
@@ -229,7 +234,7 @@ export default function OnboardingCompanyPage() {
       clearDraft()
       router.replace('/dashboard')
     } catch {
-      toast.error("Impossible de passer cette étape pour l'instant. Réessayez.")
+      toast.error(t('onboarding.company.skipError'))
       setSkipping(false)
     }
   }
@@ -242,7 +247,7 @@ export default function OnboardingCompanyPage() {
 
   const sectorField = (variant: 'ink' | 'violet') => (
     <div className="flex flex-col gap-2">
-      <span className="text-[13px] font-semibold text-[#0E0E1A]">Secteur d&apos;activité</span>
+      <span className="text-[13px] font-semibold text-[#0E0E1A]">{t('onboarding.sectorFieldLabel')}</span>
       <Controller
         control={control}
         name="sector"
@@ -260,7 +265,7 @@ export default function OnboardingCompanyPage() {
           render={({ field }) => (
             <OnboardingInput
               {...field}
-              label="Précisez votre activité"
+              label={t('onboarding.company.sectorOtherLabel')}
               id="sectorOther"
               data-field="sectorOther"
               error={errors.sectorOther?.message}
@@ -294,16 +299,16 @@ export default function OnboardingCompanyPage() {
 
           <main className="flex flex-[999_1_560px] flex-col gap-[26px] rounded-[28px] bg-white p-9 shadow-[0_4px_18px_rgba(17,17,80,0.05)]">
             <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-bold text-[#4B2FD6]">Étape 2 sur 3</span>
+              <span className="text-[13px] font-bold text-[#4B2FD6]">{t('onboarding.company.stepLabel')}</span>
               <h1
                 ref={h1Ref}
                 tabIndex={-1}
                 className="text-[30px] font-extrabold tracking-[-0.02em] text-[#0E0E1A] outline-none"
               >
-                Parlez-nous de votre entreprise
+                {t('onboarding.company.title')}
               </h1>
               <p className="text-[15px] text-[#6B6B7B]">
-                Ces informations apparaîtront sur vos factures. Vous pourrez les modifier plus tard.
+                {t('onboarding.company.subtitleDesktop')}
               </p>
             </div>
 
@@ -319,10 +324,10 @@ export default function OnboardingCompanyPage() {
                 render={({ field }) => (
                   <OnboardingInput
                     {...field}
-                    label="Nom de l'entreprise"
+                    label={t('onboarding.company.nameLabel')}
                     id="name-desktop"
                     data-field="name"
-                    placeholder="Ex. Awa Couture"
+                    placeholder={t('onboarding.company.namePlaceholder')}
                     error={errors.name?.message}
                   />
                 )}
@@ -333,7 +338,7 @@ export default function OnboardingCompanyPage() {
                 render={({ field }) => (
                   <OnboardingSelect
                     {...field}
-                    label="Statut légal"
+                    label={t('onboarding.company.legalStatusLabel')}
                     id="legalStatus-desktop"
                     data-field="legalStatus"
                     options={LEGAL_STATUS_OPTIONS}
@@ -347,10 +352,10 @@ export default function OnboardingCompanyPage() {
                 render={({ field }) => (
                   <OnboardingInput
                     {...field}
-                    label="Siège"
+                    label={t('onboarding.company.headquartersLabel')}
                     id="headquarters-desktop"
                     data-field="headquarters"
-                    placeholder="Ex. Cocody, Abidjan"
+                    placeholder={t('onboarding.company.headquartersPlaceholder')}
                     error={errors.headquarters?.message}
                   />
                 )}
@@ -361,11 +366,11 @@ export default function OnboardingCompanyPage() {
                 render={({ field }) => (
                   <IbanInput
                     {...field}
-                    label="IBAN / compte bancaire"
+                    label={t('onboarding.company.ibanLabel')}
                     id="iban-desktop"
                     data-field="iban"
-                    optionalHint="(facultatif)"
-                    placeholder="CI00 0000 0000 0000 0000"
+                    optionalHint={t('onboarding.company.ibanOptionalHint')}
+                    placeholder={t('onboarding.company.ibanPlaceholder')}
                     error={errors.iban?.message}
                   />
                 )}
@@ -382,12 +387,12 @@ export default function OnboardingCompanyPage() {
                   onClick={() => setSkipDialogOpen(true)}
                   className="flex h-[50px] items-center px-5 text-[15px] font-semibold text-[#4B4B5C]"
                 >
-                  Passer pour l&apos;instant
+                  {t('onboarding.company.skipForNow')}
                 </button>
                 <SubmitButton
                   isSubmitting={isSubmitting || uploadProgress !== null}
-                  idleLabel="Continuer"
-                  busyLabel={uploadProgress !== null ? `Envoi du logo… ${uploadProgress}%` : 'Enregistrement…'}
+                  idleLabel={t('onboarding.company.continueCta')}
+                  busyLabel={uploadProgress !== null ? t('onboarding.company.uploadingLogo', { progress: uploadProgress }) : t('onboarding.company.saving')}
                   className="h-[50px] w-auto px-[26px] shadow-[0_10px_24px_rgba(75,47,214,0.3)]"
                 />
               </div>
@@ -403,21 +408,21 @@ export default function OnboardingCompanyPage() {
           style={{ paddingTop: 'calc(56px + env(safe-area-inset-top))' }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-[#6B6B7B]">Étape 2 sur 3</span>
+            <span className="text-[13px] font-semibold text-[#6B6B7B]">{t('onboarding.company.stepLabel')}</span>
             <button
               type="button"
               onClick={() => setSkipDialogOpen(true)}
               className="py-3 text-sm font-semibold text-[#5B3FE6]"
             >
-              Passer
+              {t('onboarding.company.skip')}
             </button>
           </div>
 
           <StepsBar current={2} />
 
           <div className="flex flex-col gap-1">
-            <h1 className="text-[28px] font-bold leading-[1.1] text-[#0E0E1A]">Parlez-nous de votre entreprise</h1>
-            <p className="text-[15px] text-[#6B6B7B]">Ces informations apparaîtront sur vos factures.</p>
+            <h1 className="text-[28px] font-bold leading-[1.1] text-[#0E0E1A]">{t('onboarding.company.title')}</h1>
+            <p className="text-[15px] text-[#6B6B7B]">{t('onboarding.company.subtitleMobile')}</p>
           </div>
 
           {logoButton}
@@ -428,10 +433,10 @@ export default function OnboardingCompanyPage() {
             render={({ field }) => (
               <OnboardingInput
                 {...field}
-                label="Nom de l'entreprise"
+                label={t('onboarding.company.nameLabel')}
                 id="name-mobile"
                 data-field="name"
-                placeholder="Ex. Awa Couture"
+                placeholder={t('onboarding.company.namePlaceholder')}
                 error={errors.name?.message}
               />
             )}
@@ -445,10 +450,10 @@ export default function OnboardingCompanyPage() {
             render={({ field }) => (
               <OnboardingInput
                 {...field}
-                label="Siège"
+                label={t('onboarding.company.headquartersLabel')}
                 id="headquarters-mobile"
                 data-field="headquarters"
-                placeholder="Ex. Cocody, Abidjan"
+                placeholder={t('onboarding.company.headquartersPlaceholder')}
                 error={errors.headquarters?.message}
               />
             )}
@@ -459,7 +464,7 @@ export default function OnboardingCompanyPage() {
             render={({ field }) => (
               <OnboardingSelect
                 {...field}
-                label="Statut légal"
+                label={t('onboarding.company.legalStatusLabel')}
                 id="legalStatus-mobile"
                 data-field="legalStatus"
                 options={LEGAL_STATUS_OPTIONS}
@@ -473,11 +478,11 @@ export default function OnboardingCompanyPage() {
             render={({ field }) => (
               <IbanInput
                 {...field}
-                label="IBAN / compte bancaire"
+                label={t('onboarding.company.ibanLabel')}
                 id="iban-mobile"
                 data-field="iban"
-                optionalHint="(facultatif)"
-                placeholder="CI00 0000 0000 0000 0000"
+                optionalHint={t('onboarding.company.ibanOptionalHint')}
+                placeholder={t('onboarding.company.ibanPlaceholder')}
                 error={errors.iban?.message}
               />
             )}
@@ -490,8 +495,8 @@ export default function OnboardingCompanyPage() {
         >
           <SubmitButton
             isSubmitting={isSubmitting || uploadProgress !== null}
-            idleLabel="Continuer"
-            busyLabel={uploadProgress !== null ? `Envoi du logo… ${uploadProgress}%` : 'Enregistrement…'}
+            idleLabel={t('onboarding.company.continueCta')}
+            busyLabel={uploadProgress !== null ? t('onboarding.company.uploadingLogo', { progress: uploadProgress }) : t('onboarding.company.saving')}
           />
         </div>
       </div>
@@ -499,16 +504,15 @@ export default function OnboardingCompanyPage() {
       <AlertDialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Passer cette étape ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('onboarding.skipDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Vous pourrez compléter ces informations plus tard dans Paramètres. Vos factures n&apos;afficheront pas
-              encore le nom de votre entreprise.
+              {t('onboarding.skipDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={skipping}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={skipping}>{t('onboarding.skipDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleSkip} disabled={skipping}>
-              {skipping ? 'Patientez…' : 'Passer'}
+              {skipping ? t('onboarding.skipDialog.pleaseWait') : t('onboarding.skipDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

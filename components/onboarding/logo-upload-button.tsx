@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Image as ImageIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 const MAX_SIZE_BYTES = 2 * 1024 * 1024
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg']
@@ -22,6 +23,7 @@ interface LogoUploadButtonProps {
  * (voir page onboarding/entreprise).
  */
 export function LogoUploadButton({ previewUrl, onSelect, error, className }: LogoUploadButtonProps) {
+  const { t } = useTranslation()
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [localError, setLocalError] = React.useState<string | null>(null)
 
@@ -30,12 +32,12 @@ export function LogoUploadButton({ previewUrl, onSelect, error, className }: Log
     if (!file) return
 
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      setLocalError('Format non supporté (PNG ou JPG uniquement).')
+      setLocalError(t('onboarding.logoUpload.unsupportedFormat'))
       e.target.value = ''
       return
     }
     if (file.size > MAX_SIZE_BYTES) {
-      setLocalError('Image trop lourde (2 Mo max)')
+      setLocalError(t('onboarding.logoUpload.tooLarge'))
       e.target.value = ''
       return
     }
@@ -63,9 +65,9 @@ export function LogoUploadButton({ previewUrl, onSelect, error, className }: Log
         </span>
         <span className="flex flex-col gap-0.5">
           <span className="text-[15px] font-bold text-[#0E0E1A]">
-            {previewUrl ? 'Changer le logo' : 'Ajouter votre logo'}
+            {previewUrl ? t('onboarding.logoUpload.change') : t('onboarding.logoUpload.add')}
           </span>
-          <span className="text-[13px] text-[#6B6B7B]">PNG ou JPG, carré de préférence</span>
+          <span className="text-[13px] text-[#6B6B7B]">{t('onboarding.logoUpload.hint')}</span>
         </span>
       </button>
       <input

@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { checkOnboarding } from '@/lib/services/onboarding'
 import { keys } from '@/lib/query-keys'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 /**
  * Bannière discrète affichée en haut du tableau de bord quand l'utilisateur
@@ -15,6 +16,7 @@ import { keys } from '@/lib/query-keys'
  * prochaine visite tant que le profil n'est pas réellement complété.
  */
 export function OnboardingSkippedBanner() {
+  const { t } = useTranslation()
   const [dismissed, setDismissed] = React.useState(false)
 
   const { data } = useQuery({
@@ -28,15 +30,15 @@ export function OnboardingSkippedBanner() {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[16px] bg-[#F4F1FF] px-4 py-3">
       <p className="text-sm font-semibold text-[#3A20B8]">
-        Complétez votre profil d&apos;entreprise{' '}
+        {t('onboarding.skippedBanner.message')}{' '}
         <Link href="/settings?tab=entreprise" className="underline">
-          Compléter maintenant
+          {t('onboarding.skippedBanner.cta')}
         </Link>
       </p>
       <button
         type="button"
         onClick={() => setDismissed(true)}
-        aria-label="Masquer ce message"
+        aria-label={t('onboarding.skippedBanner.dismiss')}
         className="flex size-8 shrink-0 items-center justify-center rounded-full text-[#3A20B8]"
       >
         <X className="size-4" />

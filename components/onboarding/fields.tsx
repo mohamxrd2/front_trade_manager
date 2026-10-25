@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Minus, Plus } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 /* ============================= Champs texte / select ============================= */
 
@@ -126,15 +127,7 @@ export function IbanInput({ value, onChange, ...props }: IbanInputProps) {
 
 /* ============================= Secteur d'activité (puces) ============================= */
 
-export const SECTOR_OPTIONS = [
-  'Mode & textile',
-  'Alimentation',
-  'Cosmétique',
-  'Électronique',
-  'Restauration',
-  'Services',
-  'Autre',
-]
+export const SECTOR_OPTIONS = ['Mode & textile', 'Alimentation', 'Cosmétique', 'Électronique', 'Restauration', 'Services', 'Autre'] // i18n:allow — valeurs métier stockées en base, pas encore de clé valeur/affichage séparée (même liste que app/(dashboard)/settings/page.tsx)
 
 interface SectorPillsProps {
   value: string
@@ -145,8 +138,9 @@ interface SectorPillsProps {
 }
 
 export function SectorPills({ value, onChange, variant, className }: SectorPillsProps) {
+  const { t } = useTranslation()
   return (
-    <div role="group" aria-label="Secteur d'activité" className={cn('flex flex-wrap gap-2', className)}>
+    <div role="group" aria-label={t('onboarding.sectorFieldLabel')} className={cn('flex flex-wrap gap-2', className)}>
       {SECTOR_OPTIONS.map((sector) => {
         const active = value === sector
         return (
@@ -182,11 +176,12 @@ interface StockThresholdStepperProps {
 }
 
 export function StockThresholdStepper({ value, onChange, min = 0, max = 100 }: StockThresholdStepperProps) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-3">
       <button
         type="button"
-        aria-label="Diminuer le seuil"
+        aria-label={t('onboarding.thresholdDecrease')}
         onClick={() => onChange(Math.max(min, value - 1))}
         className="flex size-[42px] shrink-0 items-center justify-center rounded-full border border-[#E2E2EA] bg-white text-[#0E0E1A]"
       >
@@ -197,7 +192,7 @@ export function StockThresholdStepper({ value, onChange, min = 0, max = 100 }: S
       </span>
       <button
         type="button"
-        aria-label="Augmenter le seuil"
+        aria-label={t('onboarding.thresholdIncrease')}
         onClick={() => onChange(Math.min(max, value + 1))}
         className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#5B3FE6] text-white"
       >

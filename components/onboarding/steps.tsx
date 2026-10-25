@@ -1,7 +1,10 @@
+'use client'
+
 import Link from 'next/link'
 import { Check } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 /* ============================= Ordinateur : colonne de verre ============================= */
 
@@ -10,6 +13,7 @@ interface StepsAsideProps {
 }
 
 export function StepsAside({ current }: StepsAsideProps) {
+  const { t } = useTranslation()
   return (
     <aside
       className="flex flex-[1_1_280px] flex-col gap-[26px] rounded-[28px] p-[26px]"
@@ -31,15 +35,15 @@ export function StepsAside({ current }: StepsAsideProps) {
         <span className="text-[20px] font-extrabold text-[#0E0E1A]">Waelly</span>
       </div>
 
-      <ol aria-label="Étapes" className="flex flex-col gap-1.5">
+      <ol aria-label={t('onboarding.progress.ariaLabel')} className="flex flex-col gap-1.5">
         {/* Étape 1 — toujours terminée pour arriver ici (inscription + code vérifié) */}
         <li className="flex items-center gap-3 rounded-2xl bg-[#E3F5EA] p-3">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#0B8A43] text-white">
             <Check className="size-4" strokeWidth={3} />
           </span>
           <span className="flex flex-col">
-            <span className="text-sm font-bold text-[#0B6B39]">Compte créé</span>
-            <span className="text-xs text-[#0B6B39]">E-mail vérifié</span>
+            <span className="text-sm font-bold text-[#0B6B39]">{t('onboarding.progress.step1Title')}</span>
+            <span className="text-xs text-[#0B6B39]">{t('onboarding.progress.step1Subtitle')}</span>
           </span>
         </li>
 
@@ -54,8 +58,8 @@ export function StepsAside({ current }: StepsAsideProps) {
                 <Check className="size-4" strokeWidth={3} />
               </span>
               <span className="flex flex-col">
-                <span className="text-sm font-bold text-[#0B6B39]">Votre entreprise</span>
-                <span className="text-xs text-[#0B6B39]">Infos affichées sur vos factures</span>
+                <span className="text-sm font-bold text-[#0B6B39]">{t('onboarding.progress.step2Title')}</span>
+                <span className="text-xs text-[#0B6B39]">{t('onboarding.progress.step2Subtitle')}</span>
               </span>
             </Link>
           </li>
@@ -72,8 +76,8 @@ export function StepsAside({ current }: StepsAsideProps) {
               2
             </span>
             <span className="flex flex-col">
-              <span className="text-sm font-bold text-[#0E0E1A]">Votre entreprise</span>
-              <span className="text-xs text-[#6B6B7B]">Infos affichées sur vos factures</span>
+              <span className="text-sm font-bold text-[#0E0E1A]">{t('onboarding.progress.step2Title')}</span>
+              <span className="text-xs text-[#6B6B7B]">{t('onboarding.progress.step2Subtitle')}</span>
             </span>
           </li>
         )}
@@ -92,8 +96,8 @@ export function StepsAside({ current }: StepsAsideProps) {
               3
             </span>
             <span className="flex flex-col">
-              <span className="text-sm font-bold text-[#0E0E1A]">Préférences</span>
-              <span className="text-xs text-[#6B6B7B]">Devise, langue, seuil de stock</span>
+              <span className="text-sm font-bold text-[#0E0E1A]">{t('onboarding.progress.step3Title')}</span>
+              <span className="text-xs text-[#6B6B7B]">{t('onboarding.progress.step3Subtitle')}</span>
             </span>
           </li>
         ) : (
@@ -102,8 +106,8 @@ export function StepsAside({ current }: StepsAsideProps) {
               3
             </span>
             <span className="flex flex-col">
-              <span className="text-sm font-bold text-[#0E0E1A]">Préférences</span>
-              <span className="text-xs text-[#6B6B7B]">Devise, langue, seuil de stock</span>
+              <span className="text-sm font-bold text-[#0E0E1A]">{t('onboarding.progress.step3Title')}</span>
+              <span className="text-xs text-[#6B6B7B]">{t('onboarding.progress.step3Subtitle')}</span>
             </span>
           </li>
         )}
