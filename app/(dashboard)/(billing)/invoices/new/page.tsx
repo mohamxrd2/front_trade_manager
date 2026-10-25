@@ -4,7 +4,6 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
 import { toast } from 'sonner'
 import { Plus, Search, X } from 'lucide-react'
 
@@ -23,18 +22,21 @@ import { ClientFormDialog } from '@/components/clients/client-form-dialog'
 import { InvoicePreviewCard } from '@/components/invoices/invoice-preview-card'
 import { VariationPicker } from '@/components/products'
 import { Button, Card } from '@/components/waelly'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 
-dayjs.locale('fr')
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
-
-const THEME_OPTIONS: { value: InvoiceTheme; label: string; dot: string }[] = [
-  { value: 'modern', label: 'Moderne', dot: 'bg-[#1d4ed8]' },
-  { value: 'classic', label: 'Classique', dot: 'bg-[#1a1a1a]' },
-  { value: 'professional', label: 'Professionnel', dot: 'bg-[#1c2431]' },
-  { value: 'minimal', label: 'Minimaliste', dot: 'bg-[#DADADF]' },
-]
+function buildThemeOptions(t: ReturnType<typeof useTranslation>['t']): { value: InvoiceTheme; label: string; dot: string }[] {
+  return [
+    { value: 'modern', label: t('invoices.themes.modern'), dot: 'bg-[#1d4ed8]' },
+    { value: 'classic', label: t('invoices.themes.classic'), dot: 'bg-[#1a1a1a]' },
+    { value: 'professional', label: t('invoices.themes.professional'), dot: 'bg-[#1c2431]' },
+    { value: 'minimal', label: t('invoices.themes.minimal'), dot: 'bg-[#DADADF]' },
+  ]
+}
 
 interface InvoiceLine {
   id: string
@@ -72,6 +74,8 @@ interface InvoiceLine {
 export default function NewInvoicePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t, language } = useTranslation()
+  const THEME_OPTIONS = React.useMemo(() => buildThemeOptions(t), [t])
   const preselectClientId = searchParams.get('client')
 
   const [clients, setClients] = React.useState<Client[]>([])
@@ -92,7 +96,7 @@ export default function NewInvoicePage() {
   const [discountValue, setDiscountValue] = React.useState('0')
   const [taxPercent, setTaxPercent] = React.useState('0')
   const [shippingFee, setShippingFee] = React.useState('0')
-  const [notes, setNotes] = React.useState('Merci pour votre confiance.')
+  const [notes, setNotes] = React.useState(t('invoices.new.defaultNotes'))
   const [dueDate, setDueDate] = React.useState(dayjs().add(15, 'day').format('YYYY-MM-DD'))
   const [theme, setTheme] = React.useState<InvoiceTheme>('modern')
 
@@ -105,12 +109,12 @@ export default function NewInvoicePage() {
   React.useEffect(() => {
     getClients()
       .then(setClients)
-      .catch(() => toast.error('Erreur lors du chargement des clients'))
+      .catch(() => toast.error(t('wallet.new.errorLoadClients')))
       .finally(() => setLoadingClients(false))
 
     getArticles()
       .then(setArticles)
-      .catch(() => toast.error('Erreur lors du chargement des articles'))
+      .catch(() => toast.error(t('wallet.new.errorLoadArticles')))
       .finally(() => setLoadingArticles(false))
 
     checkCompanyProfile()
@@ -119,6 +123,7 @@ export default function NewInvoicePage() {
         setCompanyCity(company?.headquarters ?? null)
       })
       .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   React.useEffect(() => {
@@ -184,7 +189,7 @@ export default function NewInvoicePage() {
         user_id: '',
         company_id: '',
         client_id: selectedClient.id,
-        invoice_number: 'Aperçu',
+        invoice_number: t('invoices.preview'),
         status: 'draft',
         theme,
         subtotal: String(subtotal),
@@ -203,7 +208,7 @@ export default function NewInvoicePage() {
         paid_at: null,
         is_overdue: false,
         days_until_due: null,
-        formatted_total: `${formatAmount(total)} F`,
+        formatted_total: `${formatAmount(total, language)} F`,
         client: selectedClient,
         company: { id: '', name: companyName, email: '', logo_url: null, headquarters: companyCity },
         items: lines.map((l) => ({
@@ -226,11 +231,11 @@ export default function NewInvoicePage() {
     if (submittingRef.current) return
 
     if (!clientId) {
-      toast.error('Sélectionnez un client')
+      toast.error(t('invoices.new.selectClient'))
       return
     }
     if (lines.length === 0) {
-      toast.error('Ajoutez au moins une ligne')
+      toast.error(t('invoices.new.addAtLeastOneLine'))
       return
     }
 
@@ -255,7 +260,7 @@ export default function NewInvoicePage() {
       }
       const invoice = await createInvoice(payload)
       invalidateInvoices()
-      toast.success(status === 'draft' ? 'Brouillon enregistré' : 'Facture envoyée')
+      toast.success(status === 'draft' ? t('invoices.new.draftSaved') : t('invoices.detail.toastSent'))
       router.push(`/invoices/${invoice.id}`)
     } catch (err: unknown) {
       const error = err as { status?: number; errors?: unknown; message?: string }
@@ -263,9 +268,9 @@ export default function NewInvoicePage() {
         error.errors.forEach((m) => toast.error(String(m)))
       } else if (error.status === 422 && error.errors && typeof error.errors === 'object') {
         const first = Object.values(error.errors as Record<string, string[]>)[0]
-        toast.error(Array.isArray(first) ? first[0] : error.message || "Échec de l'enregistrement")
+        toast.error(Array.isArray(first) ? first[0] : error.message || t('clients.form.errorSaveFailed'))
       } else {
-        toast.error(error.message || "Échec de l'enregistrement")
+        toast.error(error.message || t('clients.form.errorSaveFailed'))
       }
     } finally {
       submittingRef.current = false
@@ -284,7 +289,7 @@ export default function NewInvoicePage() {
               onClick={() => setPendingVariationArticle(null)}
               className="text-xs font-semibold text-subtle"
             >
-              Changer d&apos;article
+              {t('invoices.new.changeArticle')}
             </button>
           </div>
           <VariationPicker
@@ -301,15 +306,15 @@ export default function NewInvoicePage() {
               autoFocus
               value={articleSearch}
               onChange={(e) => setArticleSearch(e.target.value)}
-              placeholder="Rechercher un article"
+              placeholder={t('wallet.new.searchArticlePlaceholder')}
               className="h-10 w-full rounded-full border border-line bg-surface pl-9 pr-3 text-sm text-ink outline-none"
             />
           </div>
           <div className="flex max-h-[240px] flex-col gap-1 overflow-y-auto">
             {loadingArticles ? (
-              <p className="py-3 text-center text-sm text-subtle">Chargement…</p>
+              <p className="py-3 text-center text-sm text-subtle">{t('products.detail.loading')}</p>
             ) : filteredArticles.length === 0 ? (
-              <p className="py-3 text-center text-sm text-subtle">Aucun article</p>
+              <p className="py-3 text-center text-sm text-subtle">{t('invoices.new.noArticles')}</p>
             ) : (
               filteredArticles.map((article) => (
                 <button
@@ -321,16 +326,16 @@ export default function NewInvoicePage() {
                   <span className="flex flex-col gap-0.5">
                     <span className="text-sm font-semibold text-ink">{article.name}</span>
                     <span className="text-xs text-subtle">
-                      {article.remaining_quantity} en stock
-                      {article.variations?.length ? ` · ${article.variations.length} variations` : ''}
+                      {t('wallet.new.inStockCount', { count: article.remaining_quantity })}
+                      {article.variations?.length ? t('wallet.new.variationsCount', { count: article.variations.length }) : ''}
                     </span>
                   </span>
                   <span className="shrink-0 text-sm font-bold text-ink">
                     {article.variations?.length
                       ? article.price_max && article.price_max !== article.sale_price
-                        ? `${formatAmount(article.sale_price)} – ${formatAmount(article.price_max)} F`
-                        : `${formatAmount(article.sale_price)} F`
-                      : `${formatAmount(article.sale_price)} F`}
+                        ? `${formatAmount(article.sale_price, language)} – ${formatAmount(article.price_max, language)} F`
+                        : `${formatAmount(article.sale_price, language)} F`
+                      : `${formatAmount(article.sale_price, language)} F`}
                   </span>
                 </button>
               ))
@@ -343,18 +348,18 @@ export default function NewInvoicePage() {
 
   const linesTable = (
     <div className="flex flex-col gap-2.5">
-      <span className="text-[13px] font-semibold text-ink">Lignes</span>
+      <span className="text-[13px] font-semibold text-ink">{t('invoices.new.linesLabel')}</span>
       {lines.length > 0 ? (
         <div className="overflow-x-auto rounded-tile border border-line">
           <table className="w-full min-w-[480px] border-collapse text-sm">
             <thead>
               <tr className="bg-surface-soft text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                <th className="px-3 py-2.5">Désignation</th>
-                <th className="px-3 py-2.5">Qté</th>
-                <th className="px-3 py-2.5">Prix unit.</th>
-                <th className="px-3 py-2.5 text-right">Total</th>
+                <th className="px-3 py-2.5">{t('invoices.new.colDesignation')}</th>
+                <th className="px-3 py-2.5">{t('invoices.new.colQty')}</th>
+                <th className="px-3 py-2.5">{t('invoices.new.colUnitPrice')}</th>
+                <th className="px-3 py-2.5 text-right">{t('invoices.total')}</th>
                 <th className="px-3 py-2.5">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t('products.colActions')}</span>
                 </th>
               </tr>
             </thead>
@@ -371,10 +376,10 @@ export default function NewInvoicePage() {
                           {line.variation ? ` (${line.variation.name})` : ''}
                         </span>
                         <span className="text-xs text-subtle">
-                          Depuis le stock
+                          {t('invoices.new.fromStock')}
                           {stockWarning ? (
                             <span className="ml-1 font-semibold text-danger-strong">
-                              · stock disponible : {availableForLine}
+                              {t('invoices.new.stockAvailable', { available: availableForLine })}
                             </span>
                           ) : null}
                         </span>
@@ -384,7 +389,7 @@ export default function NewInvoicePage() {
                       <span className="flex items-center gap-1">
                         <button
                           type="button"
-                          aria-label="Diminuer"
+                          aria-label={t('products.decrease')}
                           onClick={() => updateLineQuantity(line.id, line.quantity - 1)}
                           className="flex size-8 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
                         >
@@ -399,7 +404,7 @@ export default function NewInvoicePage() {
                         />
                         <button
                           type="button"
-                          aria-label="Augmenter"
+                          aria-label={t('products.increase')}
                           onClick={() => updateLineQuantity(line.id, line.quantity + 1)}
                           className="flex size-8 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
                         >
@@ -407,14 +412,14 @@ export default function NewInvoicePage() {
                         </button>
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-2.5">{formatAmount(line.unitPrice)} F</td>
+                    <td className="whitespace-nowrap px-3 py-2.5">{formatAmount(line.unitPrice, language)} F</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-right font-bold text-ink">
-                      {formatAmount(line.quantity * line.unitPrice)} F
+                      {formatAmount(line.quantity * line.unitPrice, language)} F
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <button
                         type="button"
-                        aria-label="Supprimer la ligne"
+                        aria-label={t('invoices.new.removeLineAria')}
                         onClick={() => removeLine(line.id)}
                         className="inline-flex size-9 items-center justify-center rounded-full text-subtle"
                       >
@@ -437,7 +442,7 @@ export default function NewInvoicePage() {
           className="flex min-h-[42px] items-center justify-center gap-1.5 self-start rounded-full border border-brand-200 bg-brand-50 px-4 text-[13px] font-bold text-brand-700"
         >
           <Plus className="size-4" />
-          Depuis le stock
+          {t('invoices.new.fromStock')}
         </button>
       )}
     </div>
@@ -446,7 +451,7 @@ export default function NewInvoicePage() {
   const clientSelect = (
     <div className="flex flex-col gap-2">
       <label htmlFor="invoice-client" className="text-[13px] font-semibold text-ink">
-        Client
+        {t('invoices.client')}
       </label>
       <select
         id="invoice-client"
@@ -460,13 +465,13 @@ export default function NewInvoicePage() {
         }}
         className="h-12 rounded-field border border-line-strong bg-surface px-3 text-sm text-ink"
       >
-        <option value="">{loadingClients ? 'Chargement…' : 'Choisir un client'}</option>
+        <option value="">{loadingClients ? t('wallet.new.loadingClientsOption') : t('wallet.new.chooseClientOption')}</option>
         {clients.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
           </option>
         ))}
-        <option value="__new__">+ Nouveau client…</option>
+        <option value="__new__">{t('invoices.new.newClientOption')}</option>
       </select>
     </div>
   )
@@ -476,7 +481,7 @@ export default function NewInvoicePage() {
       <div className="flex flex-col gap-2">
         <span className="flex items-center justify-between">
           <label htmlFor="invoice-discount" className="text-[13px] font-semibold text-ink">
-            Remise
+            {t('invoices.discount')}
           </label>
           <span className="flex gap-0.5 rounded-xl bg-canvas p-0.5">
             <button
@@ -507,7 +512,7 @@ export default function NewInvoicePage() {
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor="invoice-tax" className="text-[13px] font-semibold text-ink">
-          Taxe (%)
+          {t('invoices.new.taxPercentLabel')}
         </label>
         <input
           id="invoice-tax"
@@ -519,7 +524,7 @@ export default function NewInvoicePage() {
       </div>
       <div className="flex flex-col gap-2">
         <label htmlFor="invoice-shipping" className="text-[13px] font-semibold text-ink">
-          Frais de port (F)
+          {t('invoices.new.shippingFeeLabel')}
         </label>
         <input
           id="invoice-shipping"
@@ -534,16 +539,16 @@ export default function NewInvoicePage() {
 
   const themePicker = (
     <div className="flex gap-2">
-      {THEME_OPTIONS.map((t) => (
+      {THEME_OPTIONS.map((option) => (
         <button
-          key={t.value}
+          key={option.value}
           type="button"
-          aria-label={`Thème ${t.label}`}
-          aria-pressed={theme === t.value}
-          onClick={() => setTheme(t.value)}
-          className={`flex size-9 items-center justify-center rounded-full bg-surface ${theme === t.value ? 'ring-2 ring-ink' : 'ring-1 ring-line-strong'}`}
+          aria-label={t('invoices.new.themeAria', { name: option.label })}
+          aria-pressed={theme === option.value}
+          onClick={() => setTheme(option.value)}
+          className={`flex size-9 items-center justify-center rounded-full bg-surface ${theme === option.value ? 'ring-2 ring-ink' : 'ring-1 ring-line-strong'}`}
         >
-          <span className={`size-6 rounded-full ${t.dot}`} />
+          <span className={`size-6 rounded-full ${option.dot}`} />
         </button>
       ))}
     </div>
@@ -556,19 +561,19 @@ export default function NewInvoicePage() {
         <div className="flex items-center gap-3">
           <Link
             href="/invoices"
-            aria-label="Retour aux factures"
+            aria-label={t('invoices.detail.backAria')}
             className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
           >
             <X className="size-5" />
           </Link>
-          <h1 className="flex-1 text-[22px] font-bold text-ink">Nouvelle facture</h1>
+          <h1 className="flex-1 text-[22px] font-bold text-ink">{t('invoices.newInvoice')}</h1>
         </div>
 
         {clientSelect}
         {linesTable}
 
         <div className="flex flex-col gap-2.5">
-          <span className="text-[13px] font-semibold text-ink">Thème de la facture</span>
+          <span className="text-[13px] font-semibold text-ink">{t('invoices.new.themeLabel')}</span>
           {themePicker}
         </div>
 
@@ -576,7 +581,7 @@ export default function NewInvoicePage() {
 
         <div className="flex flex-col gap-2">
           <label htmlFor="invoice-due-mobile" className="text-[13px] font-semibold text-ink">
-            Échéance
+            {t('invoices.new.dueDateShortLabel')}
           </label>
           <input
             id="invoice-due-mobile"
@@ -588,22 +593,22 @@ export default function NewInvoicePage() {
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <span className="text-[13px] font-semibold text-ink">Aperçu</span>
+          <span className="text-[13px] font-semibold text-ink">{t('invoices.preview')}</span>
           {previewInvoice ? (
             <InvoicePreviewCard invoice={previewInvoice} />
           ) : (
             <div className="flex h-[200px] items-center justify-center rounded-[20px] border border-line bg-surface p-6 text-center text-sm text-subtle">
-              Choisissez un client pour voir l&apos;aperçu.
+              {t('invoices.new.previewPlaceholder')}
             </div>
           )}
         </div>
 
         <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2.5 border-t border-line bg-surface p-5 pb-7">
           <Button variant="secondary" disabled={submitting !== null} onClick={() => handleSubmit('draft')}>
-            {submitting === 'draft' ? '…' : 'Brouillon'}
+            {submitting === 'draft' ? '…' : t('invoices.new.draftButton')}
           </Button>
           <Button variant="primary" disabled={submitting !== null} onClick={() => handleSubmit('unpaid')}>
-            {submitting === 'send' ? '…' : 'Envoyer'}
+            {submitting === 'send' ? '…' : t('invoices.detail.sendButton')}
           </Button>
         </div>
       </div>
@@ -612,21 +617,21 @@ export default function NewInvoicePage() {
       <div className="hidden flex-col gap-5 lg:flex">
         <div className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex flex-col gap-1.5">
-            <nav aria-label="Fil d'Ariane" className="flex gap-2 text-[13px] text-subtle">
+            <nav aria-label={t('products.breadcrumbAria')} className="flex gap-2 text-[13px] text-subtle">
               <Link href="/invoices" className="font-semibold">
-                Factures
+                {t('invoices.title')}
               </Link>
               <span aria-hidden>/</span>
-              <span>Nouvelle facture</span>
+              <span>{t('invoices.newInvoice')}</span>
             </nav>
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Nouvelle facture</h1>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('invoices.newInvoice')}</h1>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <Button variant="glass" disabled={submitting !== null} onClick={() => handleSubmit('draft')}>
-              {submitting === 'draft' ? 'Enregistrement…' : 'Enregistrer le brouillon'}
+              {submitting === 'draft' ? t('invoices.new.savingDraft') : t('invoices.new.saveDraftButton')}
             </Button>
             <Button variant="primary" disabled={submitting !== null} onClick={() => handleSubmit('unpaid')}>
-              {submitting === 'send' ? 'Envoi…' : 'Envoyer la facture'}
+              {submitting === 'send' ? t('invoices.new.sendingInvoice') : t('invoices.new.sendInvoiceButton')}
             </Button>
           </div>
         </div>
@@ -637,7 +642,7 @@ export default function NewInvoicePage() {
               {clientSelect}
               <div className="flex flex-col gap-2">
                 <label htmlFor="invoice-issued" className="text-[13px] font-semibold text-ink">
-                  Date d&apos;émission
+                  {t('invoices.new.issuedDateLabel')}
                 </label>
                 <input
                   id="invoice-issued"
@@ -649,7 +654,7 @@ export default function NewInvoicePage() {
               </div>
               <div className="flex flex-col gap-2">
                 <label htmlFor="invoice-due" className="text-[13px] font-semibold text-ink">
-                  Échéance
+                  {t('invoices.new.dueDateShortLabel')}
                 </label>
                 <input
                   id="invoice-due"
@@ -666,7 +671,7 @@ export default function NewInvoicePage() {
 
             <div className="flex flex-col gap-2">
               <label htmlFor="invoice-notes" className="text-[13px] font-semibold text-ink">
-                Note pour le client
+                {t('invoices.new.notesForClientLabel')}
               </label>
               <textarea
                 id="invoice-notes"
@@ -679,18 +684,18 @@ export default function NewInvoicePage() {
           </Card>
 
           <aside
-            aria-label="Aperçu"
+            aria-label={t('invoices.preview')}
             className="glass-panel flex flex-[2_1_380px] flex-col gap-3.5 rounded-panel p-[18px]"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-ink">Aperçu</h2>
+              <h2 className="text-base font-bold text-ink">{t('invoices.preview')}</h2>
               {themePicker}
             </div>
             {previewInvoice ? (
               <InvoicePreviewCard invoice={previewInvoice} />
             ) : (
               <div className="flex h-[360px] items-center justify-center rounded-[20px] bg-surface p-6 text-center text-sm text-subtle">
-                Choisissez un client pour voir l&apos;aperçu.
+                {t('invoices.new.previewPlaceholder')}
               </div>
             )}
           </aside>

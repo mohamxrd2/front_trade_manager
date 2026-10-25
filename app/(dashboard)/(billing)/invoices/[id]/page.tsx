@@ -18,6 +18,7 @@ import {
 import { invalidateInvoices } from '@/lib/invalidate'
 import { getInvoiceStatusDisplay } from '@/components/invoices/invoice-status'
 import { InvoicePreviewCard } from '@/components/invoices/invoice-preview-card'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,7 @@ import { Button, StatusBadge } from '@/components/waelly'
 export default function InvoiceDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { t } = useTranslation()
   const invoiceId = params.id as string
 
   const [invoice, setInvoice] = React.useState<Invoice | null>(null)
@@ -58,13 +60,13 @@ export default function InvoiceDetailPage() {
     try {
       const data = await getInvoiceById(invoiceId)
       if (data) setInvoice(data)
-      else setError('Facture introuvable.')
+      else setError(t('invoices.detail.notFound'))
     } catch (err: unknown) {
-      setError((err as Error).message || 'Impossible de charger la facture.')
+      setError((err as Error).message || t('invoices.detail.loadErrorRetry'))
     } finally {
       setIsLoading(false)
     }
-  }, [invoiceId])
+  }, [invoiceId, t])
 
   React.useEffect(() => {
     fetchInvoice()
@@ -79,14 +81,14 @@ export default function InvoiceDetailPage() {
       const updated = await updateInvoiceStatus(previous.id, newStatus)
       setInvoice(updated)
       invalidateInvoices({ paid: newStatus === 'paid' })
-      toast.success(newStatus === 'paid' ? 'Facture marquée comme payée' : 'Facture envoyée')
+      toast.success(newStatus === 'paid' ? t('invoices.detail.toastMarkedPaid') : t('invoices.detail.toastSent'))
     } catch (err: unknown) {
       setInvoice(previous)
       const apiError = err as { status?: number; errors?: unknown; message?: string }
       if (apiError.status === 422 && Array.isArray(apiError.errors) && apiError.errors.length > 0) {
         apiError.errors.forEach((message) => toast.error(String(message)))
       } else {
-        toast.error(apiError.message || 'Échec de la mise à jour du statut')
+        toast.error(apiError.message || t('invoices.detail.errorStatusUpdate'))
       }
     } finally {
       setStatusChanging(false)
@@ -99,10 +101,10 @@ export default function InvoiceDetailPage() {
     try {
       const copy = await duplicateInvoice(invoice.id)
       invalidateInvoices()
-      toast.success('Facture dupliquée')
+      toast.success(t('invoices.detail.toastDuplicated'))
       router.push(`/invoices/${copy.id}`)
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Échec de la duplication')
+      toast.error((err as Error).message || t('invoices.detail.errorDuplicate'))
     } finally {
       setDuplicating(false)
     }
@@ -115,14 +117,14 @@ export default function InvoiceDetailPage() {
       const result = await deleteInvoice(invoice.id)
       if (result.success) {
         invalidateInvoices()
-        toast.success('Facture supprimée')
+        toast.success(t('invoices.detail.toastDeletedShort'))
         router.push('/invoices')
       } else {
         toast.error(result.message)
         setDeleting(false)
       }
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Échec de la suppression')
+      toast.error((err as Error).message || t('invoices.detail.errorDelete'))
       setDeleting(false)
     }
   }
@@ -141,7 +143,7 @@ export default function InvoiceDetailPage() {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Échec de la génération du PDF')
+      toast.error(err instanceof Error ? err.message : t('invoices.detail.errorPdfGeneration'))
     } finally {
       setGeneratingPdf(false)
     }
@@ -160,9 +162,9 @@ export default function InvoiceDetailPage() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <AlertCircle className="size-12 text-subtle" />
-        <p className="text-sm text-subtle">{error || 'Facture introuvable.'}</p>
+        <p className="text-sm text-subtle">{error || t('invoices.detail.notFound')}</p>
         <Button variant="secondary" onClick={fetchInvoice}>
-          Réessayer
+          {t('wallet.list.retry')}
         </Button>
       </div>
     )
@@ -175,7 +177,7 @@ export default function InvoiceDetailPage() {
       <div className="flex items-center justify-between gap-3">
         <Link
           href="/invoices"
-          aria-label="Retour aux factures"
+          aria-label={t('invoices.detail.backAria')}
           className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
         >
           <ArrowLeft className="size-5" />
@@ -198,7 +200,7 @@ export default function InvoiceDetailPage() {
           disabled={generatingPdf}
           className="flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-bold text-ink disabled:opacity-60"
         >
-          {generatingPdf ? <Loader2 className="size-4 animate-spin" /> : 'PDF'}
+          {generatingPdf ? <Loader2 className="size-4 animate-spin" /> : t('invoices.detail.pdfButton')}
         </button>
         <button
           type="button"
@@ -206,7 +208,7 @@ export default function InvoiceDetailPage() {
           disabled={duplicating}
           className="flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-bold text-ink disabled:opacity-60"
         >
-          {duplicating ? '…' : 'Dupliquer'}
+          {duplicating ? '…' : t('invoices.detail.duplicateButton')}
         </button>
         {invoice.status === 'draft' ? (
           <button
@@ -215,7 +217,7 @@ export default function InvoiceDetailPage() {
             disabled={statusChanging}
             className="flex min-h-[48px] items-center justify-center rounded-full bg-active text-sm font-bold text-white disabled:opacity-60"
           >
-            {statusChanging ? '…' : 'Envoyer'}
+            {statusChanging ? '…' : t('invoices.detail.sendButton')}
           </button>
         ) : invoice.status === 'paid' || invoice.status === 'cancelled' ? null : (
           <button
@@ -224,7 +226,7 @@ export default function InvoiceDetailPage() {
             disabled={statusChanging}
             className="flex min-h-[48px] items-center justify-center rounded-full bg-active text-sm font-bold text-white disabled:opacity-60"
           >
-            {statusChanging ? '…' : 'Marquer payée'}
+            {statusChanging ? '…' : t('invoices.detail.markPaidButton')}
           </button>
         )}
       </div>
@@ -235,23 +237,22 @@ export default function InvoiceDetailPage() {
           onClick={() => setDeleteDialogOpen(true)}
           className="self-start text-[13px] font-semibold text-danger-strong"
         >
-          Supprimer la facture
+          {t('invoices.detail.deleteInvoiceButton')}
         </button>
       ) : null}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la facture {invoice.invoice_number} ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('invoices.detail.deleteConfirmTitleNumbered', { number: invoice.invoice_number })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est définitive. Les factures payées ne peuvent pas être supprimées — annulez-les à la
-              place.
+              {t('invoices.detail.deleteConfirmDescription2')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteInvoice} disabled={deleting}>
-              {deleting ? 'Suppression…' : 'Supprimer'}
+              {deleting ? t('products.detail.deleting') : t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

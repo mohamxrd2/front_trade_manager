@@ -1,7 +1,4 @@
 [
-  "app/(dashboard)/(billing)/invoices/[id]/page.tsx",
-  "app/(dashboard)/(billing)/invoices/new/page.tsx",
-  "app/(dashboard)/(billing)/invoices/page.tsx",
   "app/(dashboard)/account/page.tsx",
   "app/(dashboard)/analytics/page.tsx",
   "app/(dashboard)/collaborators/page.tsx",

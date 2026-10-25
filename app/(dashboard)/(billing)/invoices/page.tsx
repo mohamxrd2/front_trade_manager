@@ -4,7 +4,6 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
 import { toast } from 'sonner'
 import { AlertCircle, Download, Loader2, Plus, Search, Users } from 'lucide-react'
 
@@ -35,13 +34,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button, Card, FilterChips, Pagination, StatusBadge } from '@/components/waelly'
-
-dayjs.locale('fr')
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber, formatDate } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 
 const PAGE_SIZE = 10
 
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 const initials = (name: string): string => (name.trim() ? name.trim().slice(0, 2).toUpperCase() : 'NA')
 
@@ -55,12 +55,14 @@ const AVATAR_TINTS = [
 
 type FilterValue = 'all' | 'draft' | 'unpaid' | 'paid'
 
-const FILTERS: { value: FilterValue; label: string }[] = [
-  { value: 'all', label: 'Toutes' },
-  { value: 'draft', label: 'Brouillons' },
-  { value: 'unpaid', label: 'Envoyées' },
-  { value: 'paid', label: 'Payées' },
-]
+function buildFilters(t: ReturnType<typeof useTranslation>['t']): { value: FilterValue; label: string }[] {
+  return [
+    { value: 'all', label: t('invoices.list.filterAll') },
+    { value: 'draft', label: t('invoices.list.drafts') },
+    { value: 'unpaid', label: t('invoices.list.filterSent') },
+    { value: 'paid', label: t('invoices.list.filterPaid') },
+  ]
+}
 
 /**
  * Factures — reprend design/maquettes/ordinateur/Web-Factures.dc.html
@@ -85,6 +87,8 @@ const FILTERS: { value: FilterValue; label: string }[] = [
 export default function InvoicesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t, language } = useTranslation()
+  const FILTERS = React.useMemo(() => buildFilters(t), [t])
   const selectedId = searchParams.get('id')
   const clientFilter = searchParams.get('client')
 
@@ -168,11 +172,11 @@ export default function InvoicesPage() {
       setInvoices(data)
       setTotalCount(total)
     } catch (err: unknown) {
-      setInvoicesError((err as Error).message || 'Impossible de charger les factures.')
+      setInvoicesError((err as Error).message || t('invoices.list.loadInvoicesError'))
     } finally {
       setLoadingInvoices(false)
     }
-  }, [statusFilter, search, clientFilter, page])
+  }, [statusFilter, search, clientFilter, page, t])
 
   const fetchMobilePage = React.useCallback(
     async (targetPage: number, append: boolean) => {
@@ -264,7 +268,7 @@ export default function InvoicesPage() {
       const updated = await updateInvoiceStatus(previous.id, newStatus)
       setSelectedInvoice(updated)
       invalidateInvoices({ paid: newStatus === 'paid' })
-      toast.success(newStatus === 'paid' ? 'Facture marquée comme payée' : 'Facture envoyée')
+      toast.success(newStatus === 'paid' ? t('invoices.detail.toastMarkedPaid') : t('invoices.detail.toastSent'))
       await refreshAfterMutation()
     } catch (err: unknown) {
       setSelectedInvoice(previous)
@@ -272,7 +276,7 @@ export default function InvoicesPage() {
       if (error.status === 422 && Array.isArray(error.errors) && error.errors.length > 0) {
         error.errors.forEach((message) => toast.error(String(message)))
       } else {
-        toast.error(error.message || 'Échec de la mise à jour du statut')
+        toast.error(error.message || t('invoices.detail.errorStatusUpdate'))
       }
     } finally {
       setStatusChanging(false)
@@ -285,11 +289,11 @@ export default function InvoicesPage() {
     try {
       const copy = await duplicateInvoice(selectedInvoice.id)
       invalidateInvoices()
-      toast.success('Facture dupliquée')
+      toast.success(t('invoices.detail.toastDuplicated'))
       await refreshAfterMutation()
       selectInvoice(copy.id)
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Échec de la duplication')
+      toast.error((err as Error).message || t('invoices.detail.errorDuplicate'))
     } finally {
       setDuplicating(false)
     }
@@ -302,7 +306,7 @@ export default function InvoicesPage() {
       const result = await deleteInvoice(selectedInvoice.id)
       if (result.success) {
         invalidateInvoices()
-        toast.success('Facture supprimée')
+        toast.success(t('invoices.detail.toastDeletedShort'))
         setDeleteDialogOpen(false)
         router.replace('/invoices', { scroll: false })
         await refreshAfterMutation()
@@ -310,7 +314,7 @@ export default function InvoicesPage() {
         toast.error(result.message)
       }
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Échec de la suppression')
+      toast.error((err as Error).message || t('invoices.detail.errorDelete'))
     } finally {
       setDeleting(false)
     }
@@ -330,7 +334,7 @@ export default function InvoicesPage() {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Échec de la génération du PDF')
+      toast.error(err instanceof Error ? err.message : t('invoices.detail.errorPdfGeneration'))
     } finally {
       setGeneratingPdf(false)
     }
@@ -353,20 +357,25 @@ export default function InvoicesPage() {
         currentPage += 1
       }
       if (all.length === 0) {
-        toast.error('Aucune facture à exporter')
+        toast.error(t('invoices.list.noExportData'))
         return
       }
+      const colNumber = t('invoices.list.colNumber')
+      const colClient = t('invoices.client')
+      const colDate = t('invoices.date')
+      const colStatus = t('invoices.list.colStatus')
+      const colAmount = t('transactions.amount')
       const rows = all.map((inv) => ({
-        'N°': inv.invoice_number,
-        Client: inv.client?.name ?? '',
-        Date: dayjs(inv.issued_at).format('DD/MM/YYYY'),
-        Statut: getInvoiceStatusDisplay(inv).label,
-        Montant: `${formatAmount(Number(inv.total))} F`,
+        [colNumber]: inv.invoice_number,
+        [colClient]: inv.client?.name ?? '',
+        [colDate]: dayjs(inv.issued_at).format('DD/MM/YYYY'),
+        [colStatus]: getInvoiceStatusDisplay(inv).label,
+        [colAmount]: `${formatAmount(Number(inv.total), language)} F`,
       }))
-      exportToExcel(rows, `waelly-factures-${dayjs().format('YYYY-MM')}`, 'Factures')
-      toast.success('Export généré')
+      exportToExcel(rows, `waelly-factures-${dayjs().format('YYYY-MM')}`, t('invoices.title'))
+      toast.success(t('invoices.list.exportGenerated'))
     } catch {
-      toast.error("Échec de l'export")
+      toast.error(t('invoices.list.exportFailed'))
     }
   }
 
@@ -377,20 +386,20 @@ export default function InvoicesPage() {
   const summaryCards = (
     <>
       <div className="flex flex-col gap-1.5 rounded-[24px] bg-[linear-gradient(150deg,#5B3FE6_0%,#7A5CF5_60%,#B7A4FF_100%)] p-5 text-white shadow-[0_14px_30px_rgba(91,63,230,0.28)]">
-        <span className="text-sm text-[#F0ECFF]">À encaisser</span>
-        <span className="text-[30px] font-bold tracking-[-0.02em]">{formatAmount(unpaidAmount)} F</span>
+        <span className="text-sm text-[#F0ECFF]">{t('invoices.list.toCollect')}</span>
+        <span className="text-[30px] font-bold tracking-[-0.02em]">{formatAmount(unpaidAmount, language)} F</span>
         <span className="text-[13px] text-[#F0ECFF]">
-          {unpaidCount} facture{unpaidCount > 1 ? 's' : ''} envoyée{unpaidCount > 1 ? 's' : ''}
+          {t('invoices.list.invoicesSentCount', { count: unpaidCount })}
         </span>
       </div>
       <div className="flex flex-col gap-1.5 rounded-[24px] bg-surface p-5 shadow-card">
-        <span className="text-sm text-subtle">Payé ce mois</span>
-        <span className="text-[30px] font-bold tracking-[-0.02em] text-success">{formatAmount(thisMonthTotal)} F</span>
+        <span className="text-sm text-subtle">{t('invoices.list.paidThisMonth')}</span>
+        <span className="text-[30px] font-bold tracking-[-0.02em] text-success">{formatAmount(thisMonthTotal, language)} F</span>
       </div>
       <div className="flex flex-col gap-1.5 rounded-[24px] bg-surface p-5 shadow-card">
-        <span className="text-sm text-subtle">Brouillons</span>
+        <span className="text-sm text-subtle">{t('invoices.list.drafts')}</span>
         <span className="text-[30px] font-bold tracking-[-0.02em] text-ink">{draftStats.count}</span>
-        <span className="text-[13px] text-subtle">{formatAmount(draftStats.total)} F en préparation</span>
+        <span className="text-[13px] text-subtle">{t('invoices.list.draftsInPrep', { amount: formatAmount(draftStats.total, language) })}</span>
       </div>
     </>
   )
@@ -403,7 +412,7 @@ export default function InvoicesPage() {
         disabled={generatingPdf}
         className="flex min-h-[46px] items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-bold text-ink disabled:opacity-60"
       >
-        {generatingPdf ? <Loader2 className="size-4 animate-spin" /> : 'PDF'}
+        {generatingPdf ? <Loader2 className="size-4 animate-spin" /> : t('invoices.detail.pdfButton')}
       </button>
       <button
         type="button"
@@ -411,7 +420,7 @@ export default function InvoicesPage() {
         disabled={duplicating}
         className="flex min-h-[46px] items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-bold text-ink disabled:opacity-60"
       >
-        {duplicating ? '…' : 'Dupliquer'}
+        {duplicating ? '…' : t('invoices.detail.duplicateButton')}
       </button>
       {selectedInvoice.status === 'draft' ? (
         <button
@@ -420,7 +429,7 @@ export default function InvoicesPage() {
           disabled={statusChanging}
           className="flex min-h-[46px] items-center justify-center rounded-full bg-active text-[13px] font-bold text-white disabled:opacity-60"
         >
-          {statusChanging ? '…' : 'Envoyer'}
+          {statusChanging ? '…' : t('invoices.detail.sendButton')}
         </button>
       ) : selectedInvoice.status === 'paid' || selectedInvoice.status === 'cancelled' ? null : (
         <button
@@ -429,7 +438,7 @@ export default function InvoicesPage() {
           disabled={statusChanging}
           className="flex min-h-[46px] items-center justify-center rounded-full bg-active text-[13px] font-bold text-white disabled:opacity-60"
         >
-          {statusChanging ? '…' : 'Marquer payée'}
+          {statusChanging ? '…' : t('invoices.detail.markPaidButton')}
         </button>
       )}
     </div>
@@ -439,16 +448,15 @@ export default function InvoicesPage() {
     <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Supprimer la facture {selectedInvoice.invoice_number} ?</AlertDialogTitle>
+          <AlertDialogTitle>{t('invoices.detail.deleteConfirmTitleNumbered', { number: selectedInvoice.invoice_number })}</AlertDialogTitle>
           <AlertDialogDescription>
-            Cette action est définitive. Les factures payées ne peuvent pas être supprimées — annulez-les à la
-            place.
+            {t('invoices.detail.deleteConfirmDescription2')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+          <AlertDialogCancel disabled={deleting}>{t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction onClick={handleDeleteInvoice} disabled={deleting}>
-            {deleting ? 'Suppression…' : 'Supprimer'}
+            {deleting ? t('products.detail.deleting') : t('common.delete')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -460,32 +468,32 @@ export default function InvoicesPage() {
       {/* --- Mobile (< 1024px) --- */}
       <div className="flex flex-col gap-4 pb-28 lg:hidden">
         <div className="flex items-center justify-between">
-          <h1 className="text-[28px] font-bold tracking-tight text-ink">Factures</h1>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('invoices.title')}</h1>
           <Button variant="secondary" asChild>
             <Link href="/clients">
               <Users className="size-[18px]" strokeWidth={1.9} />
-              Clients
+              {t('invoices.list.clientsButton')}
             </Link>
           </Button>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
           <div className="flex flex-col gap-1.5 rounded-tile bg-hero p-3.5 text-white">
-            <span className="text-[13px] text-navy-text">À encaisser</span>
-            <span className="text-xl font-bold">{formatAmount(unpaidAmount)}</span>
+            <span className="text-[13px] text-navy-text">{t('invoices.list.toCollect')}</span>
+            <span className="text-xl font-bold">{formatAmount(unpaidAmount, language)}</span>
             <span className="text-xs font-semibold text-brand-200">
-              {unpaidCount} facture{unpaidCount > 1 ? 's' : ''} envoyée{unpaidCount > 1 ? 's' : ''}
+              {t('invoices.list.invoicesSentCount', { count: unpaidCount })}
             </span>
           </div>
           <div className="flex flex-col gap-1.5 rounded-tile border border-line bg-surface p-3.5">
-            <span className="text-[13px] text-subtle">Payé ce mois</span>
-            <span className="text-xl font-bold text-success">{formatAmount(thisMonthTotal)}</span>
+            <span className="text-[13px] text-subtle">{t('invoices.list.paidThisMonth')}</span>
+            <span className="text-xl font-bold text-success">{formatAmount(thisMonthTotal, language)}</span>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <FilterChips
-            options={FILTERS.map((f) => (f.value === 'all' ? { ...f, label: `Toutes · ${allCount}` } : f))}
+            options={FILTERS.map((f) => (f.value === 'all' ? { ...f, label: t('invoices.list.allFilterWithCount', { count: allCount }) } : f))}
             value={statusFilter}
             onChange={(v) => setStatusFilter(v as FilterValue)}
             className="flex-nowrap"
@@ -500,9 +508,9 @@ export default function InvoicesPage() {
           </div>
         ) : mobileInvoices.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <p className="text-sm text-subtle">Aucune facture pour l&apos;instant</p>
+            <p className="text-sm text-subtle">{t('invoices.list.noInvoicesYet')}</p>
             <Button variant="primary" asChild>
-              <Link href="/invoices/new">Nouvelle facture</Link>
+              <Link href="/invoices/new">{t('invoices.newInvoice')}</Link>
             </Button>
           </div>
         ) : (
@@ -526,10 +534,10 @@ export default function InvoicesPage() {
                   <span className="flex items-baseline justify-between gap-3">
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="truncate text-[15px] font-bold text-ink">{inv.client?.name}</span>
-                      <span className="text-xs text-subtle">{dayjs(inv.issued_at).format('D MMM YYYY')}</span>
+                      <span className="text-xs text-subtle">{formatDate(inv.issued_at, language, 'D MMM YYYY')}</span>
                     </span>
                     <span className="shrink-0 text-[17px] font-bold text-ink">
-                      {formatAmount(Number(inv.total))} F
+                      {formatAmount(Number(inv.total), language)} F
                     </span>
                   </span>
                 </Link>
@@ -542,7 +550,7 @@ export default function InvoicesPage() {
                 disabled={mobileLoadingMore}
                 className="flex min-h-11 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
               >
-                {mobileLoadingMore ? 'Chargement…' : `Charger plus (${mobileTotal - mobileInvoices.length} restante(s))`}
+                {mobileLoadingMore ? t('invoices.list.loadingMore') : t('invoices.list.loadMore', { count: mobileTotal - mobileInvoices.length })}
               </button>
             ) : null}
           </div>
@@ -550,11 +558,11 @@ export default function InvoicesPage() {
 
         <Link
           href="/invoices/new"
-          aria-label="Nouvelle facture"
+          aria-label={t('invoices.list.newInvoiceAria')}
           className="fixed bottom-[100px] right-5 z-30 flex h-14 items-center gap-2 rounded-full bg-brand-500 px-5 text-[15px] font-bold text-white shadow-button"
         >
           <Plus className="size-5" strokeWidth={2.2} />
-          Nouvelle facture
+          {t('invoices.newInvoice')}
         </Link>
       </div>
 
@@ -562,18 +570,18 @@ export default function InvoicesPage() {
       <div className="hidden flex-col gap-5 lg:flex">
         <div className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Factures</h1>
-            <span className="text-sm text-subtle">Créez, envoyez et suivez vos paiements</span>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('invoices.title')}</h1>
+            <span className="text-sm text-subtle">{t('invoices.list.subtitleDesktop')}</span>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <Button variant="glass" onClick={handleExport}>
               <Download className="size-[18px]" />
-              Exporter (Excel)
+              {t('products.list.exportExcel')}
             </Button>
             <Button variant="primary" asChild>
               <Link href="/invoices/new">
                 <Plus className="size-[18px]" strokeWidth={2.2} />
-                Nouvelle facture
+                {t('invoices.newInvoice')}
               </Link>
             </Button>
           </div>
@@ -593,7 +601,7 @@ export default function InvoicesPage() {
           <Card className="flex flex-[3_1_560px] flex-col gap-3.5 rounded-panel p-[22px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <FilterChips
-                options={FILTERS.map((f) => (f.value === 'all' ? { ...f, label: `Toutes · ${allCount}` } : f))}
+                options={FILTERS.map((f) => (f.value === 'all' ? { ...f, label: t('invoices.list.allFilterWithCount', { count: allCount }) } : f))}
                 value={statusFilter}
                 onChange={(v) => setStatusFilter(v as FilterValue)}
               />
@@ -602,7 +610,7 @@ export default function InvoicesPage() {
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Numéro ou client"
+                  placeholder={t('invoices.list.searchPlaceholderShort')}
                   className="h-11 w-[220px] rounded-full border border-line bg-canvas pl-10 pr-4 text-sm text-ink outline-none"
                 />
               </div>
@@ -613,7 +621,7 @@ export default function InvoicesPage() {
                 <AlertCircle className="size-10 text-subtle" />
                 <p className="text-sm text-subtle">{invoicesError}</p>
                 <Button variant="secondary" onClick={fetchInvoices}>
-                  Réessayer
+                  {t('wallet.list.retry')}
                 </Button>
               </div>
             ) : loadingInvoices ? (
@@ -624,9 +632,9 @@ export default function InvoicesPage() {
               </div>
             ) : invoices.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <p className="text-sm text-subtle">Aucune facture pour l&apos;instant</p>
+                <p className="text-sm text-subtle">{t('invoices.list.noInvoicesYet')}</p>
                 <Button variant="primary" asChild>
-                  <Link href="/invoices/new">Nouvelle facture</Link>
+                  <Link href="/invoices/new">{t('invoices.newInvoice')}</Link>
                 </Button>
               </div>
             ) : (
@@ -635,11 +643,11 @@ export default function InvoicesPage() {
                   <table className="w-full min-w-[560px] border-collapse text-sm">
                     <thead>
                       <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                        <th className="px-2 py-2.5">N°</th>
-                        <th className="px-2 py-2.5">Client</th>
-                        <th className="px-2 py-2.5">Date</th>
-                        <th className="px-2 py-2.5">Statut</th>
-                        <th className="px-2 py-2.5 text-right">Montant</th>
+                        <th className="px-2 py-2.5">{t('invoices.list.colNumber')}</th>
+                        <th className="px-2 py-2.5">{t('invoices.client')}</th>
+                        <th className="px-2 py-2.5">{t('invoices.date')}</th>
+                        <th className="px-2 py-2.5">{t('invoices.list.colStatus')}</th>
+                        <th className="px-2 py-2.5 text-right">{t('transactions.amount')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -673,7 +681,7 @@ export default function InvoicesPage() {
                               </span>
                             </td>
                             <td className="whitespace-nowrap px-2 py-0 text-ink-3">
-                              {dayjs(inv.issued_at).format('D MMM YYYY')}
+                              {formatDate(inv.issued_at, language, 'D MMM YYYY')}
                             </td>
                             <td className="px-2 py-0">
                               <StatusBadge
@@ -683,7 +691,7 @@ export default function InvoicesPage() {
                               />
                             </td>
                             <td className="whitespace-nowrap px-2 py-0 text-right font-bold text-ink">
-                              {formatAmount(Number(inv.total))} F
+                              {formatAmount(Number(inv.total), language)} F
                             </td>
                           </tr>
                         )
@@ -696,18 +704,18 @@ export default function InvoicesPage() {
                   page={page}
                   pageCount={pageCount}
                   onPageChange={setPage}
-                  summary={`${invoices.length} facture(s) affichée(s) sur ${totalCount}`}
+                  summary={t('invoices.list.shownOfTotal', { shown: invoices.length, total: totalCount })}
                 />
               </>
             )}
           </Card>
 
           <aside
-            aria-label="Aperçu de la facture"
+            aria-label={t('invoices.list.previewAria')}
             className="glass-panel flex flex-[2_1_340px] flex-col gap-3.5 rounded-panel p-[18px]"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-ink">Aperçu</h2>
+              <h2 className="text-base font-bold text-ink">{t('invoices.preview')}</h2>
               {selectedInvoice ? (
                 (() => {
                   const statusDisplay = getInvoiceStatusDisplay(selectedInvoice)
@@ -736,7 +744,7 @@ export default function InvoicesPage() {
                 onClick={() => setDeleteDialogOpen(true)}
                 className="self-start text-[13px] font-semibold text-danger-strong"
               >
-                Supprimer la facture
+                {t('invoices.detail.deleteInvoiceButton')}
               </button>
             ) : null}
           </aside>
