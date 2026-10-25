@@ -7,22 +7,28 @@ import { AlertCircle, ChevronRight, Download, Plus, Search } from 'lucide-react'
 import { useUserStats, useArticles } from '@/lib/hooks/useArticles'
 import { exportToExcel, formatProductsForExport } from '@/lib/utils/export'
 import { useCurrency } from '@/lib/utils/currency'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, Card, FilterChips } from '@/components/waelly'
 
 const PAGE_SIZE = 10
 
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 const initials = (name: string): string => name.slice(0, 2).toUpperCase()
 
 /** "15 000 F" si prix unique, "15 000 – 25 000 F" pour un article variable à prix multiples. */
-const priceRangeLabel = (article: { type: string; sale_price: number; price_max?: number | null }): string => {
+const priceRangeLabel = (
+  article: { type: string; sale_price: number; price_max?: number | null },
+  language: AppLanguage
+): string => {
   if (article.type !== 'variable' || !article.price_max || article.price_max === article.sale_price) {
-    return `${formatAmount(article.sale_price)} F`
+    return `${formatAmount(article.sale_price, language)} F`
   }
-  return `${formatAmount(article.sale_price)} – ${formatAmount(article.price_max)} F`
+  return `${formatAmount(article.sale_price, language)} – ${formatAmount(article.price_max, language)} F`
 }
 
 /**
@@ -51,6 +57,7 @@ export default function ProductsPage() {
   const { stats, error: statsError, isLoading: isLoadingStats } = useUserStats()
   const { articles, error: articlesError, isLoading: isLoadingArticles } = useArticles()
   const { currency } = useCurrency()
+  const { t, language } = useTranslation()
 
   const [search, setSearch] = React.useState('')
   const [filter, setFilter] = React.useState<FilterValue>('all')
@@ -99,20 +106,20 @@ export default function ProductsPage() {
   }
 
   if (error) {
-    const isAuthError = error.message.includes('Non authentifié')
+    const isAuthError = error.message.includes('Non authentifié') // i18n:allow — sentinelle interne (lib/services/articles.ts), jamais affichée
     if (isAuthError) {
       return (
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
           <AlertCircle className="h-12 w-12 text-subtle" />
-          <p className="text-lg font-medium">Redirection vers la page de connexion...</p>
+          <p className="text-lg font-medium">{t('products.authRedirect')}</p>
         </div>
       )
     }
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Erreur de chargement</AlertTitle>
-        <AlertDescription>{error.message || 'Une erreur est survenue.'}</AlertDescription>
+        <AlertTitle>{t('products.loadError')}</AlertTitle>
+        <AlertDescription>{error.message || t('products.list.genericLoadError')}</AlertDescription>
       </Alert>
     )
   }
@@ -122,14 +129,18 @@ export default function ProductsPage() {
       {/* --- En-tête mobile --- */}
       <div className="flex items-center justify-between md:hidden">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-[28px] font-bold tracking-tight text-ink">Stock</h1>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('products.list.title')}</h1>
           <span className="text-[13px] text-subtle">
-            {articles.length} articles · valeur {formatAmount(stats?.total_stock_value ?? 0)} {currency}
+            {t('products.list.subtitleMobile', {
+              count: articles.length,
+              value: formatAmount(stats?.total_stock_value ?? 0, language),
+              currency,
+            })}
           </span>
         </div>
         <Link
           href="/products/new"
-          aria-label="Ajouter un article"
+          aria-label={t('products.list.addArticle')}
           className="flex size-12 items-center justify-center rounded-full bg-orb text-white shadow-button"
         >
           <Plus className="size-6" strokeWidth={2} />
@@ -139,18 +150,18 @@ export default function ProductsPage() {
       {/* --- En-tête ordinateur --- */}
       <div className="hidden flex-wrap items-center justify-between gap-3.5 lg:flex">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-[28px] font-bold tracking-tight text-ink">Stock</h1>
-          <span className="text-sm text-subtle">Vos articles, quantités et réapprovisionnements</span>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('products.list.title')}</h1>
+          <span className="text-sm text-subtle">{t('products.list.subtitleDesktop')}</span>
         </div>
         <div className="flex flex-wrap gap-2.5">
           <Button variant="secondary" onClick={handleExport}>
             <Download className="size-[18px]" />
-            Exporter (Excel)
+            {t('products.list.exportExcel')}
           </Button>
           <Button variant="primary" asChild>
             <Link href="/products/new">
               <Plus className="size-[18px]" strokeWidth={2.2} />
-              Ajouter un article
+              {t('products.list.addArticle')}
             </Link>
           </Button>
         </div>
@@ -159,17 +170,17 @@ export default function ProductsPage() {
       {/* --- KPI (pas de donnée réelle pour "Réappros ce mois" : omis) --- */}
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5 rounded-card bg-hero p-[18px] text-white">
-          <span className="text-[13px] text-navy-text">Valeur du stock</span>
+          <span className="text-[13px] text-navy-text">{t('products.list.kpiStockValue')}</span>
           <span className="text-2xl font-bold tracking-[-0.02em]">
-            {formatAmount(stats?.total_stock_value ?? 0)} {currency}
+            {formatAmount(stats?.total_stock_value ?? 0, language)} {currency}
           </span>
         </div>
         <div className="flex flex-col gap-1.5 rounded-card bg-surface p-[18px] shadow-card">
-          <span className="text-[13px] text-subtle">Articles</span>
+          <span className="text-[13px] text-subtle">{t('products.list.kpiArticles')}</span>
           <span className="text-2xl font-bold tracking-[-0.02em] text-ink">{articles.length}</span>
         </div>
         <div className="flex flex-col gap-1.5 rounded-card bg-surface p-[18px] shadow-card">
-          <span className="text-[13px] text-subtle">Stock faible</span>
+          <span className="text-[13px] text-subtle">{t('products.list.kpiLowStock')}</span>
           <span className="text-2xl font-bold tracking-[-0.02em] text-danger-strong">{lowStockCount}</span>
         </div>
       </div>
@@ -181,7 +192,7 @@ export default function ProductsPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher un article"
+            placeholder={t('products.list.searchPlaceholder')}
             className="h-12 w-full rounded-field border border-line-strong bg-surface pl-11 pr-4 text-[15px] text-ink outline-none"
           />
         </div>
@@ -189,9 +200,9 @@ export default function ProductsPage() {
           value={filter}
           onChange={(v) => setFilter(v as FilterValue)}
           options={[
-            { value: 'all', label: 'Tous' },
-            { value: 'low', label: `Stock faible · ${lowStockCount}` },
-            { value: 'variable', label: 'À variations' },
+            { value: 'all', label: t('products.list.filterAll') },
+            { value: 'low', label: t('products.list.filterLowStock', { count: lowStockCount }) },
+            { value: 'variable', label: t('products.list.filterVariable') },
           ]}
         />
       </div>
@@ -199,7 +210,7 @@ export default function ProductsPage() {
       {/* --- Liste mobile --- */}
       <div className="flex flex-col gap-2.5 lg:hidden">
         {paginatedArticles.length === 0 ? (
-          <p className="py-10 text-center text-sm text-subtle">Aucun article trouvé</p>
+          <p className="py-10 text-center text-sm text-subtle">{t('products.list.noArticleFound')}</p>
         ) : (
           paginatedArticles.map((article, i) => (
             <Link
@@ -216,18 +227,23 @@ export default function ProductsPage() {
                 <span className="truncate text-[15px] font-bold text-ink">{article.name}</span>
                 <span className="text-[13px] text-subtle">
                   {article.type === 'simple'
-                    ? 'Simple'
-                    : `${article.remaining_quantity} en stock · ${article.variations?.length ?? 0} variations`}
+                    ? t('products.typeSimple')
+                    : t('products.list.inStockCount', { quantity: article.remaining_quantity }) +
+                      t('products.list.variationsCount', { count: article.variations?.length ?? 0 })}
                 </span>
               </span>
               <span className="flex flex-col items-end gap-1">
-                <span className="text-sm font-bold text-ink">{priceRangeLabel(article)}</span>
+                <span className="text-sm font-bold text-ink">{priceRangeLabel(article, language)}</span>
                 {isLowStock(article) ? (
                   <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
-                    {article.type === 'simple' ? `${article.remaining_quantity} restants` : 'Stock faible'}
+                    {article.type === 'simple'
+                      ? t('products.list.remainingBadge', { quantity: article.remaining_quantity })
+                      : t('products.list.statusLowStock')}
                   </span>
                 ) : article.type === 'simple' ? (
-                  <span className="text-xs font-semibold text-subtle">{article.remaining_quantity} en stock</span>
+                  <span className="text-xs font-semibold text-subtle">
+                    {t('products.list.inStockCount', { quantity: article.remaining_quantity })}
+                  </span>
                 ) : null}
               </span>
             </Link>
@@ -242,10 +258,10 @@ export default function ProductsPage() {
             value={filter}
             onChange={(v) => setFilter(v as FilterValue)}
             options={[
-              { value: 'all', label: 'Tous' },
-              { value: 'low', label: `Stock faible · ${lowStockCount}` },
-              { value: 'variable', label: 'À variations' },
-              { value: 'simple', label: 'Simples' },
+              { value: 'all', label: t('products.list.filterAll') },
+              { value: 'low', label: t('products.list.filterLowStock', { count: lowStockCount }) },
+              { value: 'variable', label: t('products.list.filterVariable') },
+              { value: 'simple', label: t('products.list.filterSimple') },
             ]}
           />
           <div className="relative flex">
@@ -253,7 +269,7 @@ export default function ProductsPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un article"
+              placeholder={t('products.list.searchPlaceholder')}
               className="h-11 w-[280px] max-w-full rounded-full border border-line bg-canvas pl-10 pr-4 text-sm text-ink outline-none"
             />
           </div>
@@ -263,19 +279,19 @@ export default function ProductsPage() {
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                <th className="px-2 py-2.5">Article</th>
-                <th className="px-2 py-2.5">Type</th>
-                <th className="px-2 py-2.5">Prix de vente</th>
-                <th className="px-2 py-2.5">Quantité</th>
-                <th className="px-2 py-2.5">Statut</th>
-                <th className="px-2 py-2.5 text-right">Actions</th>
+                <th className="px-2 py-2.5">{t('products.list.colArticle')}</th>
+                <th className="px-2 py-2.5">{t('products.type')}</th>
+                <th className="px-2 py-2.5">{t('products.list.colSalePrice')}</th>
+                <th className="px-2 py-2.5">{t('products.colQuantity')}</th>
+                <th className="px-2 py-2.5">{t('products.colStatus')}</th>
+                <th className="px-2 py-2.5 text-right">{t('products.colActions')}</th>
               </tr>
             </thead>
             <tbody>
               {paginatedArticles.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-sm text-subtle">
-                    Aucun article trouvé
+                    {t('products.list.noArticleFound')}
                   </td>
                 </tr>
               ) : (
@@ -296,16 +312,20 @@ export default function ProductsPage() {
                         </Link>
                       </td>
                       <td className="px-2 py-2.5 text-ink-2">
-                        {article.type === 'simple' ? 'Simple' : `Variable · ${article.variations?.length ?? 0}`}
+                        {article.type === 'simple'
+                          ? t('products.typeSimple')
+                          : t('products.list.typeVariableCount', { count: article.variations?.length ?? 0 })}
                       </td>
                       <td className="whitespace-nowrap px-2 py-2.5 font-bold text-ink">
-                        {priceRangeLabel(article)}
+                        {priceRangeLabel(article, language)}
                       </td>
                       <td className="min-w-[150px] px-2 py-2.5">
                         <span className="flex flex-col gap-1.5">
                           <span className="font-semibold text-ink">
-                            {article.remaining_quantity} en stock
-                            {article.type === 'variable' ? ` · ${article.variations?.length ?? 0} variations` : ''}
+                            {t('products.list.inStockCount', { quantity: article.remaining_quantity })}
+                            {article.type === 'variable'
+                              ? t('products.list.variationsCount', { count: article.variations?.length ?? 0 })
+                              : ''}
                           </span>
                           <span className="block h-[5px] rounded-full bg-divider">
                             <span
@@ -321,7 +341,7 @@ export default function ProductsPage() {
                             lowStock ? 'bg-danger-bg text-danger-strong' : 'bg-success-bg text-success-strong'
                           }`}
                         >
-                          {lowStock ? 'Stock faible' : 'Disponible'}
+                          {lowStock ? t('products.list.statusLowStock') : t('products.list.statusAvailable')}
                         </span>
                       </td>
                       <td className="px-2 py-2.5 text-right">
@@ -329,7 +349,7 @@ export default function ProductsPage() {
                           href={`/products/${article.id}`}
                           className="inline-flex min-h-10 items-center rounded-full border border-line-strong px-3.5 text-[13px] font-semibold text-ink"
                         >
-                          Réapprovisionner
+                          {t('products.detail.restock')}
                         </Link>
                       </td>
                     </tr>
@@ -343,7 +363,7 @@ export default function ProductsPage() {
         {filteredArticles.length > 0 ? (
           <div className="flex items-center justify-between text-[13px] text-subtle">
             <span>
-              {paginatedArticles.length} article(s) affiché(s) sur {filteredArticles.length}
+              {t('products.list.shownOfTotal', { shown: paginatedArticles.length, total: filteredArticles.length })}
             </span>
             <span className="flex gap-1.5">
               {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
@@ -372,7 +392,7 @@ export default function ProductsPage() {
             disabled={page === 1}
             className="flex-1"
           >
-            Précédent
+            {t('products.previous')}
           </Button>
           <span className="text-sm font-semibold text-ink-2">
             {page} / {pageCount}
@@ -383,7 +403,7 @@ export default function ProductsPage() {
             disabled={page === pageCount}
             className="flex-1"
           >
-            Suivant
+            {t('products.next')}
             <ChevronRight className="size-4" />
           </Button>
         </div>

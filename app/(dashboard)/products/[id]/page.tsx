@@ -4,7 +4,6 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
 import { toast } from 'sonner'
 import {
   AlertCircle,
@@ -30,6 +29,9 @@ import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { useCurrency } from '@/lib/utils/currency'
 import { useSettings } from '@/contexts/SettingsContext'
 import { getTransactions, type Transaction } from '@/lib/services/transactions'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -48,15 +50,15 @@ import { EditVariationDialog } from '@/components/products/edit-variation-dialog
 import { StockHistoryList } from '@/components/products/stock-history-list'
 import { Button, Card, CardHeader, CardTitle, StatusBadge, SegmentedControl } from '@/components/waelly'
 
-dayjs.locale('fr')
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
-
-const TYPE_OPTIONS = [
-  { value: 'simple', label: 'Simple' },
-  { value: 'variable', label: 'À variations' },
-]
+function buildTypeOptions(t: ReturnType<typeof useTranslation>['t']) {
+  return [
+    { value: 'simple', label: t('products.typeSimple') },
+    { value: 'variable', label: t('products.typeVariableOption') },
+  ]
+}
 
 /**
  * Détail d'un article — reprend design/maquettes/ordinateur/Web-Article.dc.html
@@ -88,6 +90,8 @@ export default function ProductDetailPage() {
   const productId = params.id as string
   const { currency } = useCurrency()
   const { settings } = useSettings()
+  const { t, language } = useTranslation()
+  const typeOptions = React.useMemo(() => buildTypeOptions(t), [t])
 
   const { article, error, isLoading, mutate: mutateArticle } = useArticle(productId)
 
@@ -155,11 +159,11 @@ export default function ProductDetailPage() {
     try {
       setVariations(await getVariations(productId))
     } catch {
-      toast.error('Erreur lors du chargement des variations')
+      toast.error(t('products.detail.variationsLoadError'))
     } finally {
       setLoadingVariations(false)
     }
-  }, [productId])
+  }, [productId, t])
 
   React.useEffect(() => {
     if (productId && article?.type === 'variable') {
@@ -182,16 +186,18 @@ export default function ProductDetailPage() {
 
   const priceLabel = React.useMemo(() => {
     if (!article) return ''
-    if (!isVariable) return `${formatAmount(article.sale_price)} ${currency}`
+    if (!isVariable) return `${formatAmount(article.sale_price, language)} ${currency}`
     const min = article.sale_price
     const max = article.price_max ?? article.sale_price
-    return min === max ? `${formatAmount(min)} ${currency}` : `${formatAmount(min)} – ${formatAmount(max)} ${currency}`
-  }, [article, isVariable, currency])
+    return min === max
+      ? `${formatAmount(min, language)} ${currency}`
+      : `${formatAmount(min, language)} – ${formatAmount(max, language)} ${currency}`
+  }, [article, isVariable, currency, language])
 
   const handleSaveInfo = async () => {
     if (!article) return
     if (!name.trim()) {
-      toast.error('Le nom est requis')
+      toast.error(t('products.detail.errorNameRequired'))
       return
     }
 
@@ -200,7 +206,7 @@ export default function ProductDetailPage() {
       if (article.type === 'simple') {
         const priceNum = parseFloat(salePrice)
         if (isNaN(priceNum) || priceNum < 0) {
-          toast.error('Le prix doit être supérieur ou égal à 0')
+          toast.error(t('products.detail.errorPriceMin'))
           setSavingInfo(false)
           return
         }
@@ -210,11 +216,11 @@ export default function ProductDetailPage() {
         // envoyés ici, ils resteraient ignorés côté backend de toute façon.
         await updateArticle(article.id, { name: name.trim() })
       }
-      toast.success('Article enregistré')
+      toast.success(t('products.detail.toastArticleSaved'))
       await mutateArticle()
       await Promise.all([invalidateArticles(), invalidateUserStats()])
     } catch (err: unknown) {
-      toast.error((err as Error).message || "Échec de l'enregistrement")
+      toast.error((err as Error).message || t('products.detail.errorSaveFailed'))
     } finally {
       setSavingInfo(false)
     }
@@ -226,10 +232,10 @@ export default function ProductDetailPage() {
     try {
       await deleteArticle(productId)
       await Promise.all([invalidateArticles(), invalidateUserStats()])
-      toast.success('Article supprimé')
+      toast.success(t('products.detail.toastArticleDeleted'))
       router.push('/products')
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Erreur lors de la suppression')
+      toast.error((err as Error).message || t('products.detail.errorDeleteFailed'))
     } finally {
       setDeleting(false)
       setDeleteDialogOpen(false)
@@ -241,13 +247,13 @@ export default function ProductDetailPage() {
     setRestocking(true)
     try {
       await addStock(article.id, restockQty)
-      toast.success(`${restockQty} pièce(s) ajoutée(s) au stock`)
+      toast.success(t('products.detail.toastStockAdded', { count: restockQty }))
       setRestockQty(10)
       setStockHistoryRefreshKey((k) => k + 1)
       await mutateArticle()
       await Promise.all([invalidateArticles(), invalidateUserStats()])
     } catch (err: unknown) {
-      toast.error((err as Error).message || "Échec de l'ajout de stock")
+      toast.error((err as Error).message || t('products.detail.errorStockAddFailed'))
     } finally {
       setRestocking(false)
     }
@@ -258,7 +264,7 @@ export default function ProductDetailPage() {
     setRestockingVariationBusy(true)
     try {
       await addStock(article.id, variationRestockQty, restockingVariation.id)
-      toast.success(`${variationRestockQty} pièce(s) ajoutée(s) à ${restockingVariation.name}`)
+      toast.success(t('products.detail.toastStockAddedTo', { count: variationRestockQty, name: restockingVariation.name }))
       setStockHistoryRefreshKey((k) => k + 1)
       setRestockingVariation(null)
       setVariationRestockQty(10)
@@ -266,7 +272,7 @@ export default function ProductDetailPage() {
       await fetchVariations()
       await Promise.all([invalidateArticles(), invalidateUserStats()])
     } catch (err: unknown) {
-      toast.error((err as Error).message || "Échec de l'ajout de stock")
+      toast.error((err as Error).message || t('products.detail.errorStockAddFailed'))
     } finally {
       setRestockingVariationBusy(false)
     }
@@ -274,17 +280,17 @@ export default function ProductDetailPage() {
 
   const handleAddVariationSubmit = async () => {
     if (!variationForm.name.trim()) {
-      toast.error('Le nom est requis')
+      toast.error(t('products.detail.errorNameRequired'))
       return
     }
     const quantityNum = parseInt(variationForm.quantity, 10)
     if (isNaN(quantityNum) || quantityNum < 0) {
-      toast.error('La quantité doit être positive ou nulle')
+      toast.error(t('products.detail.errorQuantityPositive'))
       return
     }
     const priceNum = parseFloat(variationForm.price)
     if (isNaN(priceNum) || priceNum <= 0) {
-      toast.error('Le prix doit être supérieur à 0')
+      toast.error(t('products.detail.errorPricePositive'))
       return
     }
     if (!article) return
@@ -297,14 +303,14 @@ export default function ProductDetailPage() {
         price: priceNum,
         image: null,
       })
-      toast.success('Variation ajoutée')
+      toast.success(t('products.detail.toastVariationAdded'))
       setVariationForm({ name: '', quantity: '', price: '' })
       setAddVariationOpen(false)
       await mutateArticle()
       await fetchVariations()
       await Promise.all([invalidateArticles(), invalidateUserStats()])
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Erreur lors de la création')
+      toast.error((err as Error).message || t('products.detail.errorCreateFailed'))
     } finally {
       setSubmittingVariation(false)
     }
@@ -316,7 +322,7 @@ export default function ProductDetailPage() {
     setEditingVariation(null)
     await mutateArticle()
     await fetchVariations()
-    toast.success('Variation modifiée')
+    toast.success(t('products.detail.toastVariationModified'))
   }
 
   const openDeleteVariationDialog = (variation: Variation) => {
@@ -334,7 +340,7 @@ export default function ProductDetailPage() {
       await mutateArticle()
       await fetchVariations()
       await Promise.all([invalidateArticles(), invalidateUserStats()])
-      toast.success('Variation archivée')
+      toast.success(t('products.detail.toastVariationArchived'))
       setDeleteVariationDialogOpen(false)
       setVariationToDelete(null)
       setVariationStockWarning(null)
@@ -345,7 +351,7 @@ export default function ProductDetailPage() {
           value: err.remainingQuantity * variationToDelete.price,
         })
       } else {
-        toast.error((err as Error).message || 'Erreur lors de la suppression')
+        toast.error((err as Error).message || t('products.detail.errorDeleteFailed'))
       }
     } finally {
       setDeletingVariation(false)
@@ -353,20 +359,20 @@ export default function ProductDetailPage() {
   }
 
   if (error) {
-    const isAuthError = error.message.includes('Non authentifié')
+    const isAuthError = error.message.includes('Non authentifié') // i18n:allow — sentinelle interne (lib/services/articles.ts), jamais affichée
     if (isAuthError) {
       return (
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
           <AlertCircle className="h-12 w-12 text-subtle" />
-          <p className="text-lg font-medium">Redirection vers la page de connexion...</p>
+          <p className="text-lg font-medium">{t('products.authRedirect')}</p>
         </div>
       )
     }
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Erreur de chargement</AlertTitle>
-        <AlertDescription>{error.message || "Impossible de charger l'article."}</AlertDescription>
+        <AlertTitle>{t('products.loadError')}</AlertTitle>
+        <AlertDescription>{error.message || t('products.detail.loadErrorDescription')}</AlertDescription>
       </Alert>
     )
   }
@@ -391,17 +397,17 @@ export default function ProductDetailPage() {
       <div className="-mx-4 -mt-5 flex flex-col pb-28 lg:hidden">
         <div className="relative flex h-[290px] flex-col items-center justify-center gap-2 bg-brand-100 text-[13px] font-semibold text-brand-700">
           <ImageIcon className="size-10" strokeWidth={1.5} />
-          [Photo de l&apos;article]
+          {t('products.detail.photoPlaceholder')}
           <Link
             href="/products"
-            aria-label="Retour au stock"
+            aria-label={t('products.detail.backToStock')}
             className="absolute left-5 top-[52px] flex size-11 items-center justify-center rounded-full bg-surface text-ink"
           >
             <ArrowLeft className="size-[22px]" />
           </Link>
           <button
             type="button"
-            aria-label="Modifier l'article"
+            aria-label={t('products.detail.editArticle')}
             onClick={() => setMobileEditOpen(true)}
             className="absolute right-5 top-[52px] flex size-11 items-center justify-center rounded-full bg-surface text-ink"
           >
@@ -412,26 +418,26 @@ export default function ProductDetailPage() {
         <div className="-mt-6 flex flex-col gap-5 rounded-t-3xl bg-canvas p-5">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-bold uppercase tracking-wide text-brand-500">
-              {article.type === 'simple' ? 'Article simple' : 'Article à variations'}
+              {article.type === 'simple' ? t('products.detail.simpleArticleBadge') : t('products.detail.variableArticleBadge')}
             </span>
             <h1 className="text-[28px] font-bold tracking-tight text-ink">{article.name}</h1>
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl font-bold text-ink">{priceLabel}</span>
-              {!isVariable ? <span className="text-sm font-semibold text-subtle">/ pièce</span> : null}
+              {!isVariable ? <span className="text-sm font-semibold text-subtle">{t('products.detail.perPiece')}</span> : null}
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <div className="flex flex-col gap-1 rounded-tile border border-line bg-surface p-3">
-              <span className="text-xs text-subtle">En stock</span>
+              <span className="text-xs text-subtle">{t('products.detail.inStock')}</span>
               <span className="text-lg font-bold text-ink">{article.remaining_quantity}</span>
             </div>
             <div className="flex flex-col gap-1 rounded-tile border border-line bg-surface p-3">
-              <span className="text-xs text-subtle">Vendus (30 j)</span>
+              <span className="text-xs text-subtle">{t('products.detail.soldLast30Days')}</span>
               <span className="text-lg font-bold text-ink">{last30Days.unitsSold}</span>
             </div>
             <div className="flex flex-col gap-1 rounded-tile border border-line bg-surface p-3">
-              <span className="text-xs text-subtle">Seuil</span>
+              <span className="text-xs text-subtle">{t('products.detail.threshold')}</span>
               <span className="text-lg font-bold text-ink">{lowStockThreshold}%</span>
             </div>
           </div>
@@ -439,19 +445,19 @@ export default function ProductDetailPage() {
           {article.type === 'variable' ? (
             <div className="flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-ink">Variations</h2>
+                <h2 className="text-lg font-bold text-ink">{t('products.detail.variationsTitle')}</h2>
                 <button
                   type="button"
                   onClick={() => setAddVariationOpen(true)}
                   className="text-[13px] font-bold text-brand-700"
                 >
-                  + Ajouter
+                  {t('products.detail.addShort')}
                 </button>
               </div>
               {loadingVariations ? (
-                <p className="text-sm text-subtle">Chargement…</p>
+                <p className="text-sm text-subtle">{t('products.detail.loading')}</p>
               ) : variations.length === 0 ? (
-                <p className="text-sm text-subtle">Aucune variation pour cet article</p>
+                <p className="text-sm text-subtle">{t('products.detail.noVariationForArticle')}</p>
               ) : (
                 <div className="flex flex-col rounded-tile border border-line bg-surface">
                   {variations.map((variation, i) => (
@@ -464,17 +470,17 @@ export default function ProductDetailPage() {
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate text-sm font-semibold text-ink">{variation.name}</span>
-                        <span className="text-xs text-subtle">{formatAmount(variation.price)} {currency}</span>
+                        <span className="text-xs text-subtle">{formatAmount(variation.price, language)} {currency}</span>
                       </span>
                       {variation.low_stock ? (
                         <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
-                          Faible
+                          {t('products.detail.lowBadge')}
                         </span>
                       ) : null}
                       <span className="text-sm font-bold text-ink">{variation.remaining_quantity}</span>
                       <button
                         type="button"
-                        aria-label={`Réapprovisionner ${variation.name}`}
+                        aria-label={t('products.detail.restockVariationAria', { name: variation.name })}
                         onClick={() => {
                           setRestockingVariation(variation)
                           setVariationRestockQty(10)
@@ -491,7 +497,7 @@ export default function ProductDetailPage() {
           ) : null}
 
           <div className="flex flex-col gap-2.5">
-            <h2 className="text-lg font-bold text-ink">Réapprovisionnements</h2>
+            <h2 className="text-lg font-bold text-ink">{t('products.detail.restockHistoryMobile')}</h2>
             <StockHistoryList articleId={productId} refreshKey={stockHistoryRefreshKey} showUser={false} />
           </div>
         </div>
@@ -502,10 +508,10 @@ export default function ProductDetailPage() {
           variant="secondary"
           onClick={() => (isVariable ? setAddVariationOpen(true) : setMobileRestockOpen(true))}
         >
-          {isVariable ? 'Gérer les variations' : 'Réapprovisionner'}
+          {isVariable ? t('products.detail.manageVariations') : t('products.detail.restock')}
         </Button>
         <Button variant="primary" asChild>
-          <Link href={sellHref}>Vendre</Link>
+          <Link href={sellHref}>{t('products.detail.sell')}</Link>
         </Button>
       </div>
 
@@ -514,9 +520,9 @@ export default function ProductDetailPage() {
       {/* --- En-tête --- */}
       <div className="flex flex-wrap items-center justify-between gap-3.5">
         <div className="flex flex-col gap-1.5">
-          <nav aria-label="Fil d'Ariane" className="flex gap-2 text-[13px] text-subtle">
+          <nav aria-label={t('products.breadcrumbAria')} className="flex gap-2 text-[13px] text-subtle">
             <Link href="/products" className="font-semibold">
-              Stock
+              {t('products.stockBreadcrumb')}
             </Link>
             <span aria-hidden>/</span>
             <span>{article.name}</span>
@@ -530,28 +536,28 @@ export default function ProductDetailPage() {
               className="border border-danger-border bg-surface"
               onClick={() => setDeleteDialogOpen(true)}
             >
-              Supprimer
+              {t('products.detail.deleteArticle')}
             </Button>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
+                <AlertDialogTitle>{t('products.detail.deleteArticleTitle')}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Cette action est irréversible et supprimera aussi ses variations.
+                  {t('products.detail.deleteArticleDescription')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+                <AlertDialogCancel disabled={deleting}>{t('products.cancel')}</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDeleteArticle} disabled={deleting}>
-                  {deleting ? 'Suppression…' : 'Supprimer'}
+                  {deleting ? t('products.detail.deleting') : t('products.detail.deleteArticle')}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
           <Button variant="glass" asChild>
-            <Link href={sellHref}>Vendre</Link>
+            <Link href={sellHref}>{t('products.detail.sell')}</Link>
           </Button>
           <Button variant="primary" onClick={handleSaveInfo} disabled={savingInfo}>
-            {savingInfo ? 'Enregistrement…' : 'Enregistrer'}
+            {savingInfo ? t('products.saving') : t('products.save')}
           </Button>
         </div>
       </div>
@@ -561,25 +567,25 @@ export default function ProductDetailPage() {
         <Card className="flex flex-[1_1_360px] flex-col gap-4 rounded-panel">
           <div className="flex h-[240px] flex-col items-center justify-center gap-2 rounded-tile bg-gradient-to-br from-brand-100 to-brand-200 text-[13px] font-semibold text-brand-700">
             <ImageIcon className="size-10" strokeWidth={1.5} />
-            [Photo de l&apos;article]
+            {t('products.detail.photoPlaceholder')}
             <button
               type="button"
-              onClick={() => toast('Téléversement de photo bientôt disponible')}
+              onClick={() => toast(t('products.detail.photoUploadSoon'))}
               className="flex min-h-10 items-center rounded-full bg-surface px-3.5 text-[13px] font-bold text-brand-700"
             >
-              Changer l&apos;image
+              {t('products.detail.changeImage')}
             </button>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="article-name" className="text-[13px] font-semibold text-ink">
-              Nom
+              {t('products.detail.nameLabel')}
             </Label>
             <Input id="article-name" value={name} onChange={(e) => setName(e.target.value)} className="h-12 rounded-field" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="article-price" className="text-[13px] font-semibold text-ink">
-                Prix de vente ({currency})
+                {t('products.detail.salePriceLabel', { currency })}
               </Label>
               {article.type === 'simple' ? (
                 <Input
@@ -598,18 +604,18 @@ export default function ProductDetailPage() {
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <Label className="text-[13px] font-semibold text-ink">Seuil d&apos;alerte</Label>
+              <Label className="text-[13px] font-semibold text-ink">{t('products.detail.alertThreshold')}</Label>
               <span className="flex h-12 items-center rounded-field border border-line-strong bg-surface-soft px-4 text-sm font-semibold text-ink-2">
-                {lowStockThreshold}% des ventes
+                {t('products.detail.thresholdOfSales', { threshold: lowStockThreshold })}
               </span>
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-semibold text-ink">Type d&apos;article</span>
+            <span className="text-[13px] font-semibold text-ink">{t('products.detail.articleType')}</span>
             <SegmentedControl
-              options={TYPE_OPTIONS}
+              options={typeOptions}
               value={article.type}
-              onChange={() => toast.error("Le type d'un article ne peut pas être modifié après sa création")}
+              onChange={() => toast.error(t('products.detail.typeChangeError'))}
             />
           </div>
         </Card>
@@ -618,17 +624,17 @@ export default function ProductDetailPage() {
           {/* --- KPI --- */}
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5 rounded-card bg-hero p-[18px] text-white">
-              <span className="text-[13px] text-navy-text">En stock</span>
-              <span className="text-2xl font-bold tracking-[-0.02em]">{article.remaining_quantity} pièces</span>
+              <span className="text-[13px] text-navy-text">{t('products.detail.inStock')}</span>
+              <span className="text-2xl font-bold tracking-[-0.02em]">{t('products.detail.piecesUnit', { count: article.remaining_quantity })}</span>
             </div>
             <div className="flex flex-col gap-1.5 rounded-card bg-surface p-[18px] shadow-card">
-              <span className="text-[13px] text-subtle">Vendus (30 j)</span>
+              <span className="text-[13px] text-subtle">{t('products.detail.soldLast30Days')}</span>
               <span className="text-2xl font-bold tracking-[-0.02em] text-ink">{last30Days.unitsSold}</span>
             </div>
             <div className="flex flex-col gap-1.5 rounded-card bg-surface p-[18px] shadow-card">
-              <span className="text-[13px] text-subtle">CA généré (30 j)</span>
+              <span className="text-[13px] text-subtle">{t('products.detail.revenueLast30Days')}</span>
               <span className="text-2xl font-bold tracking-[-0.02em] text-success">
-                {formatAmount(last30Days.revenue)} F
+                {formatAmount(last30Days.revenue, language)} F
               </span>
             </div>
           </div>
@@ -637,29 +643,29 @@ export default function ProductDetailPage() {
           {article.type === 'variable' ? (
             <Card className="flex flex-col gap-3 rounded-panel">
               <CardHeader>
-                <CardTitle>Variations</CardTitle>
+                <CardTitle>{t('products.detail.variationsTitle')}</CardTitle>
                 <Button variant="secondary" onClick={() => setAddVariationOpen(true)}>
                   <Plus className="size-4" />
-                  Ajouter une variation
+                  {t('products.detail.addVariation')}
                 </Button>
               </CardHeader>
               {loadingVariations ? (
-                <div className="py-8 text-center text-sm text-subtle">Chargement…</div>
+                <div className="py-8 text-center text-sm text-subtle">{t('products.detail.loading')}</div>
               ) : variations.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-8 text-sm text-subtle">
                   <Layers className="size-10" strokeWidth={1.5} />
-                  Aucune variation pour cet article
+                  {t('products.detail.noVariationForArticle')}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[560px] border-collapse text-sm">
                     <thead>
                       <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                        <th className="px-2 py-2">Variation</th>
-                        <th className="px-2 py-2">Prix</th>
-                        <th className="px-2 py-2">Quantité</th>
-                        <th className="px-2 py-2">Statut</th>
-                        <th className="px-2 py-2 text-right">Action</th>
+                        <th className="px-2 py-2">{t('products.colVariation')}</th>
+                        <th className="px-2 py-2">{t('products.colPrice')}</th>
+                        <th className="px-2 py-2">{t('products.colQuantity')}</th>
+                        <th className="px-2 py-2">{t('products.colStatus')}</th>
+                        <th className="px-2 py-2 text-right">{t('products.colAction')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -674,7 +680,7 @@ export default function ProductDetailPage() {
                             </span>
                           </td>
                           <td className="px-2 py-2.5 font-semibold text-ink">
-                            {formatAmount(variation.price)} {currency}
+                            {formatAmount(variation.price, language)} {currency}
                           </td>
                           <td className="px-2 py-2.5 font-bold text-ink">{variation.remaining_quantity}</td>
                           <td className="px-2 py-2.5">
@@ -691,7 +697,7 @@ export default function ProductDetailPage() {
                                 className="inline-flex min-h-9 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink"
                               >
                                 <Plus className="mr-1.5 size-3.5" />
-                                Réapprovisionner
+                                {t('products.detail.restock')}
                               </button>
                               <button
                                 type="button"
@@ -702,11 +708,11 @@ export default function ProductDetailPage() {
                                 className="inline-flex min-h-9 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink"
                               >
                                 <Pencil className="mr-1.5 size-3.5" />
-                                Modifier
+                                {t('products.detail.modify')}
                               </button>
                               <button
                                 type="button"
-                                aria-label="Archiver la variation"
+                                aria-label={t('products.detail.archiveVariationAria')}
                                 onClick={() => openDeleteVariationDialog(variation)}
                                 className="inline-flex size-9 items-center justify-center rounded-full border border-danger-border text-danger-strong"
                               >
@@ -726,13 +732,13 @@ export default function ProductDetailPage() {
           <div className="flex flex-wrap items-start gap-5">
             {!isVariable ? (
               <Card className="glass-panel flex flex-[1_1_300px] flex-col gap-3">
-                <CardTitle>Réapprovisionner</CardTitle>
+                <CardTitle>{t('products.detail.restock')}</CardTitle>
                 <div className="flex items-center justify-between gap-2.5">
-                  <span className="text-[13px] font-semibold text-ink">Quantité ajoutée</span>
+                  <span className="text-[13px] font-semibold text-ink">{t('products.detail.quantityAdded')}</span>
                   <span className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      aria-label="Diminuer"
+                      aria-label={t('products.decrease')}
                       onClick={() => setRestockQty((q) => Math.max(1, q - 1))}
                       className="flex size-10 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
                     >
@@ -742,7 +748,7 @@ export default function ProductDetailPage() {
                       type="number"
                       min={1}
                       inputMode="numeric"
-                      aria-label="Quantité à réapprovisionner"
+                      aria-label={t('products.detail.restockQuantityAria')}
                       value={restockQty}
                       onChange={(e) => {
                         const next = parseInt(e.target.value, 10)
@@ -752,7 +758,7 @@ export default function ProductDetailPage() {
                     />
                     <button
                       type="button"
-                      aria-label="Augmenter"
+                      aria-label={t('products.increase')}
                       onClick={() => setRestockQty((q) => q + 1)}
                       className="flex size-10 items-center justify-center rounded-full bg-brand-500 font-bold text-white"
                     >
@@ -761,14 +767,14 @@ export default function ProductDetailPage() {
                   </span>
                 </div>
                 <Button variant="black" onClick={handleRestock} disabled={restocking}>
-                  {restocking ? 'Ajout…' : `Ajouter ${restockQty} pièce(s) au stock`}
+                  {restocking ? t('products.detail.adding') : t('products.detail.addToStock', { count: restockQty })}
                 </Button>
               </Card>
             ) : null}
 
             {/* --- Historique --- */}
             <Card className="flex flex-[1_1_300px] flex-col gap-1.5">
-              <CardTitle>Historique</CardTitle>
+              <CardTitle>{t('products.detail.restockHistoryDesktop')}</CardTitle>
               <StockHistoryList articleId={productId} refreshKey={stockHistoryRefreshKey} />
             </Card>
           </div>
@@ -780,16 +786,16 @@ export default function ProductDetailPage() {
       <Dialog open={mobileEditOpen} onOpenChange={setMobileEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Modifier l&apos;article</DialogTitle>
+            <DialogTitle>{t('products.detail.editArticle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="mobile-article-name">Nom</Label>
+              <Label htmlFor="mobile-article-name">{t('products.detail.nameLabel')}</Label>
               <Input id="mobile-article-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             {article.type === 'simple' ? (
               <div className="space-y-2">
-                <Label htmlFor="mobile-article-price">Prix de vente ({currency})</Label>
+                <Label htmlFor="mobile-article-price">{t('products.detail.salePriceLabel', { currency })}</Label>
                 <Input
                   id="mobile-article-price"
                   type="number"
@@ -801,12 +807,12 @@ export default function ProductDetailPage() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Prix : {priceLabel} (calculé depuis les variations — modifiable variation par variation).
+                {t('products.detail.priceComputedFromVariations', { price: priceLabel })}
               </p>
             )}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setMobileEditOpen(false)}>
-                Annuler
+                {t('products.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -816,7 +822,7 @@ export default function ProductDetailPage() {
                   setMobileEditOpen(false)
                 }}
               >
-                {savingInfo ? 'Enregistrement…' : 'Enregistrer'}
+                {savingInfo ? t('products.saving') : t('products.save')}
               </Button>
             </div>
           </div>
@@ -827,14 +833,14 @@ export default function ProductDetailPage() {
       <Dialog open={mobileRestockOpen} onOpenChange={setMobileRestockOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Réapprovisionner</DialogTitle>
+            <DialogTitle>{t('products.detail.restock')}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-between gap-2.5">
-            <span className="text-[13px] font-semibold text-ink">Quantité ajoutée</span>
+            <span className="text-[13px] font-semibold text-ink">{t('products.detail.quantityAdded')}</span>
             <span className="flex items-center gap-1.5">
               <button
                 type="button"
-                aria-label="Diminuer"
+                aria-label={t('products.decrease')}
                 onClick={() => setRestockQty((q) => Math.max(1, q - 1))}
                 className="flex size-10 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
               >
@@ -844,7 +850,7 @@ export default function ProductDetailPage() {
                 type="number"
                 min={1}
                 inputMode="numeric"
-                aria-label="Quantité à réapprovisionner"
+                aria-label={t('products.detail.restockQuantityAria')}
                 value={restockQty}
                 onChange={(e) => {
                   const next = parseInt(e.target.value, 10)
@@ -854,7 +860,7 @@ export default function ProductDetailPage() {
               />
               <button
                 type="button"
-                aria-label="Augmenter"
+                aria-label={t('products.increase')}
                 onClick={() => setRestockQty((q) => q + 1)}
                 className="flex size-10 items-center justify-center rounded-full bg-brand-500 font-bold text-white"
               >
@@ -870,7 +876,7 @@ export default function ProductDetailPage() {
               setMobileRestockOpen(false)
             }}
           >
-            {restocking ? 'Ajout…' : `Ajouter ${restockQty} pièce(s) au stock`}
+            {restocking ? t('products.detail.adding') : t('products.detail.addToStock', { count: restockQty })}
           </Button>
         </DialogContent>
       </Dialog>
@@ -884,14 +890,14 @@ export default function ProductDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Réapprovisionner {restockingVariation?.name}</DialogTitle>
+            <DialogTitle>{t('products.detail.restockVariationAria', { name: restockingVariation?.name ?? '' })}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-between gap-2.5">
-            <span className="text-[13px] font-semibold text-ink">Quantité ajoutée</span>
+            <span className="text-[13px] font-semibold text-ink">{t('products.detail.quantityAdded')}</span>
             <span className="flex items-center gap-1.5">
               <button
                 type="button"
-                aria-label="Diminuer"
+                aria-label={t('products.decrease')}
                 onClick={() => setVariationRestockQty((q) => Math.max(1, q - 1))}
                 className="flex size-10 items-center justify-center rounded-full border border-line-strong bg-surface font-bold text-ink"
               >
@@ -901,7 +907,7 @@ export default function ProductDetailPage() {
                 type="number"
                 min={1}
                 inputMode="numeric"
-                aria-label="Quantité à réapprovisionner"
+                aria-label={t('products.detail.restockQuantityAria')}
                 value={variationRestockQty}
                 onChange={(e) => {
                   const next = parseInt(e.target.value, 10)
@@ -911,7 +917,7 @@ export default function ProductDetailPage() {
               />
               <button
                 type="button"
-                aria-label="Augmenter"
+                aria-label={t('products.increase')}
                 onClick={() => setVariationRestockQty((q) => q + 1)}
                 className="flex size-10 items-center justify-center rounded-full bg-brand-500 font-bold text-white"
               >
@@ -920,7 +926,7 @@ export default function ProductDetailPage() {
             </span>
           </div>
           <Button variant="black" disabled={restockingVariationBusy} onClick={handleRestockVariation}>
-            {restockingVariationBusy ? 'Ajout…' : `Ajouter ${variationRestockQty} pièce(s)`}
+            {restockingVariationBusy ? t('products.detail.adding') : t('products.detail.addPieces', { count: variationRestockQty })}
           </Button>
         </DialogContent>
       </Dialog>
@@ -929,20 +935,20 @@ export default function ProductDetailPage() {
       <Dialog open={addVariationOpen} onOpenChange={setAddVariationOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Ajouter une variation</DialogTitle>
+            <DialogTitle>{t('products.detail.addVariation')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="variation-name">Nom de la variation</Label>
+              <Label htmlFor="variation-name">{t('products.detail.variationNameLabel')}</Label>
               <Input
                 id="variation-name"
-                placeholder="Ex: Taille M"
+                placeholder={t('products.detail.variationNamePlaceholder')}
                 value={variationForm.name}
                 onChange={(e) => setVariationForm({ ...variationForm, name: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="variation-quantity">Quantité</Label>
+              <Label htmlFor="variation-quantity">{t('products.detail.quantityLabel')}</Label>
               <Input
                 id="variation-quantity"
                 type="number"
@@ -952,7 +958,7 @@ export default function ProductDetailPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="variation-price">Prix de vente ({currency})</Label>
+              <Label htmlFor="variation-price">{t('products.detail.salePriceLabel', { currency })}</Label>
               <Input
                 id="variation-price"
                 type="number"
@@ -970,10 +976,10 @@ export default function ProductDetailPage() {
                   setVariationForm({ name: '', quantity: '', price: '' })
                 }}
               >
-                Annuler
+                {t('products.cancel')}
               </Button>
               <Button variant="primary" onClick={handleAddVariationSubmit} disabled={submittingVariation}>
-                {submittingVariation ? 'Ajout…' : 'Ajouter'}
+                {submittingVariation ? t('products.detail.adding') : t('products.detail.add')}
               </Button>
             </div>
           </div>
@@ -1006,18 +1012,23 @@ export default function ProductDetailPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {variationStockWarning ? 'Cette variation contient encore du stock' : 'Archiver cette variation ?'}
+              {variationStockWarning ? t('products.detail.archiveStockTitle') : t('products.detail.archiveTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {variationStockWarning
-                ? `${variationToDelete?.name} contient encore ${variationStockWarning.remaining} unité(s), pour une valeur de ${formatAmount(variationStockWarning.value)} ${currency}. Confirmez-vous l'archivage malgré tout ?`
-                : `${variationToDelete?.name} sera archivée (ou supprimée si elle n'a aucune vente/facture liée).`}
+                ? t('products.detail.archiveStockDescription', {
+                    name: variationToDelete?.name ?? '',
+                    remaining: variationStockWarning.remaining,
+                    value: formatAmount(variationStockWarning.value, language),
+                    currency,
+                  })
+                : t('products.detail.archiveDescription', { name: variationToDelete?.name ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingVariation}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={deletingVariation}>{t('products.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => handleDeleteVariation(!!variationStockWarning)} disabled={deletingVariation}>
-              {deletingVariation ? '…' : variationStockWarning ? "Confirmer l'archivage" : 'Archiver'}
+              {deletingVariation ? '…' : variationStockWarning ? t('products.detail.confirmArchive') : t('products.detail.archive')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

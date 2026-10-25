@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,12 +11,15 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { updateVariation, type Variation, type UpdateVariationPayload } from '@/lib/services/variations'
 import type { Article } from '@/lib/services/articles'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
-const variationSchema = z.object({
-  name: z.string().min(1, "Le nom est requis").max(255, "Le nom ne peut pas dépasser 255 caractères"),
-  quantity: z.string().min(1, "La quantité est requise"),
-  price: z.string().min(1, "Le prix est requis"),
-})
+function buildVariationSchema(t: ReturnType<typeof useTranslation>['t']) {
+  return z.object({
+    name: z.string().min(1, t('products.editVariationDialog.validationNameRequired')).max(255, t('products.editVariationDialog.validationNameMax')),
+    quantity: z.string().min(1, t('products.editVariationDialog.validationQuantityRequired')),
+    price: z.string().min(1, t('products.editVariationDialog.validationPriceRequired')),
+  })
+}
 
 interface EditVariationDialogProps {
   variation: Variation | null
@@ -32,8 +35,10 @@ export function EditVariationDialog({
   onClose,
   onSuccess,
 }: EditVariationDialogProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
 
+  const variationSchema = useMemo(() => buildVariationSchema(t), [t])
   const form = useForm<{
     name: string
     quantity: string
@@ -64,13 +69,13 @@ export function EditVariationDialog({
     try {
       const quantityNum = parseInt(data.quantity, 10)
       if (isNaN(quantityNum) || quantityNum < 0) {
-        toast.error('La quantité doit être positive ou nulle')
+        toast.error(t('products.editVariationDialog.errorQuantityPositive'))
         return
       }
 
       const priceNum = parseFloat(data.price)
       if (isNaN(priceNum) || priceNum <= 0) {
-        toast.error('Le prix doit être supérieur à 0')
+        toast.error(t('products.editVariationDialog.errorPricePositive'))
         return
       }
 
@@ -82,7 +87,7 @@ export function EditVariationDialog({
 
       const updatedVariation = await updateVariation(variation.id, payload)
 
-      toast.success('Variation modifiée avec succès')
+      toast.success(t('products.editVariationDialog.successModified'))
 
       onSuccess(updatedVariation)
       onClose()
@@ -91,9 +96,9 @@ export function EditVariationDialog({
 
       if (errorObj.validationErrors) {
         const firstError = Object.values(errorObj.validationErrors)[0]
-        toast.error(firstError?.[0] || 'Erreur de validation')
+        toast.error(firstError?.[0] || t('products.editVariationDialog.errorValidation'))
       } else {
-        toast.error(errorObj.message || 'Erreur lors de la modification de la variation')
+        toast.error(errorObj.message || t('products.editVariationDialog.errorModifyFailed'))
       }
     } finally {
       setLoading(false)
@@ -106,14 +111,14 @@ export function EditVariationDialog({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Modifier la variation</DialogTitle>
+          <DialogTitle>{t('products.editVariationDialog.title')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="variation-name">Nom de la variation *</Label>
+            <Label htmlFor="variation-name">{t('products.editVariationDialog.nameLabel')}</Label>
             <Input
               id="variation-name"
-              placeholder="Ex: Taille S"
+              placeholder={t('products.editVariationDialog.namePlaceholder')}
               {...form.register('name')}
             />
             {form.formState.errors.name && (
@@ -122,12 +127,12 @@ export function EditVariationDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="variation-quantity">Quantité *</Label>
+            <Label htmlFor="variation-quantity">{t('products.editVariationDialog.quantityLabel')}</Label>
             <Input
               id="variation-quantity"
               type="number"
               min="0"
-              placeholder="Ex: 20"
+              placeholder={t('products.editVariationDialog.quantityPlaceholder')}
               {...form.register('quantity')}
             />
             {form.formState.errors.quantity && (
@@ -136,13 +141,13 @@ export function EditVariationDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="variation-price">Prix de vente *</Label>
+            <Label htmlFor="variation-price">{t('products.editVariationDialog.priceLabel')}</Label>
             <Input
               id="variation-price"
               type="number"
               min="0"
               step="0.01"
-              placeholder="Ex: 15000"
+              placeholder={t('products.editVariationDialog.pricePlaceholder')}
               {...form.register('price')}
             />
             {form.formState.errors.price && (
@@ -152,10 +157,10 @@ export function EditVariationDialog({
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Annuler
+              {t('products.editVariationDialog.cancel')}
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Modification...' : 'Modifier'}
+              {loading ? t('products.editVariationDialog.modifying') : t('products.editVariationDialog.modify')}
             </Button>
           </div>
         </form>

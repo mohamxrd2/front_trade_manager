@@ -14,89 +14,96 @@ import { addArticle } from '@/lib/services/articles'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { useCurrency } from '@/lib/utils/currency'
 import { useSettings } from '@/contexts/SettingsContext'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Button, Card, SegmentedControl } from '@/components/waelly'
 
-const formatAmount = (value: number): string =>
-  new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
+const formatAmount = (value: number, language: AppLanguage): string =>
+  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
 const initials = (name: string): string => (name.trim() ? name.trim().slice(0, 2).toUpperCase() : 'NA')
 
-const TYPE_OPTIONS = [
-  { value: 'simple', label: 'Simple' },
-  { value: 'variable', label: 'À variations' },
-]
+function buildTypeOptions(t: ReturnType<typeof useTranslation>['t']) {
+  return [
+    { value: 'simple', label: t('products.typeSimple') },
+    { value: 'variable', label: t('products.typeVariableOption') },
+  ]
+}
 
-const newArticleSchema = z
-  .object({
-    name: z.string().min(2, "Le nom est obligatoire (2 caractères minimum)"),
-    type: z.enum(['simple', 'variable']),
-    // Article simple uniquement.
-    sale_price: z.string(),
-    quantity: z.string(),
-    // Article variable uniquement : pré-remplit le prix des NOUVELLES lignes,
-    // n'est jamais envoyé à l'API (un article variable n'a pas de prix propre).
-    default_price: z.string(),
-    variations: z.array(
-      z.object({
-        name: z.string().min(1, 'Le nom est obligatoire'),
-        quantity: z.string(),
-        price: z.string(),
-      })
-    ),
-  })
-  .superRefine((data, ctx) => {
-    if (data.type === 'simple') {
-      const price = parseFloat(data.sale_price)
-      if (data.sale_price.trim() === '' || Number.isNaN(price) || price <= 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sale_price'], message: 'Le prix doit être supérieur à 0' })
+function buildNewArticleSchema(t: ReturnType<typeof useTranslation>['t']) {
+  return z
+    .object({
+      name: z.string().min(2, t('products.new.validationNameMin')),
+      type: z.enum(['simple', 'variable']),
+      // Article simple uniquement.
+      sale_price: z.string(),
+      quantity: z.string(),
+      // Article variable uniquement : pré-remplit le prix des NOUVELLES lignes,
+      // n'est jamais envoyé à l'API (un article variable n'a pas de prix propre).
+      default_price: z.string(),
+      variations: z.array(
+        z.object({
+          name: z.string().min(1, t('products.new.validationVariationNameRequired')),
+          quantity: z.string(),
+          price: z.string(),
+        })
+      ),
+    })
+    .superRefine((data, ctx) => {
+      if (data.type === 'simple') {
+        const price = parseFloat(data.sale_price)
+        if (data.sale_price.trim() === '' || Number.isNaN(price) || price <= 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sale_price'], message: t('products.new.validationPricePositive') })
+        }
+        const q = parseInt(data.quantity, 10)
+        if (data.quantity.trim() === '' || Number.isNaN(q) || q < 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['quantity'], message: t('products.new.validationQuantityPositive') })
+        }
+        return
       }
-      const q = parseInt(data.quantity, 10)
-      if (data.quantity.trim() === '' || Number.isNaN(q) || q < 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['quantity'], message: 'La quantité doit être positive ou nulle' })
+
+      if (data.variations.length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['variations'], message: t('products.new.validationAtLeastOneVariation') })
       }
-      return
-    }
 
-    if (data.variations.length === 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['variations'], message: 'Ajoutez au moins une variation' })
-    }
+      const seenNames = new Map<string, number>()
+      data.variations.forEach((variation, index) => {
+        const normalized = variation.name.trim().toLowerCase()
+        if (normalized) {
+          if (seenNames.has(normalized)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['variations', index, 'name'],
+              message: t('products.new.validationDuplicateVariationName'),
+            })
+          } else {
+            seenNames.set(normalized, index)
+          }
+        }
 
-    const seenNames = new Map<string, number>()
-    data.variations.forEach((variation, index) => {
-      const normalized = variation.name.trim().toLowerCase()
-      if (normalized) {
-        if (seenNames.has(normalized)) {
+        const q = parseInt(variation.quantity, 10)
+        if (variation.quantity.trim() === '' || Number.isNaN(q) || q < 0) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['variations', index, 'name'],
-            message: 'Ce nom est déjà utilisé par une autre variation',
+            path: ['variations', index, 'quantity'],
+            message: t('products.new.validationInvalidQuantity'),
           })
-        } else {
-          seenNames.set(normalized, index)
         }
-      }
 
-      const q = parseInt(variation.quantity, 10)
-      if (variation.quantity.trim() === '' || Number.isNaN(q) || q < 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['variations', index, 'quantity'],
-          message: 'Quantité invalide',
-        })
-      }
-
-      const p = parseFloat(variation.price)
-      if (variation.price.trim() === '' || Number.isNaN(p) || p <= 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['variations', index, 'price'],
-          message: 'Le prix doit être supérieur à 0',
-        })
-      }
+        const p = parseFloat(variation.price)
+        if (variation.price.trim() === '' || Number.isNaN(p) || p <= 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['variations', index, 'price'],
+            message: t('products.new.validationPricePositive'),
+          })
+        }
+      })
     })
-  })
+}
 
-type NewArticleFormValues = z.infer<typeof newArticleSchema>
+type NewArticleFormValues = z.infer<ReturnType<typeof buildNewArticleSchema>>
 
 /**
  * Ajouter un article — reprend design/maquettes/ordinateur/Web-AjoutArticle.dc.html
@@ -121,12 +128,15 @@ export default function NewArticlePage() {
   const router = useRouter()
   const { currency } = useCurrency()
   const { settings } = useSettings()
+  const { t, language } = useTranslation()
+  const typeOptions = React.useMemo(() => buildTypeOptions(t), [t])
 
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null)
   const [quickAddValue, setQuickAddValue] = React.useState('')
   const photoWarnedRef = React.useRef(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
+  const newArticleSchema = React.useMemo(() => buildNewArticleSchema(t), [t])
   const {
     handleSubmit,
     watch,
@@ -179,12 +189,12 @@ export default function NewArticlePage() {
     variationPrices.length === 0
       ? '—'
       : priceMin === priceMax
-        ? `${formatAmount(priceMin)} F`
-        : `${formatAmount(priceMin)} – ${formatAmount(priceMax)} F`
+        ? `${formatAmount(priceMin, language)} F`
+        : `${formatAmount(priceMin, language)} – ${formatAmount(priceMax, language)} F`
 
   const warnPhotoUnavailable = () => {
     if (!photoWarnedRef.current) {
-      toast("La photo n'est pas encore enregistrée : l'envoi d'image n'est pas disponible côté serveur.")
+      toast(t('products.new.photoNotAvailable'))
       photoWarnedRef.current = true
     }
   }
@@ -236,7 +246,7 @@ export default function NewArticlePage() {
           quantity: qty,
           image: null,
         })
-        toast.success('Article ajouté')
+        toast.success(t('products.new.toastArticleAdded'))
         await Promise.all([invalidateArticles(), invalidateUserStats()])
         router.push(`/products/${article.id}`)
         return
@@ -256,11 +266,11 @@ export default function NewArticlePage() {
         image: null,
       })
 
-      toast.success('Article ajouté')
+      toast.success(t('products.new.toastArticleAdded'))
       await Promise.all([invalidateArticles(), invalidateUserStats()])
       router.push(`/products/${article.id}`)
     } catch (err: unknown) {
-      toast.error((err as Error).message || "Échec de l'ajout de l'article")
+      toast.error((err as Error).message || t('products.new.errorAddFailed'))
     }
   }
 
@@ -276,7 +286,7 @@ export default function NewArticlePage() {
         <>
           <Image src={photoPreview} alt="" fill className="object-cover" unoptimized />
           <span className="absolute bottom-2 rounded-full bg-surface px-3 py-1 text-xs font-bold text-brand-700">
-            Changer
+            {t('products.new.changePhoto')}
           </span>
         </>
       ) : (
@@ -284,7 +294,7 @@ export default function NewArticlePage() {
           <span className="flex size-12 items-center justify-center rounded-full bg-surface">
             <ImageIcon className="size-6" strokeWidth={1.8} />
           </span>
-          <span className="text-sm font-bold">Ajouter une photo</span>
+          <span className="text-sm font-bold">{t('products.new.addPhoto')}</span>
           <span className="px-2 text-xs text-ink-3">{helpText}</span>
         </>
       )}
@@ -303,19 +313,19 @@ export default function NewArticlePage() {
         </span>
       )}
       <span className="flex items-baseline justify-between gap-2 px-1">
-        <span className="truncate text-[15px] font-bold text-ink">{name.trim() || "Nom de l'article"}</span>
+        <span className="truncate text-[15px] font-bold text-ink">{name.trim() || t('products.new.articleNamePlaceholder')}</span>
         <span className="shrink-0 text-[15px] font-extrabold text-ink">
-          {type === 'variable' ? priceRangeLabel : `${formatAmount(priceNum)} F`}
+          {type === 'variable' ? priceRangeLabel : `${formatAmount(priceNum, language)} F`}
         </span>
       </span>
       <span className="px-1 text-[13px] text-subtle">
-        {type === 'variable' ? `${fields.length} variation(s)` : 'Simple'}
+        {type === 'variable' ? t('products.new.variationCount', { count: fields.length }) : t('products.typeSimple')}
       </span>
       {type === 'variable' && fields.length > 0 ? (
         <span className="flex flex-wrap gap-1.5 px-1">
           {fields.map((f, i) => (
             <span key={f.id} className="rounded-full bg-surface-soft px-2.5 py-1 text-xs font-bold text-ink-2">
-              {variationsWatch[i]?.name?.trim() || `Variation ${i + 1}`} ·{' '}
+              {variationsWatch[i]?.name?.trim() || t('products.new.previewVariationFallback', { index: i + 1 })} ·{' '}
               {parseInt(variationsWatch[i]?.quantity || '0', 10) || 0}
             </span>
           ))}
@@ -327,18 +337,18 @@ export default function NewArticlePage() {
   const stockTiles = (
     <div className="grid grid-cols-2 gap-2.5">
       <div className="flex flex-col gap-1 rounded-tile bg-hero p-3.5 text-white">
-        <span className="text-xs text-navy-text">Stock total</span>
+        <span className="text-xs text-navy-text">{t('products.new.stockTotalLabel')}</span>
         <span className="text-lg font-extrabold">
-          {total} pièce{total > 1 ? 's' : ''}
+          {t('products.new.piecesCount', { count: total })}
         </span>
       </div>
       <div className="flex flex-col gap-1 rounded-tile bg-surface p-3.5 shadow-card">
-        <span className="text-xs text-subtle">Valeur</span>
-        <span className="text-lg font-extrabold text-ink">{formatAmount(stockValue)} F</span>
+        <span className="text-xs text-subtle">{t('products.new.valueLabel')}</span>
+        <span className="text-lg font-extrabold text-ink">{formatAmount(stockValue, language)} F</span>
       </div>
       {type === 'variable' ? (
         <div className="col-span-2 flex items-center justify-between rounded-tile border border-line bg-surface p-3.5">
-          <span className="text-xs text-subtle">Prix</span>
+          <span className="text-xs text-subtle">{t('products.new.priceLabel')}</span>
           <span className="text-sm font-extrabold text-ink">{priceRangeLabel}</span>
         </div>
       ) : null}
@@ -348,11 +358,11 @@ export default function NewArticlePage() {
   const lowStockRow = (
     <div className="flex items-center justify-between gap-3 border-t border-divider pt-3.5">
       <span className="flex flex-col gap-0.5">
-        <span className="text-sm font-semibold text-ink">Alerte stock faible</span>
-        <span className="text-[13px] text-subtle">Seuil global : {lowStockThreshold}% des ventes</span>
+        <span className="text-sm font-semibold text-ink">{t('products.new.lowStockAlert')}</span>
+        <span className="text-[13px] text-subtle">{t('products.new.globalThresholdOfSales', { threshold: lowStockThreshold })}</span>
       </span>
       <Link href="/settings#low-stock-threshold" className="shrink-0 text-[13px] font-bold text-brand-700">
-        Modifier dans les paramètres
+        {t('products.new.editInSettings')}
       </Link>
     </div>
   )
@@ -360,14 +370,14 @@ export default function NewArticlePage() {
   const quickAddRow = (
     <div className="flex flex-col gap-1.5">
       <label htmlFor="quick-add-variations" className="text-xs font-semibold text-ink-2">
-        Créer plusieurs variations d&apos;un coup
+        {t('products.new.quickAddLabel')}
       </label>
       <input
         id="quick-add-variations"
         value={quickAddValue}
         onChange={(e) => setQuickAddValue(e.target.value)}
         onKeyDown={handleQuickAddKeyDown}
-        placeholder="Ex. S, M, L, XL puis Entrée"
+        placeholder={t('products.new.quickAddPlaceholder')}
         className="h-11 rounded-field border border-dashed border-brand-300 bg-brand-50 px-3.5 text-sm text-ink placeholder:text-ink-3"
       />
     </div>
@@ -376,7 +386,7 @@ export default function NewArticlePage() {
   const defaultPriceField = (
     <div className="flex flex-col gap-2">
       <label htmlFor="default-price" className="text-[13px] font-semibold text-ink">
-        Prix par défaut ({currency}) <span className="font-normal text-subtle">— optionnel</span>
+        {t('products.new.defaultPriceLabel', { currency })} <span className="font-normal text-subtle">{t('products.new.optionalHint')}</span>
       </label>
       <Controller
         control={control}
@@ -385,7 +395,7 @@ export default function NewArticlePage() {
           <input
             id="default-price"
             inputMode="numeric"
-            placeholder="Pré-remplit le prix des nouvelles variations"
+            placeholder={t('products.new.defaultPricePlaceholder')}
             {...field}
             className="h-11 rounded-field border border-line-strong px-3.5 text-sm text-ink placeholder:text-ink-3"
           />
@@ -409,22 +419,22 @@ export default function NewArticlePage() {
         <div className="-mx-4 -mt-5 flex items-center gap-3 bg-canvas px-4 pb-3 pt-[52px]">
           <Link
             href="/products"
-            aria-label="Retour au stock"
+            aria-label={t('products.detail.backToStock')}
             className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
           >
             <ArrowLeft className="size-[22px]" />
           </Link>
-          <h1 className="flex-1 text-[22px] font-bold tracking-tight text-ink">Nouvel article</h1>
+          <h1 className="flex-1 text-[22px] font-bold tracking-tight text-ink">{t('products.new.mobileHeaderTitle')}</h1>
           <Link href="/products" className="px-0 py-3 text-sm font-semibold text-ink-3">
-            Annuler
+            {t('products.cancel')}
           </Link>
         </div>
 
-        {photoButton('h-[150px] w-full', 'Prendre une photo ou choisir dans la galerie')}
+        {photoButton('h-[150px] w-full', t('products.new.photoHelpMobile'))}
 
         <div className="flex flex-col gap-2">
           <label htmlFor="m-article-name" className="text-[13px] font-semibold text-ink">
-            Nom de l&apos;article
+            {t('products.new.articleNameLabel')}
           </label>
           <Controller
             control={control}
@@ -432,7 +442,7 @@ export default function NewArticlePage() {
             render={({ field }) => (
               <input
                 id="m-article-name"
-                placeholder="Ex. Robe wax"
+                placeholder={t('products.new.articleNamePlaceholderInput')}
                 {...field}
                 className="h-[52px] rounded-field border border-line-strong px-4 text-base text-ink"
               />
@@ -442,17 +452,17 @@ export default function NewArticlePage() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-semibold text-ink">Type d&apos;article</span>
+          <span className="text-[13px] font-semibold text-ink">{t('products.detail.articleType')}</span>
           <SegmentedControl
-            options={TYPE_OPTIONS}
+            options={typeOptions}
             value={type}
             onChange={handleTypeChange}
             className="border-transparent bg-surface-soft p-1"
           />
           <span className="text-xs text-subtle">
             {type === 'variable'
-              ? 'Plusieurs déclinaisons (tailles, couleurs…), chacune avec sa quantité et son prix.'
-              : 'Un seul modèle, une seule quantité, un seul prix.'}
+              ? t('products.new.typeHelperVariableMobile')
+              : t('products.new.typeHelperSimpleMobile')}
           </span>
         </div>
 
@@ -460,7 +470,7 @@ export default function NewArticlePage() {
           <>
             <div className="flex flex-col gap-2">
               <label htmlFor="m-article-price" className="text-[13px] font-semibold text-ink">
-                Prix de vente ({currency})
+                {t('products.detail.salePriceLabel', { currency })}
               </label>
               <Controller
                 control={control}
@@ -479,13 +489,13 @@ export default function NewArticlePage() {
 
             <div className="flex items-center justify-between gap-3 rounded-tile border border-line bg-surface p-3.5">
               <span className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold text-ink">Quantité en stock</span>
-                <span className="text-xs text-subtle">Quantité de départ</span>
+                <span className="text-sm font-semibold text-ink">{t('products.new.quantityInStockLabel')}</span>
+                <span className="text-xs text-subtle">{t('products.new.startingQuantity')}</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  aria-label="Diminuer"
+                  aria-label={t('products.decrease')}
                   onClick={() => setValue('quantity', String(Math.max(0, qtySimple - 1)))}
                   className="flex size-11 items-center justify-center rounded-full border border-line-strong bg-canvas text-lg font-bold text-ink"
                 >
@@ -499,7 +509,7 @@ export default function NewArticlePage() {
                       type="number"
                       min={0}
                       inputMode="numeric"
-                      aria-label="Quantité en stock"
+                      aria-label={t('products.new.quantityInStockAria')}
                       {...field}
                       className="w-10 rounded-lg border border-line-strong bg-surface text-center text-lg font-extrabold text-ink outline-none focus:border-brand-500"
                     />
@@ -507,7 +517,7 @@ export default function NewArticlePage() {
                 />
                 <button
                   type="button"
-                  aria-label="Augmenter"
+                  aria-label={t('products.increase')}
                   onClick={() => setValue('quantity', String(qtySimple + 1))}
                   className="flex size-11 items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white"
                 >
@@ -521,9 +531,9 @@ export default function NewArticlePage() {
             {defaultPriceField}
             {quickAddRow}
             <div className="flex items-baseline justify-between">
-              <span className="text-[13px] font-semibold text-ink">Variations</span>
+              <span className="text-[13px] font-semibold text-ink">{t('products.new.variationsLabel')}</span>
               <span className="text-xs text-subtle">
-                {fields.length} variation(s) · {total} pièces · {priceRangeLabel}
+                {t('products.new.variationsSummaryMobile', { count: fields.length, total, priceRange: priceRangeLabel })}
               </span>
             </div>
             {errors.variations?.root || (errors.variations && !Array.isArray(errors.variations)) ? (
@@ -541,7 +551,7 @@ export default function NewArticlePage() {
                   <div className="flex items-center gap-2.5">
                     <button
                       type="button"
-                      aria-label={`Photo de la variation ${index + 1}`}
+                      aria-label={t('products.new.variationPhotoAria', { index: index + 1 })}
                       onClick={warnPhotoUnavailable}
                       className="flex size-11 shrink-0 items-center justify-center rounded-tile border border-dashed border-brand-200 bg-brand-50 text-brand-500"
                     >
@@ -552,8 +562,8 @@ export default function NewArticlePage() {
                       name={`variations.${index}.name`}
                       render={({ field }) => (
                         <input
-                          aria-label="Nom de la variation"
-                          placeholder="Ex. Taille M"
+                          aria-label={t('products.new.variationNameAria')}
+                          placeholder={t('products.detail.variationNamePlaceholder')}
                           {...field}
                           className="h-11 min-w-0 flex-1 rounded-[12px] border border-line-strong px-2.5 text-[15px] text-ink"
                         />
@@ -561,7 +571,7 @@ export default function NewArticlePage() {
                     />
                     <button
                       type="button"
-                      aria-label="Supprimer la variation"
+                      aria-label={t('products.new.removeVariationAria')}
                       onClick={() => remove(index)}
                       className="flex size-11 shrink-0 items-center justify-center text-danger-strong"
                     >
@@ -572,7 +582,7 @@ export default function NewArticlePage() {
                     <span className="flex items-center">
                       <button
                         type="button"
-                        aria-label="Diminuer"
+                        aria-label={t('products.decrease')}
                         onClick={() => setValue(`variations.${index}.quantity`, String(Math.max(0, q - 1)))}
                         className="flex h-11 w-[34px] items-center justify-center text-lg font-bold text-ink-3"
                       >
@@ -586,7 +596,7 @@ export default function NewArticlePage() {
                             type="number"
                             min={0}
                             inputMode="numeric"
-                            aria-label="Quantité de la variation"
+                            aria-label={t('products.new.variationQuantityAria')}
                             {...field}
                             className="h-9 w-12 rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
                           />
@@ -594,7 +604,7 @@ export default function NewArticlePage() {
                       />
                       <button
                         type="button"
-                        aria-label="Augmenter"
+                        aria-label={t('products.increase')}
                         onClick={() => setValue(`variations.${index}.quantity`, String(q + 1))}
                         className="flex h-11 w-[34px] items-center justify-center text-lg font-bold text-brand-500"
                       >
@@ -607,8 +617,8 @@ export default function NewArticlePage() {
                       render={({ field }) => (
                         <input
                           inputMode="numeric"
-                          aria-label="Prix de la variation"
-                          placeholder={`Prix (${currency})`}
+                          aria-label={t('products.new.variationPriceAria')}
+                          placeholder={t('products.new.variationPricePlaceholder', { currency })}
                           {...field}
                           className="h-9 min-w-0 flex-1 rounded-lg border border-line-strong px-2.5 text-sm font-semibold text-ink outline-none focus:border-brand-500"
                         />
@@ -629,30 +639,30 @@ export default function NewArticlePage() {
               onClick={addVariationRow}
               className="flex min-h-12 items-center justify-center rounded-full border border-dashed border-brand-300 text-sm font-bold text-brand-700"
             >
-              + Ajouter une variation
+              {t('products.new.addVariationButton')}
             </button>
           </div>
         )}
 
         <div className="flex items-center justify-between gap-3 rounded-tile border border-line bg-surface p-3.5">
           <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-semibold text-ink">Alerte stock faible</span>
-            <span className="text-xs text-subtle">Seuil global : {lowStockThreshold}%</span>
+            <span className="text-sm font-semibold text-ink">{t('products.new.lowStockAlert')}</span>
+            <span className="text-xs text-subtle">{t('products.new.globalThreshold', { threshold: lowStockThreshold })}</span>
           </span>
           <Link href="/settings#low-stock-threshold" className="shrink-0 text-[13px] font-bold text-brand-700">
-            Modifier
+            {t('products.detail.modify')}
           </Link>
         </div>
 
         <div className="glass fixed inset-x-3.5 bottom-[22px] z-30 flex items-center gap-3 rounded-[32px] p-2 pl-5">
           <span className="flex flex-1 flex-col gap-px">
-            <span className="text-xs text-ink-3">Stock total</span>
+            <span className="text-xs text-ink-3">{t('products.new.stockTotalLabel')}</span>
             <span className="text-base font-extrabold text-ink">
-              {total} pièce{total > 1 ? 's' : ''}
+              {t('products.new.piecesCount', { count: total })}
             </span>
           </span>
           <Button type="submit" variant="primary" className="h-[52px] rounded-full px-6" disabled={isSubmitting}>
-            {isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+            {isSubmitting ? t('products.saving') : t('products.save')}
           </Button>
         </div>
       </form>
@@ -661,21 +671,21 @@ export default function NewArticlePage() {
       <form onSubmit={handleSubmit(onSubmit)} className="hidden flex-col gap-5 lg:flex">
         <div className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex flex-col gap-1.5">
-            <nav aria-label="Fil d'Ariane" className="flex gap-2 text-[13px] text-subtle">
+            <nav aria-label={t('products.breadcrumbAria')} className="flex gap-2 text-[13px] text-subtle">
               <Link href="/products" className="font-semibold">
-                Stock
+                {t('products.stockBreadcrumb')}
               </Link>
               <span aria-hidden>/</span>
-              <span>Nouvel article</span>
+              <span>{t('products.new.mobileHeaderTitle')}</span>
             </nav>
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Ajouter un article</h1>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('products.list.addArticle')}</h1>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <Button variant="glass" asChild>
-              <Link href="/products">Annuler</Link>
+              <Link href="/products">{t('products.cancel')}</Link>
             </Button>
             <Button type="submit" variant="primary" disabled={isSubmitting}>
-              {isSubmitting ? 'Enregistrement…' : "Enregistrer l'article"}
+              {isSubmitting ? t('products.saving') : t('products.new.saveArticle')}
             </Button>
           </div>
         </div>
@@ -683,13 +693,13 @@ export default function NewArticlePage() {
         <div className="flex flex-wrap items-start gap-5">
           <div className="flex flex-[3_1_520px] flex-col gap-5">
             <Card className="flex flex-col gap-4.5 rounded-panel p-6">
-              <h2 className="text-lg font-bold text-ink">Informations</h2>
+              <h2 className="text-lg font-bold text-ink">{t('products.new.informationsTitle')}</h2>
               <div className="flex flex-wrap items-stretch gap-4.5">
-                {photoButton('min-h-[180px] flex-[0_0_180px] p-3', 'Glisser une image ou cliquer')}
+                {photoButton('min-h-[180px] flex-[0_0_180px] p-3', t('products.new.photoHelpDesktop'))}
                 <div className="flex min-w-[280px] flex-1 flex-col gap-3.5">
                   <div className="flex flex-col gap-2">
                     <label htmlFor="article-name" className="text-[13px] font-semibold text-ink">
-                      Nom de l&apos;article
+                      {t('products.new.articleNameLabel')}
                     </label>
                     <Controller
                       control={control}
@@ -707,7 +717,7 @@ export default function NewArticlePage() {
                   {type === 'simple' ? (
                     <div className="flex flex-col gap-2">
                       <label htmlFor="article-price" className="text-[13px] font-semibold text-ink">
-                        Prix de vente ({currency})
+                        {t('products.detail.salePriceLabel', { currency })}
                       </label>
                       <Controller
                         control={control}
@@ -735,15 +745,15 @@ export default function NewArticlePage() {
             <Card className="flex flex-col gap-4 rounded-panel p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-col gap-0.5">
-                  <h2 className="text-lg font-bold text-ink">Stock</h2>
+                  <h2 className="text-lg font-bold text-ink">{t('products.new.stockSectionTitle')}</h2>
                   <span className="text-[13px] text-subtle">
                     {type === 'variable'
-                      ? 'Plusieurs déclinaisons (tailles, couleurs…), chacune avec sa quantité, son prix et sa photo.'
-                      : 'Un seul modèle, une seule quantité.'}
+                      ? t('products.new.typeHelperVariableDesktop')
+                      : t('products.new.typeHelperSimpleDesktop')}
                   </span>
                 </div>
                 <SegmentedControl
-                  options={TYPE_OPTIONS}
+                  options={typeOptions}
                   value={type}
                   onChange={handleTypeChange}
                   className="border-transparent bg-canvas p-1"
@@ -752,11 +762,11 @@ export default function NewArticlePage() {
 
               {type === 'simple' ? (
                 <div className="flex items-center justify-between gap-3 rounded-tile bg-surface-soft p-3.5">
-                  <span className="text-sm font-semibold text-ink">Quantité initiale</span>
+                  <span className="text-sm font-semibold text-ink">{t('products.new.initialQuantityLabel')}</span>
                   <span className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      aria-label="Diminuer"
+                      aria-label={t('products.decrease')}
                       onClick={() => setValue('quantity', String(Math.max(0, qtySimple - 1)))}
                       className="flex size-[42px] items-center justify-center rounded-full border border-line-strong bg-surface text-lg font-bold text-ink"
                     >
@@ -770,7 +780,7 @@ export default function NewArticlePage() {
                           type="number"
                           min={0}
                           inputMode="numeric"
-                          aria-label="Quantité initiale"
+                          aria-label={t('products.new.initialQuantityLabel')}
                           {...field}
                           className="w-12 rounded-lg border border-line-strong bg-surface text-center text-lg font-extrabold text-ink outline-none focus:border-brand-500"
                         />
@@ -778,7 +788,7 @@ export default function NewArticlePage() {
                     />
                     <button
                       type="button"
-                      aria-label="Augmenter"
+                      aria-label={t('products.increase')}
                       onClick={() => setValue('quantity', String(qtySimple + 1))}
                       className="flex size-[42px] items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white"
                     >
@@ -791,10 +801,10 @@ export default function NewArticlePage() {
                   <div className="max-w-[420px]">{quickAddRow}</div>
                   <div className="flex items-baseline justify-between">
                     <span className="text-[13px] font-semibold text-ink">
-                      {fields.length} variation(s)
+                      {t('products.new.variationCount', { count: fields.length })}
                     </span>
                     <span className="text-xs text-subtle">
-                      Stock total : {total} · Prix : {priceRangeLabel}
+                      {t('products.new.variationsSummaryDesktop', { total, priceRange: priceRangeLabel })}
                     </span>
                   </div>
                   {errors.variations?.root || (errors.variations && !Array.isArray(errors.variations)) ? (
@@ -806,12 +816,12 @@ export default function NewArticlePage() {
                     <table className="w-full min-w-[560px] border-collapse text-sm">
                       <thead>
                         <tr className="bg-surface-soft text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                          <th className="px-3 py-2.5">Photo</th>
-                          <th className="px-3 py-2.5">Variation</th>
-                          <th className="px-3 py-2.5">Quantité</th>
-                          <th className="px-3 py-2.5">Prix</th>
+                          <th className="px-3 py-2.5">{t('products.colPhoto')}</th>
+                          <th className="px-3 py-2.5">{t('products.colVariation')}</th>
+                          <th className="px-3 py-2.5">{t('products.colQuantity')}</th>
+                          <th className="px-3 py-2.5">{t('products.colPrice')}</th>
                           <th className="px-3 py-2.5">
-                            <span className="sr-only">Actions</span>
+                            <span className="sr-only">{t('products.colActions')}</span>
                           </th>
                         </tr>
                       </thead>
@@ -823,7 +833,7 @@ export default function NewArticlePage() {
                               <td className="px-3 py-2.5">
                                 <button
                                   type="button"
-                                  aria-label={`Photo de la variation ${index + 1}`}
+                                  aria-label={t('products.new.variationPhotoAria', { index: index + 1 })}
                                   onClick={warnPhotoUnavailable}
                                   className="flex size-10 items-center justify-center rounded-tile border border-dashed border-brand-200 bg-brand-50 font-bold text-brand-500"
                                 >
@@ -836,8 +846,8 @@ export default function NewArticlePage() {
                                   name={`variations.${index}.name`}
                                   render={({ field }) => (
                                     <input
-                                      aria-label="Nom de la variation"
-                                      placeholder="Ex. Taille M"
+                                      aria-label={t('products.new.variationNameAria')}
+                                      placeholder={t('products.detail.variationNamePlaceholder')}
                                       {...field}
                                       className="h-[42px] w-full min-w-[140px] rounded-[12px] border border-line-strong px-3 text-sm text-ink"
                                     />
@@ -853,7 +863,7 @@ export default function NewArticlePage() {
                                 <span className="flex items-center gap-1">
                                   <button
                                     type="button"
-                                    aria-label="Diminuer"
+                                    aria-label={t('products.decrease')}
                                     onClick={() =>
                                       setValue(`variations.${index}.quantity`, String(Math.max(0, q - 1)))
                                     }
@@ -869,7 +879,7 @@ export default function NewArticlePage() {
                                         type="number"
                                         min={0}
                                         inputMode="numeric"
-                                        aria-label="Quantité de la variation"
+                                        aria-label={t('products.new.variationQuantityAria')}
                                         {...field}
                                         className="w-[46px] rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
                                       />
@@ -877,7 +887,7 @@ export default function NewArticlePage() {
                                   />
                                   <button
                                     type="button"
-                                    aria-label="Augmenter"
+                                    aria-label={t('products.increase')}
                                     onClick={() => setValue(`variations.${index}.quantity`, String(q + 1))}
                                     className="flex size-[34px] items-center justify-center rounded-full bg-brand-500 text-sm font-bold text-white"
                                   >
@@ -892,7 +902,7 @@ export default function NewArticlePage() {
                                   render={({ field }) => (
                                     <input
                                       inputMode="numeric"
-                                      aria-label="Prix de la variation"
+                                      aria-label={t('products.new.variationPriceAria')}
                                       placeholder={currency}
                                       {...field}
                                       className="h-[42px] w-[120px] rounded-[12px] border border-line-strong px-3 text-sm font-semibold text-ink"
@@ -911,7 +921,7 @@ export default function NewArticlePage() {
                                   onClick={() => remove(index)}
                                   className="inline-flex min-h-9 items-center rounded-full border border-danger-border px-3 text-[13px] font-semibold text-danger-strong"
                                 >
-                                  Retirer
+                                  {t('products.new.remove')}
                                 </button>
                               </td>
                             </tr>
@@ -925,7 +935,7 @@ export default function NewArticlePage() {
                     onClick={addVariationRow}
                     className="self-start rounded-full border border-dashed border-brand-300 px-4.5 py-2.5 text-sm font-bold text-brand-700"
                   >
-                    + Ajouter une variation
+                    {t('products.new.addVariationButton')}
                   </button>
                 </div>
               )}
@@ -935,12 +945,11 @@ export default function NewArticlePage() {
           </div>
 
           <Card className="glass-panel flex flex-[2_1_320px] flex-col gap-4 rounded-panel p-5">
-            <h2 className="text-base font-bold text-ink">Aperçu dans le stock</h2>
+            <h2 className="text-base font-bold text-ink">{t('products.new.previewTitle')}</h2>
             {previewCard}
             {stockTiles}
             <p className="text-[13px] leading-relaxed text-ink-3">
-              Après l&apos;enregistrement, l&apos;article apparaît dans le stock et peut être vendu ou ajouté à une
-              facture.
+              {t('products.new.afterSaveHelp')}
             </p>
           </Card>
         </div>

@@ -1,12 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import dayjs from 'dayjs'
-import 'dayjs/locale/fr'
 
 import { getStockHistory, type StockHistoryEntry } from '@/lib/services/articles'
-
-dayjs.locale('fr')
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatDate } from '@/lib/i18n/format'
 
 interface StockHistoryListProps {
   articleId: string | number
@@ -28,6 +26,7 @@ const DOT_COLORS = ['bg-brand-500', 'bg-brand-300', 'bg-chart-4']
  * pas uniquement la première page retournée par l'API.
  */
 export function StockHistoryList({ articleId, refreshKey = 0, showUser = true }: StockHistoryListProps) {
+  const { t, language } = useTranslation()
   const [history, setHistory] = React.useState<StockHistoryEntry[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
@@ -64,7 +63,7 @@ export function StockHistoryList({ articleId, refreshKey = 0, showUser = true }:
   }, [articleId, refreshKey])
 
   const formatUserName = (user: StockHistoryEntry['user']) =>
-    user ? `${user.first_name} ${user.last_name}` : 'Utilisateur inconnu'
+    user ? `${user.first_name} ${user.last_name}` : t('products.stockHistoryList.unknownUser')
 
   if (isLoading) {
     return (
@@ -77,7 +76,7 @@ export function StockHistoryList({ articleId, refreshKey = 0, showUser = true }:
   }
 
   if (history.length === 0) {
-    return <p className="py-2 text-sm text-subtle">Aucun réapprovisionnement pour l&apos;instant</p>
+    return <p className="py-2 text-sm text-subtle">{t('products.stockHistoryList.noHistory')}</p>
   }
 
   return (
@@ -89,7 +88,7 @@ export function StockHistoryList({ articleId, refreshKey = 0, showUser = true }:
           />
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-ink">
-              +{entry.quantity_added} pièce{entry.quantity_added > 1 ? 's' : ''}
+              {t('products.stockHistoryList.addedPieces', { count: entry.quantity_added })}
               {entry.variation ? (
                 <span className="rounded-full bg-surface-soft px-2 py-0.5 text-xs font-bold text-ink-2">
                   {entry.variation.name}
@@ -98,8 +97,8 @@ export function StockHistoryList({ articleId, refreshKey = 0, showUser = true }:
               {entry.note ? ` · ${entry.note}` : ''}
             </span>
             <span className="text-xs text-subtle">
-              {dayjs(entry.created_at).format('D MMM YYYY')}
-              {showUser ? ` · par ${formatUserName(entry.user)}` : ''}
+              {formatDate(entry.created_at, language)}
+              {showUser ? t('products.stockHistoryList.byUser', { user: formatUserName(entry.user) }) : ''}
             </span>
           </span>
         </div>

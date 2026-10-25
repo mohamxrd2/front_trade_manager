@@ -1,6 +1,7 @@
 'use client'
 
 import type { Variation } from '@/lib/services/articles'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 
 interface VariationPickerProps {
   variations: Variation[]
@@ -18,12 +19,13 @@ interface VariationPickerProps {
  * Les variations épuisées restent visibles mais non sélectionnables.
  */
 export function VariationPicker({ variations, selectedVariationId, onSelect, stepLabel }: VariationPickerProps) {
+  const { t } = useTranslation()
   if (variations.length === 0) return null
 
   return (
     <div className="flex flex-col gap-2.5">
       <h2 className="text-lg font-bold text-ink">
-        {stepLabel ? <span className="text-brand-300">{stepLabel}</span> : null} Variation
+        {stepLabel ? <span className="text-brand-300">{stepLabel}</span> : null} {t('products.variationPicker.title')}
       </h2>
       <div className="flex flex-wrap gap-2.5">
         {variations.map((variation) => {
@@ -46,7 +48,7 @@ export function VariationPicker({ variations, selectedVariationId, onSelect, ste
             >
               {variation.name}
               <span className={`text-xs font-normal ${active ? 'text-brand-100' : empty ? 'text-danger-strong' : 'text-subtle'}`}>
-                {empty ? 'Épuisé' : `${variation.remaining_quantity} dispo`}
+                {empty ? t('products.variationPicker.outOfStock') : t('products.variationPicker.available', { count: variation.remaining_quantity })}
               </span>
             </button>
           )
