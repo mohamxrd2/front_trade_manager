@@ -1,7 +1,6 @@
 [
   "app/(dashboard)/analytics/page.tsx",
   "app/(dashboard)/layout.tsx",
-  "app/(dashboard)/notifications/page.tsx",
   "app/(marketing)/layout.tsx",
   "app/auth/callback/page.tsx",
   "app/auth/facebook/callback/page.tsx",

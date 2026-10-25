@@ -19,6 +19,9 @@ import {
   type Notification,
   type NotificationsResponse,
 } from '@/lib/services/notifications'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatRelative as formatRelativeTime, formatDate } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 
 /**
  * Notifications — design/maquettes/ordinateur/Web-Notifications.dc.html
@@ -61,12 +64,14 @@ const KIND_STYLE: Record<Kind, { glyph: string; bg: string; text: string }> = {
   team: { glyph: '+', bg: 'bg-info-bg', text: 'text-info' },
 }
 
-const PREF_DEFS: { key: PrefKey; label: string }[] = [
-  { key: 'notify_stock_low', label: 'Un article passe en stock faible' },
-  { key: 'notify_invoice_paid', label: 'Une facture est payée' },
-  { key: 'notify_invoice_overdue', label: 'Une facture est en retard' },
-  { key: 'notify_team_joined', label: 'Un collaborateur rejoint l’équipe' },
-]
+function buildPrefDefs(t: ReturnType<typeof useTranslation>['t']): { key: PrefKey; label: string }[] {
+  return [
+    { key: 'notify_stock_low', label: t('notifications.prefStockLow') },
+    { key: 'notify_invoice_paid', label: t('notifications.prefInvoicePaid') },
+    { key: 'notify_invoice_overdue', label: t('notifications.prefInvoiceOverdue') },
+    { key: 'notify_team_joined', label: t('notifications.prefTeamJoined') },
+  ]
+}
 
 function inferKind(n: Notification): Kind {
   if (n.article_id || n.action_url?.startsWith('/products')) return 'stock'
@@ -81,31 +86,29 @@ function prefKeyFor(kind: Kind, n: Notification): PrefKey {
   return n.type === 'success' ? 'notify_invoice_paid' : 'notify_invoice_overdue'
 }
 
-function actionLabelFor(n: Notification, kind: Kind): string | null {
+function actionLabelFor(n: Notification, kind: Kind, t: ReturnType<typeof useTranslation>['t']): string | null {
   if (!n.action_url) return null
-  if (kind === 'stock') return 'Réapprovisionner'
-  if (kind === 'team') return 'Voir l’équipe'
-  return n.type === 'success' ? 'Voir la facture' : 'Relancer'
+  if (kind === 'stock') return t('products.detail.restock')
+  if (kind === 'team') return t('notifications.actionViewTeam')
+  return n.type === 'success' ? t('transactions.detail.viewInvoice') : t('notifications.actionFollowUp')
 }
 
-const MONTH_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
-
-function formatRelative(iso: string): string {
+/** Délégation complète à lib/i18n/format.ts : "à l'instant"/"il y a X min" via
+ *  formatRelative (Intl.RelativeTimeFormat), "Hier, HH:mm" et date courte au-delà
+ *  via formatDate — plus aucun calcul de date ni libellé français codé en dur ici. */
+function formatNotificationDate(iso: string, language: AppLanguage, t: ReturnType<typeof useTranslation>['t']): string {
   const d = new Date(iso)
   const now = new Date()
-  const diffMin = Math.floor((now.getTime() - d.getTime()) / 60000)
   const sameDay = d.toDateString() === now.toDateString()
   if (sameDay) {
-    if (diffMin < 1) return 'À l’instant'
-    if (diffMin < 60) return `Il y a ${diffMin} min`
-    return `Il y a ${Math.floor(diffMin / 60)} h`
+    return formatRelativeTime(iso, language, now)
   }
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
   if (d.toDateString() === yesterday.toDateString()) {
-    return `Hier, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return `${t('wallet.yesterday')}, ${formatDate(iso, language, 'HH:mm')}`
   }
-  return `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`
+  return formatDate(iso, language, 'D MMM')
 }
 
 type EnrichedNotification = Notification & { kind: Kind; prefKey: PrefKey; actionLabel: string | null }
@@ -123,6 +126,8 @@ export default function NotificationsPage() {
   const queryClient = useQueryClient()
   const { unreadCount } = useNotifications()
   const { settings, updateSettings } = useSettings()
+  const { t, language } = useTranslation()
+  const PREF_DEFS = React.useMemo(() => buildPrefDefs(t), [t])
 
   const urlFilter = searchParams.get('filter') as FilterId | null
   const filter: FilterId = (['all', 'unread', 'stock', 'invoice', 'team'] as FilterId[]).includes(urlFilter as FilterId)
@@ -157,9 +162,9 @@ export default function NotificationsPage() {
     () =>
       rawList.map((n) => {
         const kind = inferKind(n)
-        return { ...n, kind, prefKey: prefKeyFor(kind, n), actionLabel: actionLabelFor(n, kind) }
+        return { ...n, kind, prefKey: prefKeyFor(kind, n), actionLabel: actionLabelFor(n, kind, t) }
       }),
-    [rawList]
+    [rawList, t]
   )
 
   // Les préférences « Me prévenir quand… » contrôlent uniquement la CRÉATION
@@ -197,10 +202,10 @@ export default function NotificationsPage() {
       } catch (error) {
         patchList((list) => list.map((n) => (n.id === id ? { ...n, read: false } : n)))
         dispatchUpdated()
-        toast.error(error instanceof Error ? error.message : 'Échec de la mise à jour')
+        toast.error(error instanceof Error ? error.message : t('notifications.errorUpdateFailed'))
       }
     },
-    [patchList, rawList]
+    [patchList, rawList, t]
   )
 
   const handleMarkAllAsRead = async () => {
@@ -213,7 +218,7 @@ export default function NotificationsPage() {
     } catch (error) {
       patchList((list) => list.map((n) => (previouslyUnread.includes(n.id) ? { ...n, read: false } : n)))
       dispatchUpdated()
-      toast.error(error instanceof Error ? error.message : 'Échec de la mise à jour')
+      toast.error(error instanceof Error ? error.message : t('notifications.errorUpdateFailed'))
     }
   }
 
@@ -229,14 +234,14 @@ export default function NotificationsPage() {
       } catch (error) {
         patchList((list) => [notification, ...list])
         dispatchUpdated()
-        toast.error(error instanceof Error ? error.message : 'Échec de la suppression')
+        toast.error(error instanceof Error ? error.message : t('notifications.errorDeleteFailed'))
       }
     }, 5000)
 
-    toast('Notification supprimée', {
+    toast(t('notifications.toastDeleted'), {
       duration: 5000,
       action: {
-        label: 'Annuler',
+        label: t('transactions.deleteFlow.undo'),
         onClick: () => {
           undone = true
           clearTimeout(timer)
@@ -252,18 +257,18 @@ export default function NotificationsPage() {
     if (notification.action_url) router.push(notification.action_url)
   }
 
-  const unreadLabel = unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'Tout est lu'
+  const unreadLabel = unreadCount > 0 ? t('notifications.unreadCountIcu', { count: unreadCount }) : t('notifications.allCaughtUp')
 
   const DESKTOP_FILTERS: { id: FilterId; label: string }[] = [
-    { id: 'all', label: 'Toutes' },
-    { id: 'unread', label: `Non lues · ${unreadVisibleCount}` },
-    { id: 'stock', label: 'Stock' },
-    { id: 'invoice', label: 'Factures' },
-    { id: 'team', label: 'Équipe' },
+    { id: 'all', label: t('notifications.filterAll') },
+    { id: 'unread', label: t('notifications.filterUnreadCount', { count: unreadVisibleCount }) },
+    { id: 'stock', label: t('notifications.filterStock') },
+    { id: 'invoice', label: t('notifications.filterInvoices') },
+    { id: 'team', label: t('notifications.filterTeam') },
   ]
   const MOBILE_FILTERS: { id: FilterId; label: string }[] = [
-    { id: 'all', label: 'Toutes' },
-    { id: 'unread', label: 'Non lues' },
+    { id: 'all', label: t('notifications.filterAll') },
+    { id: 'unread', label: t('notifications.filterUnread') },
   ]
 
   return (
@@ -272,7 +277,7 @@ export default function NotificationsPage() {
       <div className="hidden flex-col gap-5 md:flex">
         <div className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Notifications</h1>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('notifications.title')}</h1>
             <span className="text-sm text-subtle" aria-live="polite">
               {unreadLabel}
             </span>
@@ -283,7 +288,7 @@ export default function NotificationsPage() {
             disabled={unreadCount === 0}
             className="glass flex h-12 items-center rounded-full px-4.5 text-sm font-bold text-brand-700 disabled:opacity-50"
           >
-            Tout marquer comme lu
+            {t('notifications.markAllAsRead')}
           </button>
         </div>
 
@@ -312,7 +317,7 @@ export default function NotificationsPage() {
                 ))}
               </div>
             ) : filteredList.length === 0 ? (
-              <p className="py-10 text-center text-[15px] text-subtle">Rien de nouveau ici.</p>
+              <p className="py-10 text-center text-[15px] text-subtle">{t('notifications.noNewNotifications')}</p>
             ) : (
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
                 {filteredList.map((n) => {
@@ -330,13 +335,13 @@ export default function NotificationsPage() {
                       <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className="flex items-center gap-2">
                           <span className={`text-[15px] ${n.read ? 'font-semibold' : 'font-bold'} text-ink`}>{n.title}</span>
-                          {!n.read ? <span aria-label="Non lue" className="size-2 shrink-0 rounded-full bg-danger-dot" /> : null}
+                          {!n.read ? <span aria-label={t('notifications.unreadDotAria')} className="size-2 shrink-0 rounded-full bg-danger-dot" /> : null}
                         </span>
                         <span className="text-sm leading-[1.45] text-ink-2">
                           {n.message}
                         </span>
                         <span className="mt-1 flex flex-wrap items-center gap-3">
-                          <span className="text-xs text-subtle">{formatRelative(n.created_at)}</span>
+                          <span className="text-xs text-subtle">{formatNotificationDate(n.created_at, language, t)}</span>
                           {n.actionLabel ? (
                             <Link
                               href={n.action_url!}
@@ -352,7 +357,7 @@ export default function NotificationsPage() {
                               onClick={() => void handleMarkAsRead(n.id)}
                               className="min-h-8 border-0 bg-transparent p-0 text-[13px] font-semibold text-ink-3"
                             >
-                              Marquer comme lue
+                              {t('notifications.markAsReadAction')}
                             </button>
                           ) : null}
                         </span>
@@ -360,7 +365,7 @@ export default function NotificationsPage() {
                       <button
                         type="button"
                         onClick={() => handleDelete(n)}
-                        aria-label="Supprimer la notification"
+                        aria-label={t('notifications.deleteNotificationAria')}
                         className="flex size-10 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-subtle"
                       >
                         <X className="size-[18px]" strokeWidth={2} />
@@ -378,16 +383,16 @@ export default function NotificationsPage() {
                 disabled={isFetchingNextPage}
                 className="self-center rounded-full border border-line-strong bg-surface px-5 py-2.5 text-sm font-bold text-ink"
               >
-                {isFetchingNextPage ? <Loader2 className="size-4 animate-spin" /> : 'Charger plus'}
+                {isFetchingNextPage ? <Loader2 className="size-4 animate-spin" /> : t('notifications.loadMore')}
               </button>
             ) : null}
           </section>
 
           <aside
-            aria-label="Préférences de notification"
+            aria-label={t('notifications.preferencesAria')}
             className="glass-panel flex flex-[2_1_300px] flex-col gap-1.5 rounded-panel p-5.5"
           >
-            <h2 className="mb-2 text-lg font-bold text-ink">Me prévenir quand…</h2>
+            <h2 className="mb-2 text-lg font-bold text-ink">{t('notifications.notifyWhenTitle')}</h2>
             {PREF_DEFS.map((p) => {
               const on = settings?.[p.key] ?? true
               return (
@@ -416,7 +421,7 @@ export default function NotificationsPage() {
               )
             })}
             <Link href="/settings?tab=preferences" className="mt-2 py-2 text-[13px] font-bold text-brand-600 no-underline">
-              Modifier le seuil de stock faible →
+              {t('notifications.editLowStockThreshold')}
             </Link>
           </aside>
         </div>
@@ -429,19 +434,19 @@ export default function NotificationsPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              aria-label="Retour"
+              aria-label={t('notifications.backAria')}
               className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
             >
               <ChevronLeft className="size-[22px]" strokeWidth={2} />
             </button>
-            <h1 className="flex-1 text-[22px] font-bold text-ink">Notifications</h1>
+            <h1 className="flex-1 text-[22px] font-bold text-ink">{t('notifications.title')}</h1>
             <button
               type="button"
               onClick={handleMarkAllAsRead}
               disabled={unreadCount === 0}
               className="flex min-h-11 items-center border-0 bg-transparent text-sm font-bold text-brand-500 disabled:opacity-40"
             >
-              Tout marquer lu
+              {t('notifications.markAllReadShort')}
             </button>
           </div>
           <div className="flex gap-2">
@@ -466,7 +471,7 @@ export default function NotificationsPage() {
             [1, 2, 3, 4].map((i) => <div key={i} className="h-[100px] animate-pulse rounded-[18px] bg-surface-soft" />)
           ) : filteredList.length === 0 ? (
             <p className="px-5 py-15 text-center text-sm text-subtle">
-              {filter === 'unread' ? 'Aucune notification non lue.' : 'Rien de nouveau ici.'}
+              {filter === 'unread' ? t('notifications.noUnreadNotifications') : t('notifications.noNewNotifications')}
             </p>
           ) : (
             <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
@@ -483,7 +488,7 @@ export default function NotificationsPage() {
               disabled={isFetchingNextPage}
               className="self-center rounded-full border border-line-strong bg-surface px-5 py-2.5 text-sm font-bold text-ink"
             >
-              {isFetchingNextPage ? <Loader2 className="size-4 animate-spin" /> : 'Charger plus'}
+              {isFetchingNextPage ? <Loader2 className="size-4 animate-spin" /> : t('notifications.loadMore')}
             </button>
           ) : null}
         </div>
@@ -501,6 +506,7 @@ function MobileNotificationCard({
   onOpen: (n: EnrichedNotification) => void
   onDelete: (n: Notification) => void
 }) {
+  const { t, language } = useTranslation()
   const [dragX, setDragX] = React.useState(0)
   const startX = React.useRef<number | null>(null)
   const style = KIND_STYLE[n.kind]
@@ -535,17 +541,17 @@ function MobileNotificationCard({
       >
         <span className="flex items-center gap-2">
           <span className={`text-sm ${n.read ? 'font-semibold' : 'font-bold'}`}>{n.title}</span>
-          {!n.read ? <span aria-label="Non lue" className="size-2 shrink-0 rounded-full bg-danger-dot" /> : null}
+          {!n.read ? <span aria-label={t('notifications.unreadDotAria')} className="size-2 shrink-0 rounded-full bg-danger-dot" /> : null}
         </span>
         <span className="text-[13px] leading-[1.4] text-ink-2">
           {n.message}
         </span>
-        <span className="text-xs text-subtle">{formatRelative(n.created_at)}</span>
+        <span className="text-xs text-subtle">{formatNotificationDate(n.created_at, language, t)}</span>
       </button>
       <button
         type="button"
         onClick={() => onDelete(n)}
-        aria-label="Supprimer la notification"
+        aria-label={t('notifications.deleteNotificationAria')}
         className="flex size-11 shrink-0 items-center justify-center border-0 bg-transparent text-subtle"
         style={{ margin: '-10px -10px 0 0' }}
       >
