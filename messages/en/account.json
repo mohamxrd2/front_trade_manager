@@ -1,0 +1,9 @@
+{
+  "title": "Profile",
+  "loading": "Loading...",
+  "loadError": "Couldn't load your information.",
+  "subtitle": "Manage your user profile here.",
+  "personalInfoTitle": "Personal information",
+  "companyShare": "Business share",
+  "memberSince": "Member since"
+}

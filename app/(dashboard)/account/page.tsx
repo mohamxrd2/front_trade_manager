@@ -5,10 +5,12 @@ import { useCollaboratorShares } from '@/lib/hooks/useCollaboratorShares'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import dayjs from 'dayjs'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatDate } from '@/lib/i18n/format'
 
 export default function AccountPage() {
   const { user, loading } = useAuth()
+  const { t, language } = useTranslation()
   // Part toujours recalculée (100 − somme des parts actives des
   // collaborateurs), jamais lue de l'ancienne colonne user.company_share
   // figée tant qu'aucun rechargement n'avait lieu — même source que
@@ -18,8 +20,8 @@ export default function AccountPage() {
   if (loading) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold">Profil</h1>
-        <p className="text-sm text-muted-foreground">Chargement...</p>
+        <h1 className="text-2xl font-bold">{t('account.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('account.loading')}</p>
       </div>
     )
   }
@@ -27,8 +29,8 @@ export default function AccountPage() {
   if (!user) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold">Profil</h1>
-        <p className="text-sm text-muted-foreground">Impossible de charger vos informations.</p>
+        <h1 className="text-2xl font-bold">{t('account.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('account.loadError')}</p>
       </div>
     )
   }
@@ -38,13 +40,13 @@ export default function AccountPage() {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold">Profil</h1>
-        <p className="text-sm text-muted-foreground">Gérez votre profil utilisateur ici.</p>
+        <h1 className="text-2xl font-bold">{t('account.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('account.subtitle')}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Informations personnelles</CardTitle>
+          <CardTitle>{t('account.personalInfoTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
@@ -65,17 +67,17 @@ export default function AccountPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-muted-foreground">Email</p>
+              <p className="text-muted-foreground">{t('clients.email')}</p>
               <p className="font-medium">{user.email}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">Part de l&apos;entreprise</p>
+              <p className="text-muted-foreground">{t('account.companyShare')}</p>
               <p className="font-medium">{ownerShare.share}%</p>
             </div>
             {user.created_at && (
               <div>
-                <p className="text-muted-foreground">Membre depuis</p>
-                <p className="font-medium">{dayjs(user.created_at).format('DD MMMM YYYY')}</p>
+                <p className="text-muted-foreground">{t('account.memberSince')}</p>
+                <p className="font-medium">{formatDate(user.created_at, language, 'DD MMMM YYYY')}</p>
               </div>
             )}
           </div>

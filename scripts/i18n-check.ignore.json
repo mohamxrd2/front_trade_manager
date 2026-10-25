@@ -1,5 +1,4 @@
 [
-  "app/(dashboard)/account/page.tsx",
   "app/(dashboard)/analytics/page.tsx",
   "app/(dashboard)/layout.tsx",
   "app/(dashboard)/notifications/page.tsx",

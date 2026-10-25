@@ -1,0 +1,9 @@
+{
+  "title": "Profil",
+  "loading": "Chargement...",
+  "loadError": "Impossible de charger vos informations.",
+  "subtitle": "Gérez votre profil utilisateur ici.",
+  "personalInfoTitle": "Informations personnelles",
+  "companyShare": "Part de l'entreprise",
+  "memberSince": "Membre depuis"
+}
