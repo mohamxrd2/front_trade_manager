@@ -4,13 +4,14 @@ import * as React from 'react'
 import Link from 'next/link'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
-import { AlertCircle, ArrowDownLeft, ArrowUpRight, Check, Download } from 'lucide-react'
+import { AlertCircle, ArrowDownLeft, Banknote, Check, Download, PiggyBank, Plus } from 'lucide-react'
 
 import { deleteTransaction, type Transaction } from '@/lib/services/transactions'
 import { useTransactionsQuery } from '@/lib/hooks/useTransactions'
 import { useInvoiceLookup } from '@/lib/hooks/useInvoiceLookup'
 import { useDeleteTransactionFlow } from '@/lib/hooks/useDeleteTransactionFlow'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
+import { getTransactionVisual } from '@/lib/transactions/transaction-visual'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { keys } from '@/lib/query-keys'
 import { useQueryClient } from '@tanstack/react-query'
@@ -40,6 +41,7 @@ import {
   DeleteTransactionDialog,
   SwipeableTransactionRow,
   TransactionDetailSheet,
+  DepositWithdrawalSheet,
 } from '@/components/waelly'
 
 const PAGE_SIZE = 10
@@ -47,14 +49,17 @@ const PAGE_SIZE = 10
 const formatAmount = (value: number, language: AppLanguage): string =>
   formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
-type TypeFilter = 'all' | 'sale' | 'expense'
+type TypeFilter = 'all' | 'sale' | 'expense' | 'apport' | 'retrait'
 type Period = 'all' | 'current' | 'previous' | '30d' | 'custom'
+type DepositMode = 'apport' | 'retrait' | null
 
 function buildTypeChips(t: ReturnType<typeof useTranslation>['t']) {
   return [
     { value: 'all', label: t('wallet.list.typeAll') },
     { value: 'sale', label: t('wallet.list.typeSales') },
     { value: 'expense', label: t('wallet.list.typeExpenses') },
+    { value: 'apport', label: t('wallet.list.typeDeposits') },
+    { value: 'retrait', label: t('wallet.list.typeWithdrawals') },
   ]
 }
 
@@ -84,12 +89,18 @@ function dayLabel(dateStr: string, language: AppLanguage, t: ReturnType<typeof u
   return formatDate(dateStr, language, 'D MMMM')
 }
 
-function transactionTitle(t: Transaction): string {
-  if (t.type === 'expense') return t.name
-  const parts = [t.article_name || t.name]
-  if (t.variation_name) parts.push(t.variation_name)
+function transactionTitle(tx: Transaction, translateFn: ReturnType<typeof useTranslation>['t']): string {
+  if (tx.type === 'expense') return tx.name
+  if (tx.type === 'apport' || tx.type === 'retrait' || getTransactionVisual(tx.type).kind === 'other') {
+    // Le nom brut ("Apport de fonds", "Retrait") vient du backend en
+    // français — toujours passer par la clé traduite plutôt que de
+    // l'afficher tel quel (règle i18n du projet).
+    return translateFn(getTransactionVisual(tx.type).labelKey)
+  }
+  const parts = [tx.article_name || tx.name]
+  if (tx.variation_name) parts.push(tx.variation_name)
   let title = parts.join(' · ')
-  if (t.quantity && t.quantity > 1) title += ` ×${t.quantity}`
+  if (tx.quantity && tx.quantity > 1) title += ` ×${tx.quantity}`
   return title
 }
 
@@ -153,7 +164,27 @@ export default function WalletPage() {
   // useDeleteTransactionFlow — voir handleConfirmSingleDelete.
   const [exitingRowId, setExitingRowId] = React.useState<string | null>(null)
 
+  // États séparés mobile/ordinateur pour le formulaire Apport/Retrait — même
+  // raison que mobileDetailTransaction/desktopDetailTransaction ci-dessus
+  // (Drawer vaul et Dialog radix sont deux overlays portal-rendues : un seul
+  // état partagé les ouvrirait toutes les deux à la fois).
+  const [mobileDepositMode, setMobileDepositMode] = React.useState<DepositMode>(null)
+  const [desktopDepositMode, setDesktopDepositMode] = React.useState<DepositMode>(null)
+
   const fetchTransactions = React.useCallback(() => refetchTransactions(), [refetchTransactions])
+
+  // Même jeu d'invalidations que wallet/new/page.tsx après une vente/dépense
+  // (voir invalidateAfterTransaction là-bas) — un apport/retrait doit mettre
+  // à jour le solde, la liste ET le tableau de bord de la même façon.
+  const handleDepositCreated = React.useCallback(async () => {
+    await fetchTransactions()
+    await Promise.all([
+      invalidateUserStats(),
+      queryClient.invalidateQueries({ queryKey: keys.transactions.all }),
+      queryClient.invalidateQueries({ queryKey: keys.analytics.all }),
+      queryClient.invalidateQueries({ queryKey: keys.dashboard.all }),
+    ])
+  }, [fetchTransactions, queryClient])
 
   const handleConfirmSingleDelete = (transaction: Transaction) => {
     setSingleDeleteTarget(null)
@@ -184,8 +215,25 @@ export default function WalletPage() {
   const summary = React.useMemo(() => {
     const entries = inPeriod.filter((t) => t.type === 'sale').reduce((s, t) => s + (t.amount ?? 0), 0)
     const exits = inPeriod.filter((t) => t.type === 'expense').reduce((s, t) => s + (t.amount ?? 0), 0)
-    return { entries, exits, balance: entries - exits }
+    const deposits = inPeriod.filter((t) => t.type === 'apport').reduce((s, t) => s + (t.amount ?? 0), 0)
+    const withdrawals = inPeriod.filter((t) => t.type === 'retrait').reduce((s, t) => s + (t.amount ?? 0), 0)
+    // Solde (trésorerie) = ventes − dépenses + apports − retraits. Distinct de
+    // `calculated_wallet` côté backend (ventes − dépenses, base du partage
+    // collaborateurs) — un apport n'est PAS un bénéfice, mais c'est bien de
+    // l'argent disponible en caisse.
+    return { entries, exits, deposits, withdrawals, balance: entries - exits + deposits - withdrawals }
   }, [inPeriod])
+
+  // Solde réel TOUTES PÉRIODES (pas filtré) — sert uniquement à avertir si un
+  // retrait est sur le point de passer la trésorerie en négatif ; le filtre
+  // de période affiché à l'écran ne doit pas influencer cet avertissement.
+  const allTimeBalance = React.useMemo(() => {
+    return transactions.reduce((s, t) => {
+      if (t.type === 'sale' || t.type === 'apport') return s + (t.amount ?? 0)
+      if (t.type === 'expense' || t.type === 'retrait') return s - (t.amount ?? 0)
+      return s
+    }, 0)
+  }, [transactions])
 
   const filteredRows = React.useMemo(
     () => inPeriod.filter((t) => typeFilter === 'all' || t.type === typeFilter),
@@ -311,13 +359,16 @@ export default function WalletPage() {
     const exportColumnDate = t('wallet.list.exportColumnDate')
     const exportColumnInvoice = t('wallet.list.exportColumnInvoice')
     const exportColumnAmount = t('wallet.list.exportColumnAmount')
-    const rows = filteredRows.map((tx) => ({
-      [exportColumnOperation]: transactionTitle(tx),
-      [exportColumnType]: tx.type === 'sale' ? t('transactions.sale') : t('transactions.expense'),
-      [exportColumnDate]: dayjs(tx.date).format('DD/MM/YYYY HH:mm'),
-      [exportColumnInvoice]: tx.invoice_id ? invoiceLookup[tx.invoice_id]?.invoice_number || tx.invoice_id : '—',
-      [exportColumnAmount]: `${tx.type === 'sale' ? '+' : '−'}${formatAmount(tx.amount ?? 0, language)} F`,
-    }))
+    const rows = filteredRows.map((tx) => {
+      const visual = getTransactionVisual(tx.type)
+      return {
+        [exportColumnOperation]: transactionTitle(tx, t),
+        [exportColumnType]: t(visual.labelKey),
+        [exportColumnDate]: dayjs(tx.date).format('DD/MM/YYYY HH:mm'),
+        [exportColumnInvoice]: tx.invoice_id ? invoiceLookup[tx.invoice_id]?.invoice_number || tx.invoice_id : '—',
+        [exportColumnAmount]: `${visual.sign}${formatAmount(tx.amount ?? 0, language)} F`,
+      }
+    })
     exportToExcel(rows, `waelly-portefeuille-${dayjs().format('YYYY-MM')}`, t('wallet.title'))
     toast.success(t('wallet.list.exportGenerated'))
   }
@@ -415,6 +466,47 @@ export default function WalletPage() {
             <AmountVisibilityToggle variant="hero" />
           </div>
           <span className="text-2xl font-bold tracking-[-0.02em]"><Amount value={summary.balance} /> F</span>
+          {summary.deposits > 0 ? (
+            <span className="text-xs text-navy-text">{t('wallet.list.ofWhichDeposits', { amount: formatAmount(summary.deposits, language) })}</span>
+          ) : null}
+        </div>
+
+        {/* --- Barre d'actions rapides — même style que les actions rapides
+             de l'Accueil (Main.dc.html) : grille 56×56, label en dessous,
+             toujours visibles (jamais dans un menu). --- */}
+        <div className="grid grid-cols-4 gap-2.5">
+          <Link href="/wallet/new?type=sale" className="flex flex-col items-center gap-2 text-xs font-semibold text-ink">
+            <span className="flex size-14 items-center justify-center rounded-tile bg-orb text-white">
+              <Plus className="size-6" strokeWidth={1.9} />
+            </span>
+            {t('common.sale')}
+          </Link>
+          <Link href="/wallet/new?type=expense" className="flex flex-col items-center gap-2 text-xs font-semibold text-ink">
+            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+              <ArrowDownLeft className="size-6" strokeWidth={1.9} />
+            </span>
+            {t('common.expense')}
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileDepositMode('apport')}
+            className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
+          >
+            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+              <PiggyBank className="size-6" strokeWidth={1.8} />
+            </span>
+            {t('wallet.list.quickActionDeposit')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileDepositMode('retrait')}
+            className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
+          >
+            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+              <Banknote className="size-6" strokeWidth={1.8} />
+            </span>
+            {t('wallet.list.quickActionWithdrawal')}
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
@@ -456,7 +548,11 @@ export default function WalletPage() {
                 <span className="px-1 pb-0.5 pt-2.5 text-xs font-bold uppercase tracking-wide text-subtle">
                   {group.label}
                 </span>
-                {group.items.map((tx) => (
+                {group.items.map((tx) => {
+                  const visual = getTransactionVisual(tx.type)
+                  const Icon = visual.Icon
+                  const isSaleOrExpense = visual.kind === 'sale' || visual.kind === 'expense'
+                  return (
                   <SwipeableTransactionRow
                     key={tx.id}
                     className="rounded-tile border border-line"
@@ -471,37 +567,32 @@ export default function WalletPage() {
                       {mobileSelecting ? (
                         <input
                           type="checkbox"
-                          aria-label={t('wallet.list.selectRowAria', { name: transactionTitle(tx) })}
+                          aria-label={t('wallet.list.selectRowAria', { name: transactionTitle(tx, t) })}
                           checked={selectedIds.has(tx.id)}
                           onChange={() => toggleRow(tx.id)}
                           className="size-[22px] accent-brand-500"
                         />
                       ) : null}
-                      <span
-                        className={`flex size-10 shrink-0 items-center justify-center rounded-tile text-lg font-bold ${
-                          tx.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
-                        }`}
-                      >
-                        {tx.type === 'sale' ? '+' : '−'}
+                      <span className={`flex size-10 shrink-0 items-center justify-center rounded-tile text-lg font-bold ${visual.iconClassName}`}>
+                        {isSaleOrExpense ? visual.sign : <Icon className="size-[18px]" strokeWidth={2} />}
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="truncate text-sm font-semibold text-ink">{transactionTitle(tx)}</span>
+                        <span className="truncate text-sm font-semibold text-ink">{transactionTitle(tx, t)}</span>
                         <span className="truncate text-xs text-subtle">
-                          {tx.type === 'sale' ? t('transactions.sale') : t('transactions.expense')} ·{' '}
+                          {t(visual.labelKey)} ·{' '}
                           {tx.invoice_id
                             ? t('wallet.list.invoiceNumberPrefix', { number: invoiceLookup[tx.invoice_id]?.invoice_number || '' }).trim()
                             : formatDate(tx.date, language, 'HH:mm')}
                         </span>
                       </span>
-                      <span
-                        className={`shrink-0 text-sm font-bold ${tx.type === 'sale' ? 'text-success' : 'text-danger'}`}
-                      >
-                        {tx.type === 'sale' ? '+' : '−'}
+                      <span className={`shrink-0 text-sm font-bold ${visual.amountClassName}`}>
+                        {visual.sign}
                         <Amount value={tx.amount ?? 0} />
                       </span>
                     </label>
                   </SwipeableTransactionRow>
-                ))}
+                  )
+                })}
               </React.Fragment>
             ))}
             {mobileVisibleCount < filteredRows.length ? (
@@ -537,6 +628,14 @@ export default function WalletPage() {
             <span className="text-sm text-subtle">{t('wallet.list.subtitleDesktop')}</span>
           </div>
           <div className="flex flex-wrap gap-2.5">
+            <Button variant="glass" onClick={() => setDesktopDepositMode('retrait')}>
+              <Banknote className="size-[17px]" />
+              {t('wallet.list.quickActionWithdrawal')}
+            </Button>
+            <Button variant="glass" onClick={() => setDesktopDepositMode('apport')}>
+              <PiggyBank className="size-[17px]" />
+              {t('wallet.list.quickActionDeposit')}
+            </Button>
             <Button variant="glass" asChild>
               <Link href="/wallet/new?type=expense">{t('wallet.list.addExpense')}</Link>
             </Button>
@@ -553,6 +652,9 @@ export default function WalletPage() {
               <AmountVisibilityToggle variant="hero" />
             </div>
             <span className="text-[30px] font-bold tracking-[-0.02em]"><Amount value={summary.balance} /> F</span>
+            {summary.deposits > 0 ? (
+              <span className="text-xs text-navy-text">{t('wallet.list.ofWhichDeposits', { amount: formatAmount(summary.deposits, language) })}</span>
+            ) : null}
           </div>
           <div className="flex flex-col gap-1.5 rounded-[24px] bg-surface p-5 shadow-card">
             <span className="text-[13px] text-subtle">{t('wallet.list.entriesLabel')}</span>
@@ -655,6 +757,8 @@ export default function WalletPage() {
                     {paginatedRows.map((tx) => {
                       const checked = selectedIds.has(tx.id)
                       const selectable = canSelectForDeletion(tx)
+                      const visual = getTransactionVisual(tx.type)
+                      const Icon = visual.Icon
                       return (
                         <tr
                           key={tx.id}
@@ -668,8 +772,8 @@ export default function WalletPage() {
                               aria-checked={checked}
                               aria-label={
                                 selectable
-                                  ? t('wallet.list.selectRowAria', { name: transactionTitle(tx) })
-                                  : t('wallet.list.notSelectableAria', { name: transactionTitle(tx) })
+                                  ? t('wallet.list.selectRowAria', { name: transactionTitle(tx, t) })
+                                  : t('wallet.list.notSelectableAria', { name: transactionTitle(tx, t) })
                               }
                               disabled={!selectable}
                               title={selectable ? undefined : t('wallet.list.notSelectableTitle')}
@@ -683,27 +787,14 @@ export default function WalletPage() {
                           </td>
                           <td className="px-2 py-2.5">
                             <span className="flex items-center gap-3">
-                              <span
-                                className={`flex size-9 shrink-0 items-center justify-center rounded-full text-base font-bold ${
-                                  tx.type === 'sale'
-                                    ? 'bg-success-bg text-success-strong'
-                                    : 'bg-danger-bg text-danger-strong'
-                                }`}
-                              >
-                                {tx.type === 'sale' ? (
-                                  <ArrowUpRight className="size-4" strokeWidth={2.2} />
-                                ) : (
-                                  <ArrowDownLeft className="size-4" strokeWidth={2.2} />
-                                )}
+                              <span className={`flex size-9 shrink-0 items-center justify-center rounded-full text-base font-bold ${visual.iconClassName}`}>
+                                <Icon className="size-4" strokeWidth={2.2} />
                               </span>
-                              <span className="font-semibold text-ink">{transactionTitle(tx)}</span>
+                              <span className="font-semibold text-ink">{transactionTitle(tx, t)}</span>
                             </span>
                           </td>
                           <td className="px-2 py-2.5">
-                            <StatusBadge
-                              tone={tx.type === 'sale' ? 'success' : 'danger'}
-                              label={tx.type === 'sale' ? t('transactions.sale') : t('transactions.expense')}
-                            />
+                            <StatusBadge tone={visual.badgeTone} label={t(visual.labelKey)} />
                           </td>
                           <td className="whitespace-nowrap px-2 py-2.5 text-ink-3">
                             {formatDate(tx.date, language, 'D MMM · HH:mm')}
@@ -721,12 +812,8 @@ export default function WalletPage() {
                               <span className="text-ink-3">—</span>
                             )}
                           </td>
-                          <td
-                            className={`whitespace-nowrap px-2 py-2.5 text-right font-bold ${
-                              tx.type === 'sale' ? 'text-success' : 'text-danger'
-                            }`}
-                          >
-                            {tx.type === 'sale' ? '+' : '−'}
+                          <td className={`whitespace-nowrap px-2 py-2.5 text-right font-bold ${visual.amountClassName}`}>
+                            {visual.sign}
                             <Amount value={tx.amount ?? 0} /> F
                           </td>
                         </tr>
@@ -773,6 +860,22 @@ export default function WalletPage() {
         transaction={singleDeleteTarget}
         onOpenChange={(open) => { if (!open) setSingleDeleteTarget(null) }}
         onConfirm={handleConfirmSingleDelete}
+      />
+
+      <DepositWithdrawalSheet
+        variant="drawer"
+        mode={mobileDepositMode}
+        onOpenChange={(open) => { if (!open) setMobileDepositMode(null) }}
+        currentBalance={allTimeBalance}
+        onCreated={handleDepositCreated}
+      />
+
+      <DepositWithdrawalSheet
+        variant="dialog"
+        mode={desktopDepositMode}
+        onOpenChange={(open) => { if (!open) setDesktopDepositMode(null) }}
+        currentBalance={allTimeBalance}
+        onCreated={handleDepositCreated}
       />
     </div>
   )

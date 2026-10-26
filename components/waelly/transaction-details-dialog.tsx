@@ -2,11 +2,14 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
 import type { Transaction } from '@/lib/services/transactions'
 import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
+import { getTransactionVisual, fundingSourceLabelKey, paymentMethodLabelKey } from '@/lib/transactions/transaction-visual'
+import { keys } from '@/lib/query-keys'
+import { getCollaborators } from '@/lib/services/collaborators'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate, formatNumber } from '@/lib/i18n/format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
@@ -40,9 +43,18 @@ interface TransactionDetailsDialogProps {
 function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, invoiceEntry, onRequestDelete }: TransactionDetailsDialogProps) {
   const { t, language } = useTranslation()
   const open = transaction !== null
+
+  const { data: collaborators = [] } = useQuery({
+    queryKey: keys.collaborators.all,
+    queryFn: getCollaborators,
+    enabled: transaction?.funding_source === 'collaborateur',
+  })
+
   if (!transaction) return null
 
   const isSale = transaction.type === 'sale'
+  const visual = getTransactionVisual(transaction.type)
+  const Icon = visual.Icon
   const title = (isSale && transaction.article_name) || transaction.name
   const unitPrice = transaction.sale_price ?? transaction.unit_price ?? null
   const canDelete = isDeletableFromList(transaction, invoiceEntry?.status)
@@ -58,16 +70,29 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
     label: t('transactions.date'),
     value: formatDate(transaction.date, language, language === 'en' ? 'MMMM D, YYYY [at] h:mm A' : 'D MMMM YYYY à HH:mm'),
   })
-  rows.push({
-    label: t('transactions.detail.invoice'),
-    value: transaction.invoice_id ? (
-      <Link href={`/invoices/${transaction.invoice_id}`} className="font-semibold text-brand-700">
-        {invoiceNumber || invoiceEntry?.invoice_number || t('transactions.detail.viewInvoice')}
-      </Link>
-    ) : (
-      <span className="text-ink-3">{t('transactions.detail.notLinkedToInvoice')}</span>
-    ),
-  })
+  if (visual.kind === 'apport' || visual.kind === 'retrait') {
+    const fundingKey = fundingSourceLabelKey(transaction.funding_source)
+    if (fundingKey) rows.push({ label: t('wallet.deposit.fundingSourceLabel'), value: t(fundingKey) })
+    if (transaction.funding_source === 'collaborateur') {
+      const collaboratorName = collaborators.find((c) => c.id === transaction.collaborator_id)?.name
+      rows.push({ label: t('wallet.deposit.collaboratorLabel'), value: collaboratorName || '—' })
+    }
+    const methodKey = paymentMethodLabelKey(transaction.payment_method)
+    if (methodKey) rows.push({ label: t('wallet.deposit.paymentMethodLabel'), value: t(methodKey) })
+    if (transaction.note) rows.push({ label: t('wallet.deposit.noteLabel'), value: transaction.note })
+  }
+  if (isSale || visual.kind === 'expense') {
+    rows.push({
+      label: t('transactions.detail.invoice'),
+      value: transaction.invoice_id ? (
+        <Link href={`/invoices/${transaction.invoice_id}`} className="font-semibold text-brand-700">
+          {invoiceNumber || invoiceEntry?.invoice_number || t('transactions.detail.viewInvoice')}
+        </Link>
+      ) : (
+        <span className="text-ink-3">{t('transactions.detail.notLinkedToInvoice')}</span>
+      ),
+    })
+  }
   if (invoiceEntry?.client_name) {
     rows.push({ label: t('transactions.detail.client'), value: invoiceEntry.client_name })
   }
@@ -81,23 +106,17 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
           className="w-[calc(100%-2.5rem)] max-w-[440px] rounded-[26px] border-none bg-surface p-6 shadow-[0_40px_90px_rgba(10,10,60,0.35)]"
         >
           <div className="flex items-start gap-3.5">
-            <span
-              className={`flex size-11 shrink-0 items-center justify-center rounded-full ${
-                isSale ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
-              }`}
-            >
-              {isSale ? <ArrowUpRight className="size-5" strokeWidth={2.2} /> : <ArrowDownLeft className="size-5" strokeWidth={2.2} />}
+            <span className={`flex size-11 shrink-0 items-center justify-center rounded-full ${visual.iconClassName}`}>
+              <Icon className="size-5" strokeWidth={2.2} />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <DialogTitle className="truncate text-lg font-bold text-ink">{title}</DialogTitle>
-              <span className="text-sm text-subtle">{isSale ? t('transactions.sale') : t('transactions.expense')}</span>
+              <span className="text-sm text-subtle">{t(visual.labelKey)}</span>
             </span>
           </div>
 
-          <span
-            className={`text-[32px] font-bold tracking-[-0.02em] ${isSale ? 'text-success' : 'text-danger'}`}
-          >
-            {isSale ? '+' : '−'}
+          <span className={`text-[32px] font-bold tracking-[-0.02em] ${visual.amountClassName}`}>
+            {visual.sign}
             {formatAmount(transaction.amount ?? 0, language)} F
           </span>
 

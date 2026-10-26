@@ -25,7 +25,15 @@ export interface ApiTransaction {
   quantity?: number | null
   amount: number
   sale_price?: number | null
-  type: 'sale' | 'expense'
+  // `string` (pas une union stricte) : le frontend doit rester tolérant à
+  // un type encore inconnu de lui (voir lib/transactions/transaction-visual.ts,
+  // qui retombe sur "Opération" plutôt que de planter) — valeurs connues
+  // aujourd'hui : 'sale' | 'expense' | 'apport' | 'retrait'.
+  type: string
+  funding_source?: string | null
+  collaborator_id?: string | null
+  note?: string | null
+  payment_method?: string | null
   created_at: string
   updated_at: string
   article?: {
@@ -46,7 +54,7 @@ export interface ApiTransaction {
  */
 export interface Transaction {
   id: string
-  type: 'sale' | 'expense'
+  type: string
   name: string
   quantity?: number | null
   unit_price?: number | null
@@ -58,17 +66,60 @@ export interface Transaction {
   invoice_id?: string | null
   article_name?: string | null
   variation_name?: string | null
+  funding_source?: string | null
+  collaborator_id?: string | null
+  note?: string | null
+  payment_method?: string | null
 }
 
 /**
  * Statistiques wallet retournées par GET /api/user
  */
 export interface WalletStats {
-  calculated_wallet: number // Solde actuel
+  calculated_wallet: number // Solde actuel (ventes − dépenses, INCHANGÉ par les apports/retraits)
   total_sale: number // Total des ventes
   total_expense: number // Total des dépenses
+  total_deposit?: number // Total des apports de fonds
+  total_withdrawal?: number // Total des retraits du gérant
+  balance?: number // Trésorerie réelle : ventes − dépenses + apports − retraits
   wallet: number // Revenu personnel
   [key: string]: unknown
+}
+
+/** Origine d'un apport de fonds. */
+export type DepositFundingSource = 'apport_personnel' | 'collaborateur' | 'pret' | 'autre'
+
+/** Moyen de paiement — partagé par apports et retraits. */
+export type TransactionPaymentMethod =
+  | 'especes'
+  | 'orange_money'
+  | 'moov_money'
+  | 'wave'
+  | 'mtn_money'
+  | 'virement'
+
+/**
+ * Payload pour créer un apport de fonds (POST /api/transactions, type=apport)
+ */
+export interface CreateDepositPayload {
+  amount: number
+  funding_source: DepositFundingSource
+  /** Requis uniquement si funding_source === 'collaborateur'. */
+  collaborator_id?: string | null
+  payment_method: TransactionPaymentMethod
+  note?: string
+  /** ISO 8601 — absent : le serveur date à "maintenant". */
+  date?: string
+}
+
+/**
+ * Payload pour créer un retrait (POST /api/transactions, type=retrait)
+ */
+export interface CreateWithdrawalPayload {
+  amount: number
+  payment_method: TransactionPaymentMethod
+  note?: string
+  date?: string
 }
 
 /**
@@ -137,6 +188,10 @@ function mapApiTransactionToTransaction(apiTransaction: ApiTransaction): Transac
     invoice_id: apiTransaction.invoice_id ?? null,
     article_name: apiTransaction.article?.name ?? null,
     variation_name: apiTransaction.variation?.name ?? null,
+    funding_source: apiTransaction.funding_source ?? null,
+    collaborator_id: apiTransaction.collaborator_id ?? null,
+    note: apiTransaction.note ?? null,
+    payment_method: apiTransaction.payment_method ?? null,
   }
 }
 
@@ -428,6 +483,96 @@ export async function restoreTransaction(id: string): Promise<Transaction> {
       console.error('Erreur lors de la restauration de la transaction:', error)
     }
     throw new Error(t('transactions.serviceErrors.restoreFailed'))
+  }
+}
+
+/**
+ * Erreur de validation 422 avec les erreurs par champ (format Laravel) —
+ * utilisée par le formulaire Apport/Retrait pour afficher un message précis
+ * sous le bon champ plutôt qu'un toast générique.
+ */
+export class TransactionValidationError extends Error {
+  validationErrors: ValidationErrors
+  constructor(message: string, validationErrors: ValidationErrors) {
+    super(message)
+    this.name = 'TransactionValidationError'
+    this.validationErrors = validationErrors
+  }
+}
+
+function handleDepositWithdrawalError(error: unknown): never {
+  if (isSilentError(error)) {
+    throw error
+  }
+
+  const axiosError = error as AxiosError<{ message?: string; errors?: ValidationErrors }>
+
+  if (axiosError.response?.status === 401) {
+    throw new Error('Non authentifié') // i18n:allow — sentinelle interne, testée via .includes() ailleurs, jamais affichée telle quelle
+  }
+
+  if (axiosError.response?.status === 422) {
+    const errors = axiosError.response.data?.errors || {}
+    const message = axiosError.response.data?.message || Object.values(errors)[0]?.[0] || t('transactions.serviceErrors.validationGeneric')
+    throw new TransactionValidationError(message, errors)
+  }
+
+  if (axiosError.response?.status === 500) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Erreur serveur lors de la création de l\'opération:', axiosError.response.data)
+    }
+    throw new Error(t('transactions.serviceErrors.serverErrorCreate'))
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.error('Erreur lors de la création de l\'opération:', error)
+  }
+  throw new Error(axiosError.response?.data?.message || t('transactions.serviceErrors.createFailed'))
+}
+
+/**
+ * Crée un apport de fonds (POST /api/transactions, type=apport). Réutilise
+ * l'en-tête Idempotency-Key (voir wallet/new/page.tsx) : généré une seule
+ * fois par soumission par l'appelant, conservé pour tous les retries
+ * automatiques de CETTE tentative — un double envoi ne crée pas deux apports.
+ */
+export async function createDeposit(payload: CreateDepositPayload, idempotencyKey: string): Promise<Transaction> {
+  try {
+    const response = await api.post<ApiResponse<ApiTransaction>>(
+      '/api/transactions',
+      { type: 'apport', ...payload },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
+
+    if (!response.data.data) {
+      throw new Error(t('transactions.serviceErrors.invalidApiResponse'))
+    }
+
+    return mapApiTransactionToTransaction(response.data.data)
+  } catch (error) {
+    handleDepositWithdrawalError(error)
+  }
+}
+
+/**
+ * Crée un retrait (POST /api/transactions, type=retrait) — mêmes garanties
+ * d'idempotence que createDeposit().
+ */
+export async function createWithdrawal(payload: CreateWithdrawalPayload, idempotencyKey: string): Promise<Transaction> {
+  try {
+    const response = await api.post<ApiResponse<ApiTransaction>>(
+      '/api/transactions',
+      { type: 'retrait', ...payload },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
+
+    if (!response.data.data) {
+      throw new Error(t('transactions.serviceErrors.invalidApiResponse'))
+    }
+
+    return mapApiTransactionToTransaction(response.data.data)
+  } catch (error) {
+    handleDepositWithdrawalError(error)
   }
 }
 

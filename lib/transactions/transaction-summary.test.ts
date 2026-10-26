@@ -59,4 +59,14 @@ describe('describeDeletionConsequence', () => {
   test('stock non résolu (article introuvable) : formulation générique', () => {
     expect(describeDeletionConsequence(makeSale(), null, 'fr')).toBe('Le stock de Taille M sera mis à jour.')
   })
+
+  test('apport : "Le solde diminuera de X." (supprimer un apport retire de l\'argent ajouté)', () => {
+    const deposit: Transaction = { id: 'd1', type: 'apport', name: 'Apport de fonds', amount: 100000, date: '2026-10-24' }
+    expect(describeDeletionConsequence(deposit, null, 'fr')).toBe(`Le solde diminuera de 100${NBSP}000 F.`)
+  })
+
+  test('retrait : "Le solde augmentera de X." (même effet qu\'une dépense — l\'argent retiré revient)', () => {
+    const withdrawal: Transaction = { id: 'w1', type: 'retrait', name: 'Retrait', amount: 30000, date: '2026-10-24' }
+    expect(describeDeletionConsequence(withdrawal, null, 'fr')).toBe(`Le solde augmentera de 30${NBSP}000 F.`)
+  })
 })

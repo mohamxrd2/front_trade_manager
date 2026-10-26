@@ -45,8 +45,18 @@ export function describeDeletionConsequence(
   remainingAfterRestore: number | null,
   language: AppLanguage
 ): string {
-  if (transaction.type === 'expense') {
+  if (transaction.type === 'expense' || transaction.type === 'retrait') {
+    // Supprimer une dépense OU un retrait retire un montant qui diminuait le
+    // solde : le solde remonte d'autant dans les deux cas.
     return translate('transactions.summary.balanceIncreasesBy', language, {
+      amount: formatAmount(transaction.amount ?? 0, language),
+    })
+  }
+
+  if (transaction.type === 'apport') {
+    // Supprimer un apport retire un montant qui avait augmenté le solde :
+    // le solde redescend d'autant — inverse de l'expense/retrait ci-dessus.
+    return translate('transactions.summary.balanceDecreasesBy', language, {
       amount: formatAmount(transaction.amount ?? 0, language),
     })
   }

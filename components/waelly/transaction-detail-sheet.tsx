@@ -2,11 +2,15 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowDownLeft, ArrowUpRight, X } from 'lucide-react'
+import { X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
 import type { Transaction } from '@/lib/services/transactions'
 import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
+import { getTransactionVisual, fundingSourceLabelKey, paymentMethodLabelKey } from '@/lib/transactions/transaction-visual'
+import { keys } from '@/lib/query-keys'
+import { getCollaborators } from '@/lib/services/collaborators'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate, formatNumber } from '@/lib/i18n/format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
@@ -36,14 +40,23 @@ interface TransactionDetailSheetProps {
 function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onRequestDelete }: TransactionDetailSheetProps) {
   const { t, language } = useTranslation()
   const open = transaction !== null
+
+  const { data: collaborators = [] } = useQuery({
+    queryKey: keys.collaborators.all,
+    queryFn: getCollaborators,
+    enabled: transaction?.funding_source === 'collaborateur',
+  })
+
   if (!transaction) return null
 
   const isSale = transaction.type === 'sale'
+  const visual = getTransactionVisual(transaction.type)
+  const Icon = visual.Icon
   const title = (isSale && transaction.article_name) || transaction.name
   const unitPrice = transaction.sale_price ?? transaction.unit_price ?? null
   const canDelete = isDeletableFromList(transaction, invoiceEntry?.status)
 
-  const rows: DetailRow[] = [{ label: t('transactions.type'), value: isSale ? t('transactions.sale') : t('transactions.expense') }]
+  const rows: DetailRow[] = [{ label: t('transactions.type'), value: t(visual.labelKey) }]
   rows.push({
     label: t('transactions.detail.dateTime'),
     value: formatDate(transaction.date, language, language === 'en' ? 'MMMM D, YYYY [at] h:mm A' : 'D MMMM YYYY à HH:mm'),
@@ -54,16 +67,29 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
     if (transaction.quantity) rows.push({ label: t('transactions.quantity'), value: transaction.quantity })
     if (unitPrice != null) rows.push({ label: t('transactions.unitPrice'), value: `${formatAmount(unitPrice, language)} F` })
   }
-  rows.push({
-    label: transaction.invoice_id ? t('transactions.detail.invoice') : t('transactions.detail.clientOrInvoice'),
-    value: transaction.invoice_id ? (
-      <Link href={`/invoices/${transaction.invoice_id}`} className="font-semibold text-brand-700">
-        {invoiceEntry?.invoice_number || t('transactions.detail.viewInvoice')}
-      </Link>
-    ) : (
-      <span className="text-ink-3">{t('transactions.detail.notLinkedToInvoice')}</span>
-    ),
-  })
+  if (visual.kind === 'apport' || visual.kind === 'retrait') {
+    const fundingKey = fundingSourceLabelKey(transaction.funding_source)
+    if (fundingKey) rows.push({ label: t('wallet.deposit.fundingSourceLabel'), value: t(fundingKey) })
+    if (transaction.funding_source === 'collaborateur') {
+      const collaboratorName = collaborators.find((c) => c.id === transaction.collaborator_id)?.name
+      rows.push({ label: t('wallet.deposit.collaboratorLabel'), value: collaboratorName || '—' })
+    }
+    const methodKey = paymentMethodLabelKey(transaction.payment_method)
+    if (methodKey) rows.push({ label: t('wallet.deposit.paymentMethodLabel'), value: t(methodKey) })
+    if (transaction.note) rows.push({ label: t('wallet.deposit.noteLabel'), value: transaction.note })
+  }
+  if (isSale || visual.kind === 'expense') {
+    rows.push({
+      label: transaction.invoice_id ? t('transactions.detail.invoice') : t('transactions.detail.clientOrInvoice'),
+      value: transaction.invoice_id ? (
+        <Link href={`/invoices/${transaction.invoice_id}`} className="font-semibold text-brand-700">
+          {invoiceEntry?.invoice_number || t('transactions.detail.viewInvoice')}
+        </Link>
+      ) : (
+        <span className="text-ink-3">{t('transactions.detail.notLinkedToInvoice')}</span>
+      ),
+    })
+  }
   if (invoiceEntry?.client_name) {
     rows.push({ label: t('transactions.detail.client'), value: invoiceEntry.client_name })
   }
@@ -85,19 +111,13 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
 
         <div className="mt-3.5 flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <span
-              className={`flex size-11 shrink-0 items-center justify-center rounded-full ${
-                isSale ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
-              }`}
-            >
-              {isSale ? <ArrowUpRight className="size-5" strokeWidth={2.2} /> : <ArrowDownLeft className="size-5" strokeWidth={2.2} />}
+            <span className={`flex size-11 shrink-0 items-center justify-center rounded-full ${visual.iconClassName}`}>
+              <Icon className="size-5" strokeWidth={2.2} />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="truncate text-base font-bold text-ink">{title}</span>
-              <span
-                className={`text-xl font-bold tracking-[-0.02em] ${isSale ? 'text-success' : 'text-danger'}`}
-              >
-                {isSale ? '+' : '−'}
+              <span className={`text-xl font-bold tracking-[-0.02em] ${visual.amountClassName}`}>
+                {visual.sign}
                 {formatAmount(transaction.amount ?? 0, language)} F
               </span>
             </span>

@@ -6,6 +6,9 @@
   "type": "Type",
   "sale": "Vente",
   "expense": "Dépense",
+  "deposit": "Apport",
+  "withdrawal": "Retrait",
+  "operation": "Opération",
   "amount": "Montant",
   "date": "Date",
   "article": "Article",
@@ -80,7 +83,9 @@
     "deleteFailed": "Erreur lors de la suppression de la transaction",
     "invalidApiResponse": "Réponse API invalide",
     "notAuthorizedRestore": "Non autorisé à restaurer cette transaction",
-    "restoreFailed": "Erreur lors de la restauration de la transaction"
+    "restoreFailed": "Erreur lors de la restauration de la transaction",
+    "serverErrorCreate": "Erreur serveur lors de l'enregistrement de l'opération",
+    "createFailed": "Erreur lors de l'enregistrement de l'opération"
   },
   "detail": {
     "title": "Détail de la transaction",
@@ -102,6 +107,7 @@
   },
   "summary": {
     "balanceIncreasesBy": "Le solde augmentera de {{amount}}.",
+    "balanceDecreasesBy": "Le solde diminuera de {{amount}}.",
     "stockWillUpdate": "Le stock de {{name}} sera mis à jour.",
     "stockWillReturnTo": "Le stock de {{name}} reviendra à {{quantity}}."
   },

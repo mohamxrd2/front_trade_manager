@@ -20,6 +20,9 @@ const TONE_STYLES = {
   warning: "bg-warning-bg text-warning",
   info: "bg-info-bg text-info",
   neutral: "bg-neutral-bg text-neutral",
+  // Indigo (#3A20B8) — ex. type "Apport" sur Portefeuille : ne doit jamais
+  // être confondu avec une vente (success/vert), d'où un ton dédié.
+  brand: "bg-brand-100 text-brand-700",
 } as const
 
 type StatusKey = keyof typeof STATUS_STYLES

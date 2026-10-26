@@ -38,6 +38,7 @@ import {
 } from '@/lib/services/analytics'
 import { type Transaction } from '@/lib/services/transactions'
 import { useTransactionsQuery } from '@/lib/hooks/useTransactions'
+import { getTransactionVisual } from '@/lib/transactions/transaction-visual'
 import { keys } from '@/lib/query-keys'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { OnboardingSkippedBanner } from '@/components/onboarding'
@@ -53,7 +54,6 @@ import {
   KpiCard,
   SegmentedControl,
   TransactionDetailsDialog,
-  TransactionRow,
 } from '@/components/waelly'
 
 // Recharts (AreaTrendChart, CategoryDonut) mesure le conteneur et génère des
@@ -629,25 +629,39 @@ export default function DashboardPage() {
             <p className="p-5 text-center text-sm text-subtle">{t('dashboard.noRecentTransactions')}</p>
           ) : (
             <>
-              {/* Liste mobile */}
+              {/* Liste mobile — construite à la main (pas <TransactionRow>,
+                   limité à 2 couleurs income/expense) : un apport/retrait a
+                   sa propre couleur (indigo/orange), ne doit jamais être
+                   confondu avec une vente/dépense. Même raison que
+                   wallet/page.tsx (voir son commentaire de tête). */}
               <div className="divide-y divide-divider lg:hidden">
-                {transactions.map((transaction) => (
-                  <TransactionRow
-                    key={transaction.id}
-                    icon={
-                      transaction.type === 'sale' ? (
-                        <ArrowUpRight className="size-5" strokeWidth={1.9} />
-                      ) : (
-                        <ArrowDownLeft className="size-5" strokeWidth={1.9} />
-                      )
-                    }
-                    title={transaction.name}
-                    meta={`${transaction.type === 'sale' ? t('common.sale') : t('common.expense')} · ${formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}`}
-                    amount={<>{transaction.type === 'sale' ? '+' : '−'}<Amount value={getTransactionAmount(transaction)} /></>}
-                    type={transaction.type === 'sale' ? 'income' : 'expense'}
-                    onClick={() => setSelectedTransaction(transaction)}
-                  />
-                ))}
+                {transactions.map((transaction) => {
+                  const visual = getTransactionVisual(transaction.type)
+                  const Icon = visual.Icon
+                  const title = visual.kind === 'sale' || visual.kind === 'expense' ? transaction.name : t(visual.labelKey)
+                  return (
+                    <button
+                      key={transaction.id}
+                      type="button"
+                      onClick={() => setSelectedTransaction(transaction)}
+                      className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:bg-surface-soft"
+                    >
+                      <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${visual.iconClassName}`}>
+                        <Icon className="size-5" strokeWidth={1.9} />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-sm font-semibold text-ink">{title}</span>
+                        <span className="truncate text-xs text-subtle">
+                          {t(visual.labelKey)} · {formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}
+                        </span>
+                      </span>
+                      <span className={`shrink-0 text-sm font-bold ${visual.amountClassName}`}>
+                        {visual.sign}
+                        <Amount value={getTransactionAmount(transaction)} />
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
 
               {/* Tableau ordinateur */}
@@ -662,50 +676,36 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((transaction) => (
-                      <tr
-                        key={transaction.id}
-                        onClick={() => setSelectedTransaction(transaction)}
-                        className="cursor-pointer border-t border-divider hover:bg-surface-soft"
-                      >
-                        <td className="px-2 py-3">
-                          <span className="flex items-center gap-3">
-                            <span
-                              className={
-                                transaction.type === 'sale'
-                                  ? 'flex size-[38px] shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-xs font-bold text-brand-700'
-                                  : 'flex size-[38px] shrink-0 items-center justify-center rounded-2xl bg-danger-bg text-xs font-bold text-danger-strong'
-                              }
-                            >
-                              {transaction.name.slice(0, 2).toUpperCase()}
-                            </span>
-                            <span className="font-semibold text-ink">{transaction.name}</span>
-                          </span>
-                        </td>
-                        <td className="px-2 py-3">
-                          <span
-                            className={
-                              transaction.type === 'sale'
-                                ? 'rounded-full bg-success-bg px-2.5 py-1 text-xs font-bold text-success-strong'
-                                : 'rounded-full bg-danger-bg px-2.5 py-1 text-xs font-bold text-danger-strong'
-                            }
-                          >
-                            {transaction.type === 'sale' ? t('common.sale') : t('common.expense')}
-                          </span>
-                        </td>
-                        <td className="px-2 py-3 text-ink-3">{formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}</td>
-                        <td
-                          className={
-                            transaction.type === 'sale'
-                              ? 'whitespace-nowrap px-2 py-3 text-right font-bold text-success'
-                              : 'whitespace-nowrap px-2 py-3 text-right font-bold text-danger'
-                          }
+                    {transactions.map((transaction) => {
+                      const visual = getTransactionVisual(transaction.type)
+                      const title = visual.kind === 'sale' || visual.kind === 'expense' ? transaction.name : t(visual.labelKey)
+                      return (
+                        <tr
+                          key={transaction.id}
+                          onClick={() => setSelectedTransaction(transaction)}
+                          className="cursor-pointer border-t border-divider hover:bg-surface-soft"
                         >
-                          {transaction.type === 'sale' ? '+' : '−'}
-                          <Amount value={getTransactionAmount(transaction)} />
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="px-2 py-3">
+                            <span className="flex items-center gap-3">
+                              <span className={`flex size-[38px] shrink-0 items-center justify-center rounded-2xl text-xs font-bold ${visual.iconClassName}`}>
+                                {title.slice(0, 2).toUpperCase()}
+                              </span>
+                              <span className="font-semibold text-ink">{title}</span>
+                            </span>
+                          </td>
+                          <td className="px-2 py-3">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${visual.badgeClassName}`}>
+                              {t(visual.labelKey)}
+                            </span>
+                          </td>
+                          <td className="px-2 py-3 text-ink-3">{formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}</td>
+                          <td className={`whitespace-nowrap px-2 py-3 text-right font-bold ${visual.amountClassName}`}>
+                            {visual.sign}
+                            <Amount value={getTransactionAmount(transaction)} />
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

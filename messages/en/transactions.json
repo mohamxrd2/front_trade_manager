@@ -6,6 +6,9 @@
   "type": "Type",
   "sale": "Sale",
   "expense": "Expense",
+  "deposit": "Deposit",
+  "withdrawal": "Withdrawal",
+  "operation": "Operation",
   "amount": "Amount",
   "date": "Date",
   "article": "Article",
@@ -80,7 +83,9 @@
     "deleteFailed": "Error deleting the transaction",
     "invalidApiResponse": "Invalid API response",
     "notAuthorizedRestore": "Not authorized to restore this transaction",
-    "restoreFailed": "Error restoring the transaction"
+    "restoreFailed": "Error restoring the transaction",
+    "serverErrorCreate": "Server error while recording the operation",
+    "createFailed": "Error recording the operation"
   },
   "detail": {
     "title": "Transaction details",
@@ -102,6 +107,7 @@
   },
   "summary": {
     "balanceIncreasesBy": "The balance will increase by {{amount}}.",
+    "balanceDecreasesBy": "The balance will decrease by {{amount}}.",
     "stockWillUpdate": "{{name}}'s stock will be updated.",
     "stockWillReturnTo": "{{name}}'s stock will return to {{quantity}}."
   },
