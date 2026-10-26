@@ -25,6 +25,7 @@ import {
   TransactionRow,
 } from "@/components/waelly"
 import { BottomTabBar } from "@/components/navigation/BottomTabBar"
+import { AmountVisibilityProvider } from "@/contexts/AmountVisibilityContext"
 
 const TREND_DATA = [
   { label: "Ven", value: 180_000 },
@@ -48,6 +49,7 @@ export default function DesignPreviewPage() {
   const [period, setPeriod] = React.useState("30")
 
   return (
+    <AmountVisibilityProvider>
     <div className="bg-desktop min-h-screen p-5">
       <div className="mx-auto flex max-w-[1480px] flex-wrap items-start gap-5">
         <div className="hidden lg:block lg:flex-[1_1_240px]">
@@ -244,5 +246,6 @@ export default function DesignPreviewPage() {
 
       <BottomTabBar />
     </div>
+    </AmountVisibilityProvider>
   )
 }

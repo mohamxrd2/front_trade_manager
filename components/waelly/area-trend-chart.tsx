@@ -15,7 +15,9 @@ import { ArrowUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
+import { useAmountVisibility } from "@/contexts/AmountVisibilityContext"
 import { formatNumber } from "@/lib/i18n/format"
+import { formatAmountDisplay } from "@/lib/amount-visibility/format-amount"
 import type { AppLanguage } from "@/lib/i18n/current-language"
 
 /**
@@ -55,7 +57,7 @@ interface AreaTrendChartProps {
 
 type MergedPoint = AreaTrendPoint & { value2?: number }
 
-function ChartTooltip({ active, payload, primaryLabel, secondaryLabel, secondaryColor, language }: TooltipProps<number, string> & { primaryLabel: string; secondaryLabel?: string; secondaryColor?: string; language: AppLanguage }) {
+function ChartTooltip({ active, payload, primaryLabel, secondaryLabel, secondaryColor, language, hidden }: TooltipProps<number, string> & { primaryLabel: string; secondaryLabel?: string; secondaryColor?: string; language: AppLanguage; hidden: boolean }) {
   if (!active || !payload?.length) return null
   const point = payload[0]?.payload as MergedPoint | undefined
   if (!point) return null
@@ -63,19 +65,26 @@ function ChartTooltip({ active, payload, primaryLabel, secondaryLabel, secondary
     <div className="flex flex-col gap-1 rounded-2xl border border-line-strong bg-surface px-3 py-2 text-xs font-bold text-ink shadow-card">
       <span className="flex items-center gap-1.5">
         <span className="size-2 rounded-full" style={{ background: "#5B3FE6" }} />
-        {secondaryLabel ? `${primaryLabel} : ` : ""}{formatBubbleValue(point.value, language)}
+        {secondaryLabel ? `${primaryLabel} : ` : ""}{formatBubbleValue(point.value, language, hidden)}
       </span>
       {secondaryLabel && point.value2 !== undefined ? (
         <span className="flex items-center gap-1.5">
           <span className="size-2 rounded-full" style={{ background: secondaryColor ?? "#D92D20" }} />
-          {secondaryLabel} : {formatBubbleValue(point.value2, language)}
+          {secondaryLabel} : {formatBubbleValue(point.value2, language, hidden)}
         </span>
       ) : null}
     </div>
   )
 }
 
-function formatAbbreviated(value: number, language: AppLanguage): string {
+// Masqué : une pastille de points courte et constante — un axe Y n'a pas
+// besoin de refléter la longueur réelle du nombre (contrairement à <Amount>,
+// voir lib/amount-visibility/format-amount.ts) puisque ses graduations ne
+// doivent de toute façon jamais être comparées entre elles une fois masquées.
+const HIDDEN_AXIS_LABEL = "•••"
+
+function formatAbbreviated(value: number, language: AppLanguage, hidden: boolean): string {
+  if (hidden) return HIDDEN_AXIS_LABEL
   const decimalSeparator = language === "en" ? "." : ","
   if (Math.abs(value) >= 1_000_000) {
     return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1).replace(".", decimalSeparator)}M`
@@ -86,16 +95,16 @@ function formatAbbreviated(value: number, language: AppLanguage): string {
   return String(value)
 }
 
-const formatBubbleValue = (value: number, language: AppLanguage): string =>
-  `${formatNumber(value, language, { maximumFractionDigits: 0 })} F`
+const formatBubbleValue = (value: number, language: AppLanguage, hidden: boolean): string =>
+  `${formatAmountDisplay(value, language, hidden, { maximumFractionDigits: 0 }).text} F`
 
 function LastPointMarker(
-  props: DotProps & { index?: number; dataLength: number; language: AppLanguage }
+  props: DotProps & { index?: number; dataLength: number; language: AppLanguage; hidden: boolean }
 ) {
-  const { cx, cy, index, dataLength, language } = props
+  const { cx, cy, index, dataLength, language, hidden } = props
   if (index !== dataLength - 1 || cx == null || cy == null) return null
 
-  const label = formatBubbleValue((props as unknown as { payload?: { value: number } }).payload?.value ?? 0, language)
+  const label = formatBubbleValue((props as unknown as { payload?: { value: number } }).payload?.value ?? 0, language, hidden)
   const pillWidth = Math.max(54, label.length * 7 + 20)
   const pillHeight = 24
   // Le dernier point est toujours le plus à droite du graphique : on ancre
@@ -151,6 +160,7 @@ function AreaTrendChart({
   primaryLabel,
 }: AreaTrendChartProps) {
   const { t, language } = useTranslation()
+  const { hidden } = useAmountVisibility()
   const resolvedTrendLabel = trendLabel ?? t("chart.defaultTrendLabel")
   const resolvedPrimaryLabel = primaryLabel ?? t("chart.defaultPrimaryLabel")
   const resolvedSecondaryLabel = secondarySeries?.label ?? (secondarySeries ? t("chart.defaultSecondaryLabel") : undefined)
@@ -233,7 +243,7 @@ function AreaTrendChart({
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 10, fill: "#6B6B7B" }}
-              tickFormatter={(value: number) => formatAbbreviated(value, language)}
+              tickFormatter={(value: number) => formatAbbreviated(value, language, hidden)}
               width={36}
               domain={yMax ? [0, yMax] : undefined}
               ticks={yMax ? [0, yMax / 3, (yMax * 2) / 3, yMax] : undefined}
@@ -246,6 +256,7 @@ function AreaTrendChart({
                     secondaryLabel={resolvedSecondaryLabel}
                     secondaryColor={secondaryColor}
                     language={language}
+                    hidden={hidden}
                   />
                 }
                 cursor={{ stroke: "#ECECF2" }}
@@ -278,7 +289,7 @@ function AreaTrendChart({
               fill={`url(#${gradientId})`}
               isAnimationActive={false}
               dot={({ key, ...dotProps }) => (
-                <LastPointMarker key={key ?? dotProps.index} {...dotProps} dataLength={mergedData.length} language={language} />
+                <LastPointMarker key={key ?? dotProps.index} {...dotProps} dataLength={mergedData.length} language={language} hidden={hidden} />
               )}
               activeDot={showTooltip ? { r: 5, fill: "#5B3FE6", stroke: "#FFFFFF", strokeWidth: 2 } : false}
             />
