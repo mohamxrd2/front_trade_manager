@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Banknote, PiggyBank, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowDownToLine, ArrowUpRight, ArrowUpToLine, type LucideIcon } from 'lucide-react'
 
 /**
  * Normalise un `type` de transaction brut (API) vers l'une des 4 natures
@@ -59,7 +59,11 @@ const VISUALS: Record<TransactionKind, TransactionVisual> = {
     kind: 'apport',
     labelKey: 'transactions.deposit',
     sign: '+',
-    Icon: PiggyBank,
+    // Même famille "flèche" que la vente (ArrowUpRight, argent qui entre),
+    // mais un tracé distinct (flèche-vers-ligne plutôt que diagonale) pour
+    // ne jamais être confondu avec une vente — la couleur (indigo) fait le
+    // reste de la distinction.
+    Icon: ArrowUpToLine,
     amountClassName: 'text-brand-700',
     iconClassName: 'bg-brand-100 text-brand-700',
     badgeClassName: 'bg-brand-100 text-brand-700',
@@ -69,7 +73,9 @@ const VISUALS: Record<TransactionKind, TransactionVisual> = {
     kind: 'retrait',
     labelKey: 'transactions.withdrawal',
     sign: '−',
-    Icon: Banknote,
+    // Même logique que l'apport ci-dessus, côté "argent qui sort" (même
+    // famille que la dépense ArrowDownLeft, tracé distinct).
+    Icon: ArrowDownToLine,
     amountClassName: 'text-warning',
     iconClassName: 'bg-warning-bg text-warning',
     badgeClassName: 'bg-warning-bg text-warning',
