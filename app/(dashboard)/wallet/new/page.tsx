@@ -58,6 +58,11 @@ export default function NewTransactionPage() {
     queryClient.invalidateQueries({ queryKey: keys.products.all })
     queryClient.invalidateQueries({ queryKey: keys.userStats.all })
     queryClient.invalidateQueries({ queryKey: keys.wallet.all })
+    // Source unique de la liste lue par /wallet et l'accueil (voir
+    // lib/hooks/useTransactions.ts / lib/query-keys.ts) — distincte de
+    // `keys.wallet.*`, sans quoi la transaction vient de créer n'apparaît
+    // dans la liste qu'au prochain refetch naturel (plusieurs minutes).
+    queryClient.invalidateQueries({ queryKey: keys.transactions.all })
     queryClient.invalidateQueries({ queryKey: keys.analytics.all })
     queryClient.invalidateQueries({ queryKey: keys.dashboard.all })
     window.dispatchEvent(new CustomEvent('notification-updated'))

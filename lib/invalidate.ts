@@ -23,6 +23,10 @@ export function invalidateInvoices(options?: { paid?: boolean }) {
   if (options?.paid) {
     queryClient.invalidateQueries({ queryKey: keys.clients.all })
     queryClient.invalidateQueries({ queryKey: keys.wallet.all })
+    // Une facture payée crée une transaction de vente — même clé que
+    // lib/hooks/useTransactions.ts, sans quoi /wallet ne l'affiche qu'au
+    // prochain refetch naturel.
+    queryClient.invalidateQueries({ queryKey: keys.transactions.all })
     queryClient.invalidateQueries({ queryKey: keys.analytics.all })
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('notification-updated'))
   }
