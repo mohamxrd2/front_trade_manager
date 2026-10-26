@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import 'dayjs/locale/fr'
 import type { AppLanguage } from '@/lib/i18n/current-language'
-import { formatMoney, formatNumber, formatDate } from '@/lib/i18n/format'
+import { formatNumber, formatDate } from '@/lib/i18n/format'
 import {
   AlertCircle,
   ArrowDownLeft,
@@ -43,6 +43,8 @@ import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { OnboardingSkippedBanner } from '@/components/onboarding'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
+  Amount,
+  AmountVisibilityToggle,
   Button,
   Card,
   CardHeader,
@@ -341,25 +343,25 @@ export default function DashboardPage() {
   const kpiCards = [
     {
       label: t('dashboard.kpi.revenue'),
-      value: formatMoney(overview?.total_sales ?? 0, currency, language),
+      value: <Amount value={overview?.total_sales ?? 0} currency />,
       ...kpiDelta(comparisons?.sales, true, language, newLabel),
       dotColor: '#5B3FE6',
     },
     {
       label: t('dashboard.kpi.expenses'),
-      value: formatMoney(overview?.total_expenses ?? 0, currency, language),
+      value: <Amount value={overview?.total_expenses ?? 0} currency />,
       ...kpiDelta(comparisons?.expenses, false, language, newLabel),
       dotColor: '#E5484D',
     },
     {
       label: t('dashboard.kpi.netProfit'),
-      value: formatMoney(overview?.net_revenue ?? 0, currency, language),
+      value: <Amount value={overview?.net_revenue ?? 0} currency />,
       ...kpiDelta(comparisons?.net_revenue, true, language, newLabel),
       dotColor: '#0B8A43',
     },
     {
       label: t('dashboard.kpi.averageBasket'),
-      value: formatMoney(kpis?.average_basket ?? 0, currency, language),
+      value: <Amount value={kpis?.average_basket ?? 0} currency />,
       delta: undefined,
       trend: 'up' as const,
       positive: true,
@@ -451,6 +453,7 @@ export default function DashboardPage() {
               className="glass h-12 w-[300px] max-w-full rounded-full pl-11 pr-4 text-sm text-ink outline-none"
             />
           </div>
+          <AmountVisibilityToggle variant="glass" />
           <Link
             href="/notifications"
             aria-label={notificationsAriaLabel}
@@ -479,11 +482,12 @@ export default function DashboardPage() {
             <HeroCard
               label={t('common.balance')}
               period={periodOptions.find((p) => p.value === period)?.label}
-              amount={formatNumber(overview?.net_revenue ?? 0, language)}
+              eyeButton={<AmountVisibilityToggle variant="hero" />}
+              amount={<Amount value={overview?.net_revenue ?? 0} />}
               currency={currency}
               stats={[
-                { label: t('common.sales'), value: `+${formatNumber(overview?.total_sales ?? 0, language)}` },
-                { label: t('common.expenses'), value: `−${formatNumber(overview?.total_expenses ?? 0, language)}` },
+                { label: t('common.sales'), value: <>+<Amount value={overview?.total_sales ?? 0} /></> },
+                { label: t('common.expenses'), value: <>−<Amount value={overview?.total_expenses ?? 0} /></> },
               ]}
               actions={heroActions}
             />
@@ -594,7 +598,7 @@ export default function DashboardPage() {
             {donutData.length > 0 ? (
               <CategoryDonut
                 data={donutData}
-                centerValue={formatNumber(overview?.total_sales ?? 0, language)}
+                centerValue={<Amount value={overview?.total_sales ?? 0} />}
                 centerLabel={`${currency} · ${t('dashboard.periodSuffix')}`}
               />
             ) : (
@@ -639,7 +643,7 @@ export default function DashboardPage() {
                     }
                     title={transaction.name}
                     meta={`${transaction.type === 'sale' ? t('common.sale') : t('common.expense')} · ${formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}`}
-                    amount={`${transaction.type === 'sale' ? '+' : '−'}${formatNumber(getTransactionAmount(transaction), language)}`}
+                    amount={<>{transaction.type === 'sale' ? '+' : '−'}<Amount value={getTransactionAmount(transaction)} /></>}
                     type={transaction.type === 'sale' ? 'income' : 'expense'}
                     onClick={() => setSelectedTransaction(transaction)}
                   />
@@ -698,7 +702,7 @@ export default function DashboardPage() {
                           }
                         >
                           {transaction.type === 'sale' ? '+' : '−'}
-                          {formatNumber(getTransactionAmount(transaction), language)}
+                          <Amount value={getTransactionAmount(transaction)} />
                         </td>
                       </tr>
                     ))}
