@@ -15,6 +15,7 @@
   "activitySection": "Activité",
   "accountSection": "Compte",
   "logout": "Se déconnecter",
+  "loggingOut": "Déconnexion...",
   "logoutConfirmTitle": "Se déconnecter ?",
   "logoutConfirmDescription": "Vous devrez vous reconnecter pour accéder à votre compte."
 }

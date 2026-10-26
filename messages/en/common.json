@@ -60,5 +60,10 @@
   "showPassword": "Show password",
   "hidePassword": "Hide password",
   "continueWithGoogle": "Continue with Google",
-  "continueWithFacebook": "Continue with Facebook"
+  "continueWithFacebook": "Continue with Facebook",
+  "sidebarTitle": "Sidebar",
+  "sidebarDescription": "Displays the mobile sidebar.",
+  "toggleSidebar": "Toggle Sidebar",
+  "user": "User",
+  "toggleTheme": "Toggle theme"
 }

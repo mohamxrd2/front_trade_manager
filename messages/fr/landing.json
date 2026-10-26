@@ -226,5 +226,9 @@
         "cta": "Nous contacter"
       }
     }
+  },
+  "heroHeaderDemo": {
+    "menuSolution": "Solution",
+    "menuAbout": "À propos"
   }
 }

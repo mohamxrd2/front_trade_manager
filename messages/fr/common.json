@@ -60,5 +60,10 @@
   "showPassword": "Afficher le mot de passe",
   "hidePassword": "Masquer le mot de passe",
   "continueWithGoogle": "Continuer avec Google",
-  "continueWithFacebook": "Continuer avec Facebook"
+  "continueWithFacebook": "Continuer avec Facebook",
+  "sidebarTitle": "Barre latérale",
+  "sidebarDescription": "Affiche la barre latérale mobile.",
+  "toggleSidebar": "Basculer la barre latérale",
+  "user": "Utilisateur",
+  "toggleTheme": "Changer de thème"
 }

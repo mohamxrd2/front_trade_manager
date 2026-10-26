@@ -1,11 +1,21 @@
 import { ImageResponse } from 'next/og'
 
+import type { AppLanguage } from '@/lib/i18n/current-language'
+import { resolveInitialLanguage } from '@/lib/i18n/resolve-initial-language'
+
 export const runtime = 'edge'
-export const alt = 'Waelly — Gérez stock, ventes et factures de votre commerce'
+export const alt = 'Waelly — Gérez stock, ventes et factures de votre commerce' // i18n:allow — export statique évalué au chargement du module (pas de requête disponible), le rendu réel plus bas est bien bilingue
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
+const TAGLINE: Record<AppLanguage, string> = {
+  fr: 'Gérez stock, ventes et factures de votre commerce',
+  en: 'Manage your inventory, sales and invoices',
+}
+
 export default async function OpengraphImage() {
+  const language = await resolveInitialLanguage()
+  const tagline = TAGLINE[language]
   return new ImageResponse(
     (
       <div
@@ -54,7 +64,7 @@ export default async function OpengraphImage() {
             lineHeight: 1.3,
           }}
         >
-          Gérez stock, ventes et factures de votre commerce
+          {tagline}
         </div>
       </div>
     ),

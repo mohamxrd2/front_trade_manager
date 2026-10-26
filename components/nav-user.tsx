@@ -25,6 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/lib/i18n/hooks/useTranslation";
 import Link from "next/link";
 export function NavUser({
   user,
@@ -39,6 +40,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const { logout } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -95,7 +97,7 @@ export function NavUser({
               <Avatar className="h-10 w-10">
                 <AvatarImage
                   src={user.avatar }
-                  alt={user?.first_name || "User"}
+                  alt={user?.first_name || t('common.user')}
                 />
                 <AvatarFallback className="text-black dark:text-white">
                   {user?.first_name?.[0]}
@@ -122,7 +124,7 @@ export function NavUser({
               <Avatar className="h-8 w-8">
                 <AvatarImage
                   src={user.avatar}
-                  alt={user?.first_name || "User"}
+                  alt={user?.first_name || t('common.user')}
                 />
                 <AvatarFallback className="dark:text-white text-gray-900">
                   {user?.first_name?.[0]}
@@ -142,7 +144,7 @@ export function NavUser({
               <DropdownMenuItem asChild>
                 <Link href="/account">
                   <IconUserCircle />
-                  Profile
+                  {t('account.title')}
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
@@ -153,7 +155,7 @@ export function NavUser({
               className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
             >
               <IconLogout />
-              {isLoggingOut ? "Déconnexion..." : "Se déconnecter"}
+              {isLoggingOut ? t('nav.loggingOut') : t('nav.logout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

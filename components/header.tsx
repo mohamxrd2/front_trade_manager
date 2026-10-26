@@ -17,17 +17,19 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import { ModeToggle } from '@/components/modal-toggle'
 import { useAuth } from '@/contexts/AuthContext'
-const menuItems = [
-    { name: 'Features', href: '#link' },
-    { name: 'Solution', href: '#link' },
-    { name: 'Pricing', href: '#link' },
-    { name: 'About', href: '#link' },
-]
-
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 export const HeroHeader = () => {
     const [menuState, setMenuState] = React.useState(false)
     const [isScrolled, setIsScrolled] = React.useState(false)
     const { user, isAuthenticated, logout } = useAuth()
+    const { t } = useTranslation()
+
+    const menuItems = [
+        { name: t('landing.navbar.features'), href: '#link' },
+        { name: t('landing.heroHeaderDemo.menuSolution'), href: '#link' },
+        { name: t('landing.navbar.pricing'), href: '#link' },
+        { name: t('landing.heroHeaderDemo.menuAbout'), href: '#link' },
+    ]
 
     React.useEffect(() => {
         const handleScroll = () => {
@@ -46,14 +48,14 @@ export const HeroHeader = () => {
                         <div className="flex w-full justify-between lg:w-auto">
                             <Link
                                 href="/"
-                                aria-label="home"
+                                aria-label={t('nav.home')}
                                 className="flex items-center space-x-2">
                                 <Logo />
                             </Link>
 
                             <button
                                 onClick={() => setMenuState(!menuState)}
-                                aria-label={menuState == true ? 'Close Menu' : 'Open Menu'}
+                                aria-label={menuState == true ? t('landing.navbar.closeMenu') : t('landing.navbar.openMenu')}
                                 className="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden">
                                 <Menu className="in-data-[state=active]:rotate-180 in-data-[state=active]:scale-0 in-data-[state=active]:opacity-0 m-auto size-6 duration-200" />
                                 <X className="in-data-[state=active]:rotate-0 in-data-[state=active]:scale-100 in-data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 -rotate-180 scale-0 opacity-0 duration-200" />
@@ -97,7 +99,7 @@ export const HeroHeader = () => {
                                             size="sm"
                                             className={cn(isScrolled && 'lg:hidden')}>
                                             <Link href="/login">
-                                                <span>Login</span>
+                                                <span>{t('landing.navbar.login')}</span>
                                             </Link>
                                         </Button>
                                         <Button
@@ -106,7 +108,7 @@ export const HeroHeader = () => {
                                             size="sm"
                                             className={cn(isScrolled && 'lg:hidden')}>
                                             <Link href="/signup">
-                                                <span>Sign Up</span>
+                                                <span>{t('landing.ctaFooter.createAccountLink')}</span>
                                             </Link>
                                         </Button>
                                     </>
@@ -119,9 +121,9 @@ export const HeroHeader = () => {
                                                     size="sm"
                                                     className="relative h-8 w-8 rounded-full">
                                                     <Avatar className="h-10 w-10">
-                                                        <AvatarImage 
-                                                            src={user?.profile_image || '/avatars/default-avatar.jpg'} 
-                                                            alt={user?.first_name || 'User'} 
+                                                        <AvatarImage
+                                                            src={user?.profile_image || '/avatars/default-avatar.jpg'}
+                                                            alt={user?.first_name || t('common.user')}
                                                         />
                                                         <AvatarFallback className='dark:text-white text-gray-900'>
                                                             {user?.first_name?.[0]}{user?.last_name?.[0]}
@@ -144,14 +146,14 @@ export const HeroHeader = () => {
                                                 <DropdownMenuItem asChild>
                                                     <Link href="/dashboard">
                                                         <IconDashboard className="mr-2 h-4 w-4" />
-                                                        <span>Dashboard</span>
+                                                        <span>{t('nav.dashboard')}</span>
                                                     </Link>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem 
+                                                <DropdownMenuItem
                                                     onClick={() => logout()}
                                                     className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20">
-                                                    <span>Se déconnecter</span>
+                                                    <span>{t('nav.logout')}</span>
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -163,7 +165,7 @@ export const HeroHeader = () => {
                                     size="sm"
                                     className={cn(isScrolled ? 'lg:inline-flex' : 'hidden')}>
                                     <Link href="/dashboard">
-                                        <span>Get Started</span>
+                                        <span>{t('landing.hero.ctaPrimary')}</span>
                                     </Link>
                                 </Button>
                                 <ModeToggle />

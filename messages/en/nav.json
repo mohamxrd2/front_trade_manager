@@ -15,6 +15,7 @@
   "activitySection": "Activity",
   "accountSection": "Account",
   "logout": "Log out",
+  "loggingOut": "Logging out...",
   "logoutConfirmTitle": "Log out?",
   "logoutConfirmDescription": "You'll need to sign in again to access your account."
 }

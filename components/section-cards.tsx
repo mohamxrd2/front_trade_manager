@@ -10,6 +10,7 @@ import {
 import { Wallet, Package, ShoppingBag, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/hooks/useTranslation";
+import { formatNumber as formatLocalizedNumber } from "@/lib/i18n/format";
 import { useCurrency } from '@/lib/utils/currency';
 
 export function SectionCards({
@@ -22,21 +23,17 @@ export function SectionCards({
     calculated_wallet?: number;
   };
 }) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const { currency } = useCurrency()
-  
-  // Formatage des valeurs avec des valeurs par défaut
+
   const formatCurrency = (value?: number) => {
     if (!value && value !== 0) return "0";
-    return new Intl.NumberFormat("fr-FR", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+    return formatLocalizedNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
 
   const formatNumber = (value?: number) => {
     if (!value && value !== 0) return "0";
-    return new Intl.NumberFormat("fr-FR").format(value);
+    return formatLocalizedNumber(value, language);
   };
 
   return (

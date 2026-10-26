@@ -31,8 +31,15 @@ const CONFIG = {
 // null et NProgress plante sur `null.style` dans son propre `css()`.
 // `aria-label`/`aria-valuemin`/`aria-valuemax` restent lisibles par un
 // lecteur d'écran même avec `role="bar"` plutôt que `role="progressbar"`.
-const NPROGRESS_TEMPLATE =
-  '<div class="bar" role="bar" aria-label="Chargement" aria-valuemin="0" aria-valuemax="1" style="transition: all 0 linear;"><div class="peg"></div></div>'
+// Ce module se configure une seule fois au chargement, hors de tout rendu
+// React (NProgress gère son propre DOM) : on ne peut donc pas utiliser
+// useTranslation() ici — on lit directement `<html lang>`, déjà posé côté
+// serveur par RootLayout avant l'hydratation (voir resolveInitialLanguage).
+function buildNProgressTemplate(): string {
+  const isEnglish = typeof document !== 'undefined' && document.documentElement.lang === 'en'
+  const ariaLabel = isEnglish ? 'Loading' : 'Chargement'
+  return `<div class="bar" role="bar" aria-label="${ariaLabel}" aria-valuemin="0" aria-valuemax="1" style="transition: all 0 linear;"><div class="peg"></div></div>`
+}
 
 // Configuration NProgress (une seule fois au chargement)
 if (typeof window !== 'undefined') {
@@ -43,7 +50,7 @@ if (typeof window !== 'undefined') {
     easing: 'ease-out',
     speed: 300,
     trickle: true,
-    template: NPROGRESS_TEMPLATE,
+    template: buildNProgressTemplate(),
   })
 }
 

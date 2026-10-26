@@ -3,6 +3,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
 
 /**
  * Pagination numérotée — design/DESIGN.md § 7 (tableaux). Introduite pour
@@ -20,6 +21,7 @@ interface PaginationProps {
 }
 
 function Pagination({ page, pageCount, onPageChange, summary, className }: PaginationProps) {
+  const { t } = useTranslation()
   if (pageCount <= 1) return null
 
   const visiblePages = Array.from({ length: pageCount }, (_, i) => i + 1).filter(
@@ -39,7 +41,7 @@ function Pagination({ page, pageCount, onPageChange, summary, className }: Pagin
           disabled={page === 1}
           className="flex min-h-10 items-center rounded-full border border-line-strong bg-surface px-3.5 text-sm font-bold text-ink disabled:opacity-40"
         >
-          Précédent
+          {t('common.previous')}
         </button>
         {visiblePages.map((p, i) => (
           <React.Fragment key={p}>
@@ -65,7 +67,7 @@ function Pagination({ page, pageCount, onPageChange, summary, className }: Pagin
           disabled={page === pageCount}
           className="flex min-h-10 items-center rounded-full border border-line-strong bg-surface px-3.5 text-sm font-bold text-ink disabled:opacity-40"
         >
-          Suivant
+          {t('common.next')}
         </button>
       </span>
     </div>
