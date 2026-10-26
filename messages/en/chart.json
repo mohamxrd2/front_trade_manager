@@ -5,5 +5,8 @@
   "last3Months": "Last 3 months",
   "last30Days": "Last 30 days",
   "last7Days": "Last 7 days",
-  "selectPeriod": "Select a period"
+  "selectPeriod": "Select a period",
+  "defaultTrendLabel": "more than the previous period",
+  "defaultPrimaryLabel": "Sales",
+  "defaultSecondaryLabel": "Expenses"
 }

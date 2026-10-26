@@ -1,5 +1,4 @@
 [
-  "app/(dashboard)/analytics/page.tsx",
   "app/(dashboard)/layout.tsx",
   "app/(marketing)/layout.tsx",
   "app/auth/callback/page.tsx",
@@ -61,10 +60,8 @@
   "components/ui/toggle-group.tsx",
   "components/ui/toggle.tsx",
   "components/ui/tooltip.tsx",
-  "components/waelly/area-trend-chart.tsx",
   "components/waelly/button.tsx",
   "components/waelly/card.tsx",
-  "components/waelly/category-donut.tsx",
   "components/waelly/filter-chips.tsx",
   "components/waelly/hero-card.tsx",
   "components/waelly/kpi-card.tsx",

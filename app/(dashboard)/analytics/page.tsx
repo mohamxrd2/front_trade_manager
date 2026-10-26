@@ -21,6 +21,9 @@ import {
   type AnalyticsTransaction,
 } from '@/lib/services/analytics'
 import { Button, Card, CardTitle, KpiCard, SegmentedControl, FilterChips } from '@/components/waelly'
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatDate, formatNumber } from '@/lib/i18n/format'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 
 const AreaTrendChart = dynamic(
   () => import('@/components/waelly/area-trend-chart').then((m) => m.AreaTrendChart),
@@ -69,38 +72,34 @@ const CategoryDonut = dynamic(
 type PeriodId = 'today' | '7' | '30' | '90' | '365' | 'custom'
 
 const PERIOD_ORDER: PeriodId[] = ['today', '7', '30', '90', '365', 'custom']
-const PERIOD_LABELS: Record<PeriodId, string> = {
-  today: "Aujourd'hui",
-  '7': '7 jours',
-  '30': '30 jours',
-  '90': '3 mois',
-  '365': '12 mois',
-  custom: 'Personnalisé',
-}
-const COMPARISON_SUFFIX: Record<PeriodId, string> = {
-  today: 'vs hier',
-  '7': 'vs sem. préc.',
-  '30': 'vs mois préc.',
-  '90': 'vs trim. préc.',
-  '365': 'vs an préc.',
-  custom: 'vs période préc.',
-}
-const COMPARISON_TEXT: Record<PeriodId, string> = {
-  today: 'par rapport à hier',
-  '7': 'par rapport à la semaine dernière',
-  '30': 'par rapport au mois dernier',
-  '90': 'par rapport au trimestre précédent',
-  '365': "par rapport à l'année précédente",
-  custom: 'par rapport à la période précédente',
+/** Clés des objets `analytics.page.period`/`comparisonSuffix`/`comparisonText` ("7"/"90"/"365" ne sont pas des identifiants JS valides en clé pointée). */
+const PERIOD_KEY: Record<PeriodId, string> = {
+  today: 'today',
+  '7': 'd7',
+  '30': 'd30',
+  '90': 'd90',
+  '365': 'd365',
+  custom: 'custom',
 }
 
-const WEEKDAY_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
-const WEEKDAY_FULL = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
-const MONTH_SHORT = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
-const MONTH_FULL = [
-  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
-]
+function periodLabels(t: (key: string) => string): Record<PeriodId, string> {
+  return {
+    today: t('analytics.page.period.today'),
+    '7': t('analytics.page.period.d7'),
+    '30': t('analytics.page.period.d30'),
+    '90': t('analytics.page.period.d90'),
+    '365': t('analytics.page.period.d365'),
+    custom: t('analytics.page.period.custom'),
+  }
+}
+
+function comparisonSuffix(t: (key: string) => string, periodId: PeriodId): string {
+  return t(`analytics.page.comparisonSuffix.${PERIOD_KEY[periodId]}`)
+}
+
+function comparisonText(t: (key: string) => string, periodId: PeriodId): string {
+  return t(`analytics.page.comparisonText.${PERIOD_KEY[periodId]}`)
+}
 
 const Y_STEPS = [100_000, 300_000, 600_000, 2_000_000, 3_000_000]
 const DONUT_COLORS = ['#2A1A9E', '#6A4CF0', '#A58CFF', '#DCD4FF']
@@ -110,11 +109,12 @@ function snapYMax(max: number): number {
   return Y_STEPS.find((v) => v >= max) ?? max
 }
 
-const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Math.round(n))
-const pctFmt = (n: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(Math.abs(n))
+const fmt = (n: number, language: AppLanguage) => formatNumber(Math.round(n), language, { maximumFractionDigits: 0 })
+const pctFmt = (n: number, language: AppLanguage) => formatNumber(Math.abs(n), language, { maximumFractionDigits: 1 })
 
-function short(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return `${(Math.round(n / 100_000) / 10).toFixed(1).replace('.', ',')} M`
+function short(n: number, language: AppLanguage): string {
+  const decimalSeparator = language === 'en' ? '.' : ','
+  if (Math.abs(n) >= 1_000_000) return `${(Math.round(n / 100_000) / 10).toFixed(1).replace('.', decimalSeparator)} M`
   if (Math.abs(n) >= 1_000) return `${Math.round(n / 1_000)}k`
   return String(Math.round(n))
 }
@@ -163,17 +163,17 @@ function toApiParams(periodId: PeriodId, start: Dayjs, end: Dayjs): AnalyticsPar
   return { period: 'custom', start_date: start.format('YYYY-MM-DD'), end_date: end.format('YYYY-MM-DD') }
 }
 
-function formatRangeText(periodId: PeriodId, start: Dayjs, end: Dayjs): string {
+function formatRangeText(periodId: PeriodId, start: Dayjs, end: Dayjs, language: AppLanguage): string {
   if (periodId === 'today') {
-    return `${WEEKDAY_FULL[start.day()]} ${start.date()} ${MONTH_FULL[start.month()]} ${start.year()}`
+    return capitalize(formatDate(start.toDate(), language, 'dddd D MMMM YYYY'))
   }
   if (periodId === '365') {
-    const text = `${MONTH_SHORT[start.month()]} ${start.year()} → ${MONTH_SHORT[end.month()].toLowerCase()} ${end.year()}`
+    const text = `${formatDate(start.toDate(), language, 'MMM YYYY')} → ${formatDate(end.toDate(), language, 'MMM').toLowerCase()} ${end.year()}`
     return capitalize(text)
   }
   const sameMonth = start.month() === end.month() && start.year() === end.year()
-  const startPart = sameMonth ? `${start.date()}` : `${start.date()} ${MONTH_SHORT[start.month()].toLowerCase()}`
-  return capitalize(`${startPart} → ${end.date()} ${MONTH_SHORT[end.month()].toLowerCase()} ${end.year()}`)
+  const startPart = sameMonth ? `${start.date()}` : `${start.date()} ${formatDate(start.toDate(), language, 'MMM').toLowerCase()}`
+  return capitalize(`${startPart} → ${end.date()} ${formatDate(end.toDate(), language, 'MMM').toLowerCase()} ${end.year()}`)
 }
 
 type TrendPoint = { label: string; value: number }
@@ -184,7 +184,9 @@ function buildTrendPoints(
   sales: AnalyticsTransaction[],
   start: Dayjs,
   end: Dayjs,
-  compact: boolean
+  compact: boolean,
+  language: AppLanguage,
+  t: (key: string, params?: Record<string, string | number>) => string
 ): TrendPoint[] {
   const sorted = [...sales].sort((a, b) => dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf())
 
@@ -192,13 +194,14 @@ function buildTrendPoints(
     const checkpoints = [8, 10, 12, 14, 16, 18]
     let running = 0
     let cursor = 0
+    const hourSuffix = language === 'en' ? ':00' : 'h'
     return checkpoints.map((h) => {
       const boundary = start.hour(h).minute(0).second(0)
       while (cursor < sorted.length && dayjs(sorted[cursor].created_at).valueOf() <= boundary.valueOf()) {
         running += Number(sorted[cursor].amount)
         cursor += 1
       }
-      return { label: `${h}h`, value: running }
+      return { label: `${h}${hourSuffix}`, value: running }
     })
   }
 
@@ -211,12 +214,12 @@ function buildTrendPoints(
       byDay.set(d.format('YYYY-MM-DD'), 0)
       d = d.add(1, 'day')
     }
-    sorted.forEach((t) => {
-      const key = dayjs(t.created_at).format('YYYY-MM-DD')
-      if (byDay.has(key)) byDay.set(key, (byDay.get(key) ?? 0) + Number(t.amount))
+    sorted.forEach((tx) => {
+      const key = dayjs(tx.created_at).format('YYYY-MM-DD')
+      if (byDay.has(key)) byDay.set(key, (byDay.get(key) ?? 0) + Number(tx.amount))
     })
     return Array.from(byDay.entries()).map(([key, value]) => ({
-      label: WEEKDAY_SHORT[dayjs(key).day()],
+      label: formatDate(dayjs(key).toDate(), language, 'ddd'),
       value,
     }))
   }
@@ -229,14 +232,15 @@ function buildTrendPoints(
       byMonth.set(d.format('YYYY-MM'), 0)
       d = d.add(1, 'month')
     }
-    sorted.forEach((t) => {
-      const key = dayjs(t.created_at).format('YYYY-MM')
-      if (byMonth.has(key)) byMonth.set(key, (byMonth.get(key) ?? 0) + Number(t.amount))
+    sorted.forEach((tx) => {
+      const key = dayjs(tx.created_at).format('YYYY-MM')
+      if (byMonth.has(key)) byMonth.set(key, (byMonth.get(key) ?? 0) + Number(tx.amount))
     })
     const entries = Array.from(byMonth.entries()).slice(-12)
     return entries.map(([key, value]) => {
       const m = dayjs(key, 'YYYY-MM')
-      const label = compact ? MONTH_SHORT[m.month()][0].toUpperCase() : MONTH_SHORT[m.month()]
+      const monthShort = formatDate(m.toDate(), language, 'MMM')
+      const label = compact ? monthShort[0].toUpperCase() : monthShort
       return { label, value }
     })
   }
@@ -245,12 +249,15 @@ function buildTrendPoints(
   const bucketCount = Math.min(5, Math.max(1, Math.ceil(daysSpan / 7)))
   const bucketDays = Math.ceil(daysSpan / bucketCount)
   const buckets = Array.from({ length: bucketCount }, () => 0)
-  sorted.forEach((t) => {
-    const offset = dayjs(t.created_at).startOf('day').diff(start.startOf('day'), 'day')
+  sorted.forEach((tx) => {
+    const offset = dayjs(tx.created_at).startOf('day').diff(start.startOf('day'), 'day')
     const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor(offset / bucketDays)))
-    buckets[idx] += Number(t.amount)
+    buckets[idx] += Number(tx.amount)
   })
-  return buckets.map((value, i) => ({ label: compact ? `S${i + 1}` : `Sem. ${i + 1}`, value }))
+  return buckets.map((value, i) => ({
+    label: compact ? `${t('analytics.page.compactWeekPrefix')}${i + 1}` : t('analytics.page.weekLabel', { n: i + 1 }),
+    value,
+  }))
 }
 
 /** Régression linéaire simple (y = a + bx) sur les totaux mensuels, pour une estimation du mois suivant — clairement présentée comme une estimation. */
@@ -286,36 +293,45 @@ async function fetchAllTransactions(params: AnalyticsParams): Promise<AnalyticsT
   return acc
 }
 
-function formatTxMeta(dateString: string, withType: boolean, type: 'sale' | 'expense'): string {
+function formatTxMeta(
+  dateString: string,
+  withType: boolean,
+  type: 'sale' | 'expense',
+  language: AppLanguage,
+  t: (key: string) => string
+): string {
   const d = dayjs(dateString)
   const today = dayjs().startOf('day')
   const dayPart = d.isSame(today, 'day')
-    ? "Aujourd'hui"
+    ? t('wallet.today')
     : d.isSame(today.subtract(1, 'day'), 'day')
-      ? 'Hier'
-      : `${d.date()} ${MONTH_SHORT[d.month()].toLowerCase()}`
+      ? t('wallet.yesterday')
+      : `${d.date()} ${formatDate(d.toDate(), language, 'MMM').toLowerCase()}`
   const base = `${dayPart} · ${d.format('HH:mm')}`
-  return withType ? `${base} · ${type === 'sale' ? 'Vente' : 'Dépense'}` : base
+  return withType ? `${base} · ${type === 'sale' ? t('transactions.sale') : t('transactions.expense')}` : base
 }
 
-const TYPE_OPTIONS = [
-  { value: 'all', label: 'Tout' },
-  { value: 'sale', label: 'Ventes' },
-  { value: 'expense', label: 'Dépenses' },
-]
+function buildTypeOptions(t: (key: string) => string) {
+  return [
+    { value: 'all', label: t('analytics.page.typeAll') },
+    { value: 'sale', label: t('transactions.sales') },
+    { value: 'expense', label: t('transactions.expenses') },
+  ]
+}
 
 const KPI_COLOR = { positive: '#0B8A43', negative: '#D92D20' }
 
-function kpiDeltaPct(change: number | undefined, goodWhenIncreasing: boolean, suffix?: string) {
+function kpiDeltaPct(change: number | undefined, goodWhenIncreasing: boolean, language: AppLanguage, suffix?: string) {
   if (change === undefined || Number.isNaN(change)) return undefined
   const trend: 'up' | 'down' = change >= 0 ? 'up' : 'down'
   const positive = goodWhenIncreasing ? trend === 'up' : trend === 'down'
   const arrow = trend === 'up' ? '↑' : '↓'
-  const text = `${arrow} ${pctFmt(change)} %${suffix ? ` ${suffix}` : ''}`
+  const text = `${arrow} ${pctFmt(change, language)} %${suffix ? ` ${suffix}` : ''}`
   return { text, trend, positive }
 }
 
 export default function AnalyticsPage() {
+  const { t, language } = useTranslation()
   const router = useRouter()
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
@@ -382,7 +398,7 @@ export default function AnalyticsPage() {
     start_date: prevStart.format('YYYY-MM-DD'),
     end_date: prevEnd.format('YYYY-MM-DD'),
   }
-  const rangeText = formatRangeText(periodId, start, end)
+  const rangeText = formatRangeText(periodId, start, end, language)
   const queryKeyParams = JSON.stringify(apiParams)
   const enabled = now !== null
 
@@ -481,17 +497,17 @@ export default function AnalyticsPage() {
   const isLoading = !enabled || loadingOverview || loadingKpis || loadingComparisons || loadingCategory || loadingTransactions
 
   const salesInPeriod = React.useMemo(
-    () => (allTransactions ?? []).filter((t) => t.type === 'sale'),
+    () => (allTransactions ?? []).filter((tx) => tx.type === 'sale'),
     [allTransactions]
   )
   const expensesInPeriod = React.useMemo(
-    () => (allTransactions ?? []).filter((t) => t.type === 'expense'),
+    () => (allTransactions ?? []).filter((tx) => tx.type === 'expense'),
     [allTransactions]
   )
-  const trendData = enabled ? buildTrendPoints(periodId, salesInPeriod, start, end, false) : []
-  const trendDataMobile = enabled ? buildTrendPoints(periodId, salesInPeriod, start, end, true) : []
-  const expenseTrendData = enabled ? buildTrendPoints(periodId, expensesInPeriod, start, end, false) : []
-  const expenseTrendDataMobile = enabled ? buildTrendPoints(periodId, expensesInPeriod, start, end, true) : []
+  const trendData = enabled ? buildTrendPoints(periodId, salesInPeriod, start, end, false, language, t) : []
+  const trendDataMobile = enabled ? buildTrendPoints(periodId, salesInPeriod, start, end, true, language, t) : []
+  const expenseTrendData = enabled ? buildTrendPoints(periodId, expensesInPeriod, start, end, false, language, t) : []
+  const expenseTrendDataMobile = enabled ? buildTrendPoints(periodId, expensesInPeriod, start, end, true, language, t) : []
   const trendMax = Math.max(0, ...trendData.map((p) => p.value), ...expenseTrendData.map((p) => p.value))
   const yMax = snapYMax(trendMax)
 
@@ -510,11 +526,11 @@ export default function AnalyticsPage() {
     }))
     const othersPercent = Math.max(0, 100 - top3.reduce((sum, p) => sum + (p.total_amount / totalSales) * 100, 0))
     if (othersPercent >= 1) {
-      slices.push({ label: 'Autres', value: Math.round(othersPercent), color: DONUT_COLORS[3] })
+      slices.push({ label: t('analytics.page.others'), value: Math.round(othersPercent), color: DONUT_COLORS[3] })
     }
     if (slices.length > 1) slices[slices.length - 1].ringColor = '#B9ACF5'
     return slices
-  }, [categoryAnalysis, overview])
+  }, [categoryAnalysis, overview, t])
 
   const bestArticles = (categoryAnalysis?.top_products ?? []).slice(0, 4)
 
@@ -526,56 +542,56 @@ export default function AnalyticsPage() {
       byMonth.set(d.format('YYYY-MM'), 0)
       d = d.add(1, 'month')
     }
-    forecastTransactions.forEach((t) => {
-      const key = dayjs(t.created_at).format('YYYY-MM')
-      if (byMonth.has(key)) byMonth.set(key, (byMonth.get(key) ?? 0) + Number(t.amount))
+    forecastTransactions.forEach((tx) => {
+      const key = dayjs(tx.created_at).format('YYYY-MM')
+      if (byMonth.has(key)) byMonth.set(key, (byMonth.get(key) ?? 0) + Number(tx.amount))
     })
     return linearForecast(Array.from(byMonth.values()))
   }, [forecastTransactions, now])
 
-  const nextMonthLabel = now ? capitalize(`${MONTH_FULL[now.add(1, 'month').month()]} ${now.add(1, 'month').year()}`) : ''
+  const nextMonthLabel = now ? capitalize(formatDate(now.add(1, 'month').toDate(), language, 'MMMM YYYY')) : ''
 
-  const caDelta = kpiDeltaPct(comparisons?.sales.change, true, COMPARISON_SUFFIX[periodId])
-  const expensesDelta = kpiDeltaPct(comparisons?.expenses.change, false)
-  const netDelta = kpiDeltaPct(comparisons?.net_revenue.change, true)
+  const caDelta = kpiDeltaPct(comparisons?.sales.change, true, language, comparisonSuffix(t, periodId))
+  const expensesDelta = kpiDeltaPct(comparisons?.expenses.change, false, language)
+  const netDelta = kpiDeltaPct(comparisons?.net_revenue.change, true, language)
   const avgBasketChange =
     kpis && prevKpis && prevKpis.average_basket > 0
       ? ((kpis.average_basket - prevKpis.average_basket) / prevKpis.average_basket) * 100
       : undefined
-  const avgBasketDelta = kpiDeltaPct(avgBasketChange, true)
+  const avgBasketDelta = kpiDeltaPct(avgBasketChange, true, language)
 
   // « Ventes » = somme des QUANTITÉS vendues sur la période (pas un montant,
   // pas un nombre d'opérations) — à partir du même jeu de transactions que
   // la section « Transactions de la période » plus bas.
-  const salesQuantity = salesInPeriod.reduce((a, t) => a + (Number(t.quantity) || 0), 0)
-  const prevSalesQuantity = (prevSalesTransactions ?? []).reduce((a, t) => a + (Number(t.quantity) || 0), 0)
+  const salesQuantity = salesInPeriod.reduce((a, tx) => a + (Number(tx.quantity) || 0), 0)
+  const prevSalesQuantity = (prevSalesTransactions ?? []).reduce((a, tx) => a + (Number(tx.quantity) || 0), 0)
   const salesQtyChange =
     prevSalesQuantity > 0
       ? ((salesQuantity - prevSalesQuantity) / prevSalesQuantity) * 100
       : salesQuantity > 0
         ? 100
         : 0
-  const salesQtyDelta = kpiDeltaPct(salesQtyChange, true)
+  const salesQtyDelta = kpiDeltaPct(salesQtyChange, true, language)
 
   const kpisDesktop = [
-    { label: 'Chiffre d’affaires', value: `${fmt(overview?.total_sales ?? 0)} F`, delta: caDelta, hero: true },
-    { label: 'Dépenses', value: `${fmt(overview?.total_expenses ?? 0)} F`, delta: expensesDelta, hero: false },
-    { label: 'Bénéfice net', value: `${fmt(overview?.net_revenue ?? 0)} F`, delta: netDelta, hero: false },
-    { label: 'Ventes', value: fmt(salesQuantity), delta: salesQtyDelta, hero: false },
+    { label: t('analytics.page.kpiRevenue'), value: `${fmt(overview?.total_sales ?? 0, language)} F`, delta: caDelta, hero: true },
+    { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta, hero: false },
+    { label: t('analytics.page.kpiNetProfit'), value: `${fmt(overview?.net_revenue ?? 0, language)} F`, delta: netDelta, hero: false },
+    { label: t('transactions.sales'), value: fmt(salesQuantity, language), delta: salesQtyDelta, hero: false },
   ]
   const kpisMobile = [
-    { label: 'Chiffre d’affaires', value: fmt(overview?.total_sales ?? 0), delta: caDelta },
-    { label: 'Bénéfice net', value: fmt(overview?.net_revenue ?? 0), delta: netDelta },
-    { label: 'Panier moyen', value: fmt(kpis?.average_basket ?? 0), delta: avgBasketDelta },
-    { label: 'Ventes', value: fmt(salesQuantity), delta: salesQtyDelta },
+    { label: t('analytics.page.kpiRevenue'), value: fmt(overview?.total_sales ?? 0, language), delta: caDelta },
+    { label: t('analytics.page.kpiNetProfit'), value: fmt(overview?.net_revenue ?? 0, language), delta: netDelta },
+    { label: t('analytics.averageBasket'), value: fmt(kpis?.average_basket ?? 0, language), delta: avgBasketDelta },
+    { label: t('transactions.sales'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
   ]
 
   const compareRows = comparisons
     ? [
-        { label: 'Chiffre d’affaires', now: comparisons.sales.current, prev: comparisons.sales.previous, change: comparisons.sales.change, good: true },
-        { label: 'Dépenses', now: comparisons.expenses.current, prev: comparisons.expenses.previous, change: comparisons.expenses.change, good: false },
+        { label: t('analytics.page.kpiRevenue'), now: comparisons.sales.current, prev: comparisons.sales.previous, change: comparisons.sales.change, good: true },
+        { label: t('transactions.expenses'), now: comparisons.expenses.current, prev: comparisons.expenses.previous, change: comparisons.expenses.change, good: false },
         {
-          label: 'Nombre de ventes',
+          label: t('analytics.page.salesCountLabel'),
           now: kpis?.sales_count ?? 0,
           prev: prevKpis?.sales_count ?? 0,
           change: prevKpis && prevKpis.sales_count > 0 ? ((kpis?.sales_count ?? 0) - prevKpis.sales_count) / prevKpis.sales_count * 100 : 0,
@@ -584,9 +600,9 @@ export default function AnalyticsPage() {
       ]
     : []
 
-  const filteredTx = (allTransactions ?? []).filter((t) => txType === 'all' || t.type === txType)
-  const sumIn = salesInPeriod.reduce((a, t) => a + Number(t.amount), 0)
-  const sumOut = (allTransactions ?? []).filter((t) => t.type === 'expense').reduce((a, t) => a + Number(t.amount), 0)
+  const filteredTx = (allTransactions ?? []).filter((tx) => txType === 'all' || tx.type === txType)
+  const sumIn = salesInPeriod.reduce((a, tx) => a + Number(tx.amount), 0)
+  const sumOut = (allTransactions ?? []).filter((tx) => tx.type === 'expense').reduce((a, tx) => a + Number(tx.amount), 0)
   const txTotal = allTransactions?.length ?? 0
 
   const slicedDesktop = showAllTx ? filteredTx : filteredTx.slice(0, 6)
@@ -600,7 +616,7 @@ export default function AnalyticsPage() {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
         <AlertCircle className="size-12 text-subtle" />
-        <p className="text-sm text-subtle">Redirection vers la connexion…</p>
+        <p className="text-sm text-subtle">{t('analytics.page.redirectingToLogin')}</p>
       </div>
     )
   }
@@ -610,7 +626,7 @@ export default function AnalyticsPage() {
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
         <AlertCircle className="size-12 text-subtle" />
         <p className="text-sm text-subtle">
-          {(otherError as Error).message || 'Impossible de charger les analyses.'}
+          {(otherError as Error).message || t('analytics.page.loadError')}
         </p>
         <Button
           variant="secondary"
@@ -620,18 +636,20 @@ export default function AnalyticsPage() {
             })
           }
         >
-          Réessayer
+          {t('common.retry')}
         </Button>
       </div>
     )
   }
 
-  const periodChips = PERIOD_ORDER.map((id) => ({ value: id, label: PERIOD_LABELS[id] }))
+  const periodLabelsByPeriod = periodLabels(t)
+  const periodChips = PERIOD_ORDER.map((id) => ({ value: id, label: periodLabelsByPeriod[id] }))
+  const typeOptions = buildTypeOptions(t)
 
   const customDatesDesktop = (
     <div className="flex flex-wrap items-end gap-3 rounded-[20px] bg-surface p-3.5 shadow-card">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="adu" className="text-xs font-semibold text-subtle">Du</label>
+        <label htmlFor="adu" className="text-xs font-semibold text-subtle">{t('analytics.from')}</label>
         <input
           id="adu"
           type="date"
@@ -641,7 +659,7 @@ export default function AnalyticsPage() {
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="aau" className="text-xs font-semibold text-subtle">Au</label>
+        <label htmlFor="aau" className="text-xs font-semibold text-subtle">{t('analytics.to')}</label>
         <input
           id="aau"
           type="date"
@@ -656,7 +674,7 @@ export default function AnalyticsPage() {
         disabled={!draftFrom || !draftTo || draftFrom > draftTo}
         className="flex h-11 items-center rounded-full bg-active px-4.5 text-sm font-bold text-white disabled:opacity-40"
       >
-        Appliquer
+        {t('analytics.page.apply')}
       </button>
     </div>
   )
@@ -664,7 +682,7 @@ export default function AnalyticsPage() {
   const customDatesMobile = (
     <div className="grid grid-cols-2 gap-2.5 rounded-[18px] border border-line bg-surface p-3">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="du" className="text-xs font-semibold text-subtle">Du</label>
+        <label htmlFor="du" className="text-xs font-semibold text-subtle">{t('analytics.from')}</label>
         <input
           id="du"
           type="date"
@@ -677,7 +695,7 @@ export default function AnalyticsPage() {
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="au" className="text-xs font-semibold text-subtle">Au</label>
+        <label htmlFor="au" className="text-xs font-semibold text-subtle">{t('analytics.to')}</label>
         <input
           id="au"
           type="date"
@@ -698,7 +716,7 @@ export default function AnalyticsPage() {
       <div className="hidden flex-col gap-5 lg:flex">
         <div className="flex flex-wrap items-end justify-between gap-3.5">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Analyses</h1>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('nav.analytics')}</h1>
             <span className="text-sm text-subtle">{rangeText}</span>
           </div>
           <SegmentedControl options={periodChips} value={periodId} onChange={handlePeriodChange} />
@@ -738,17 +756,17 @@ export default function AnalyticsPage() {
               <div className="h-[260px] animate-pulse rounded-tile bg-surface-soft" />
             ) : (
               <AreaTrendChart
-                title="Tendance des ventes"
+                title={t('analytics.page.trendTitle')}
                 trendPercent={comparisons ? Math.abs(comparisons.sales.change) : undefined}
-                trendLabel={COMPARISON_TEXT[periodId]}
+                trendLabel={comparisonText(t, periodId)}
                 data={trendData}
-                secondarySeries={{ data: expenseTrendData, label: 'Dépenses' }}
+                secondarySeries={{ data: expenseTrendData, label: t('transactions.expenses') }}
                 yMax={yMax}
                 showTooltip
                 height={240}
                 actions={
                   <span className="rounded-2xl border border-line-strong px-3 py-2 text-[13px] font-semibold">
-                    {PERIOD_LABELS[periodId]}
+                    {periodLabelsByPeriod[periodId]}
                   </span>
                 }
               />
@@ -756,18 +774,18 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card className="flex-[1_1_300px]">
-            <CardTitle>Répartition des ventes</CardTitle>
+            <CardTitle>{t('analytics.page.distributionTitle')}</CardTitle>
             <div className="mt-4">
               {isLoading ? (
                 <div className="h-[220px] animate-pulse rounded-tile bg-surface-soft" />
               ) : donutData.length > 0 ? (
                 <CategoryDonut
                   data={donutData}
-                  centerValue={short(overview?.total_sales ?? 0)}
-                  centerLabel="Total ventes"
+                  centerValue={short(overview?.total_sales ?? 0, language)}
+                  centerLabel={t('analytics.page.totalSalesLabel')}
                 />
               ) : (
-                <p className="py-10 text-center text-sm text-subtle">Aucune vente sur cette période.</p>
+                <p className="py-10 text-center text-sm text-subtle">{t('analytics.page.noSalesInPeriod')}</p>
               )}
             </div>
           </Card>
@@ -775,11 +793,11 @@ export default function AnalyticsPage() {
 
         <div className="flex flex-wrap gap-5">
           <Card className="flex-[1_1_320px]">
-            <CardTitle>Comparaison avec la période précédente</CardTitle>
+            <CardTitle>{t('analytics.page.comparisonTitle')}</CardTitle>
             <div className="mt-3.5 flex flex-col gap-3.5">
               {compareRows.map((row) => {
                 const maxVal = Math.max(row.now, row.prev, 1)
-                const delta = kpiDeltaPct(row.change, row.good)
+                const delta = kpiDeltaPct(row.change, row.good, language)
                 return (
                   <div key={row.label} className="flex flex-col gap-1.5">
                     <div className="flex justify-between text-sm">
@@ -801,22 +819,22 @@ export default function AnalyticsPage() {
               })}
             </div>
             <div className="mt-3.5 flex gap-4 text-xs text-ink-3">
-              <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-500" />Période actuelle</span>
-              <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-200" />Période précédente</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-500" />{t('analytics.page.currentPeriod')}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-200" />{t('analytics.page.previousPeriod')}</span>
             </div>
           </Card>
 
           <Card className="flex-[1_1_320px]">
-            <CardTitle>Meilleurs articles</CardTitle>
+            <CardTitle>{t('analytics.page.bestArticlesTitle')}</CardTitle>
             <div className="mt-2.5 flex flex-col gap-2.5">
               {bestArticles.length === 0 ? (
-                <p className="text-sm text-subtle">Aucune vente sur cette période.</p>
+                <p className="text-sm text-subtle">{t('analytics.page.noSalesInPeriod')}</p>
               ) : (
                 bestArticles.map((a, i) => (
                   <div key={a.id} className="flex items-center gap-3 text-sm">
                     <span className="w-7 font-extrabold text-brand-500">{i + 1}</span>
                     <span className="flex-1 font-semibold text-ink">{a.name}</span>
-                    <span className="text-ink-3">{a.total_quantity} vente{a.total_quantity > 1 ? 's' : ''}</span>
+                    <span className="text-ink-3">{t('analytics.page.salesCountIcu', { count: a.total_quantity })}</span>
                   </div>
                 ))
               )}
@@ -830,11 +848,10 @@ export default function AnalyticsPage() {
               boxShadow: '0 14px 30px rgba(16,16,120,0.24)',
             }}
           >
-            <h2 className="text-lg font-bold">Prévision</h2>
-            <span className="text-[34px] font-extrabold tracking-tight">≈ {short(forecastNextMonth)} F</span>
+            <h2 className="text-lg font-bold">{t('analytics.page.forecastTitle')}</h2>
+            <span className="text-[34px] font-extrabold tracking-tight">≈ {short(forecastNextMonth, language)} F</span>
             <p className="text-sm leading-relaxed" style={{ color: '#DCDCF7' }}>
-              Estimation (régression linéaire sur les 6 derniers mois) des ventes attendues en {nextMonthLabel} si la
-              tendance se poursuit.
+              {t('analytics.page.forecastDescription', { month: nextMonthLabel })}
             </p>
           </section>
         </div>
@@ -842,16 +859,16 @@ export default function AnalyticsPage() {
         <section className="flex flex-col gap-3.5 rounded-[26px] bg-surface p-5.5 shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-lg font-bold text-ink">Transactions de la période</h2>
+              <h2 className="text-lg font-bold text-ink">{t('analytics.page.transactionsTitle')}</h2>
               <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-bold text-brand-700">
-                {txTotal} opération{txTotal > 1 ? 's' : ''}
+                {t('analytics.page.operationsCountIcu', { count: txTotal })}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[13px] font-bold text-success-strong">Entrées +{fmt(sumIn)} F</span>
-              <span className="text-[13px] font-bold text-danger-strong">Sorties −{fmt(sumOut)} F</span>
+              <span className="text-[13px] font-bold text-success-strong">{t('analytics.page.inflows')} +{fmt(sumIn, language)} F</span>
+              <span className="text-[13px] font-bold text-danger-strong">{t('analytics.page.outflows')} −{fmt(sumOut, language)} F</span>
               <FilterChips
-                options={TYPE_OPTIONS}
+                options={typeOptions}
                 value={txType}
                 onChange={(v) => updateUrl({ type: v })}
               />
@@ -863,49 +880,49 @@ export default function AnalyticsPage() {
               {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-tile bg-surface-soft" />)}
             </div>
           ) : filteredTx.length === 0 ? (
-            <p className="py-6 text-center text-sm text-subtle">Aucune transaction sur cette période.</p>
+            <p className="py-6 text-center text-sm text-subtle">{t('analytics.page.noTransactionsInPeriod')}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px] border-collapse text-sm">
                 <thead>
                   <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                    <th className="px-2 py-2.5">Opération</th>
-                    <th className="px-2 py-2.5">Type</th>
-                    <th className="px-2 py-2.5">Date</th>
-                    <th className="px-2 py-2.5 text-right">Montant</th>
+                    <th className="px-2 py-2.5">{t('analytics.page.colOperation')}</th>
+                    <th className="px-2 py-2.5">{t('analytics.page.colType')}</th>
+                    <th className="px-2 py-2.5">{t('analytics.page.colDate')}</th>
+                    <th className="px-2 py-2.5 text-right">{t('analytics.page.colAmount')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {slicedDesktop.map((t) => (
-                    <tr key={t.id} className="border-t border-divider">
+                  {slicedDesktop.map((tx) => (
+                    <tr key={tx.id} className="border-t border-divider">
                       <td className="px-2 py-3">
                         <span className="flex items-center gap-3">
                           <span
                             className={`flex size-9 shrink-0 items-center justify-center rounded-2xl ${
-                              t.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
+                              tx.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
                             }`}
                           >
-                            {t.type === 'sale' ? <ArrowUpRight className="size-4" /> : <ArrowDownLeft className="size-4" />}
+                            {tx.type === 'sale' ? <ArrowUpRight className="size-4" /> : <ArrowDownLeft className="size-4" />}
                           </span>
-                          <span className="font-semibold text-ink">{t.name}</span>
+                          <span className="font-semibold text-ink">{tx.name}</span>
                         </span>
                       </td>
                       <td className="px-2 py-3">
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                            t.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
+                            tx.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
                           }`}
                         >
-                          {t.type === 'sale' ? 'Vente' : 'Dépense'}
+                          {tx.type === 'sale' ? t('transactions.sale') : t('transactions.expense')}
                         </span>
                       </td>
-                      <td className="px-2 py-3 text-ink-3">{formatTxMeta(t.created_at, false, t.type)}</td>
+                      <td className="px-2 py-3 text-ink-3">{formatTxMeta(tx.created_at, false, tx.type, language, t)}</td>
                       <td
                         className={`whitespace-nowrap px-2 py-3 text-right font-bold ${
-                          t.type === 'sale' ? 'text-success' : 'text-danger'
+                          tx.type === 'sale' ? 'text-success' : 'text-danger'
                         }`}
                       >
-                        {t.type === 'sale' ? '+' : '−'}{fmt(Number(t.amount))}
+                        {tx.type === 'sale' ? '+' : '−'}{fmt(Number(tx.amount), language)}
                       </td>
                     </tr>
                   ))}
@@ -921,13 +938,13 @@ export default function AnalyticsPage() {
               className="self-center rounded-full border border-line-strong bg-surface px-5 py-2.5 text-sm font-bold"
               style={{ color: '#3A20B8' }}
             >
-              {showAllTx ? 'Réduire' : `Voir les ${filteredTx.length} transactions`}
+              {showAllTx ? t('analytics.page.collapse') : t('analytics.page.viewTransactionsCount', { count: filteredTx.length })}
             </button>
           ) : null}
 
           {txTotal > 50 ? (
             <Link href={walletHref} className="self-center text-sm font-semibold text-brand-600">
-              Tout voir dans le Portefeuille
+              {t('analytics.page.viewAllInWallet')}
             </Link>
           ) : null}
         </section>
@@ -937,17 +954,17 @@ export default function AnalyticsPage() {
       <div className="flex flex-col gap-4.5 lg:hidden">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">Analyses</h1>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('nav.analytics')}</h1>
             <span className="text-[13px] text-subtle">{rangeText}</span>
           </div>
           <button
             type="button"
             onClick={() => handlePeriodChange('custom')}
-            aria-label="Choisir des dates"
+            aria-label={t('analytics.page.chooseDatesAria')}
             className="flex min-h-11 items-center gap-2 rounded-full bg-surface px-3.5 text-[13px] font-semibold text-ink shadow-[0_2px_10px_rgba(17,17,80,0.06)]"
           >
             <Calendar className="size-[17px]" strokeWidth={1.9} />
-            Dates
+            {t('analytics.page.datesButton')}
           </button>
         </div>
 
@@ -986,9 +1003,9 @@ export default function AnalyticsPage() {
 
         <Card>
           <div className="flex items-center justify-between">
-            <span className="text-base font-bold text-ink">Tendance des ventes</span>
+            <span className="text-base font-bold text-ink">{t('analytics.page.trendTitle')}</span>
             <span className="rounded-2xl border border-line-strong px-3 py-2 text-[13px] font-semibold">
-              {PERIOD_LABELS[periodId]}
+              {periodLabelsByPeriod[periodId]}
             </span>
           </div>
           {isLoading ? (
@@ -996,9 +1013,9 @@ export default function AnalyticsPage() {
           ) : (
             <AreaTrendChart
               trendPercent={comparisons ? Math.abs(comparisons.sales.change) : undefined}
-              trendLabel={COMPARISON_TEXT[periodId]}
+              trendLabel={comparisonText(t, periodId)}
               data={trendDataMobile}
-              secondarySeries={{ data: expenseTrendDataMobile, label: 'Dépenses' }}
+              secondarySeries={{ data: expenseTrendDataMobile, label: t('transactions.expenses') }}
               yMax={yMax}
               showTooltip
               height={180}
@@ -1008,30 +1025,30 @@ export default function AnalyticsPage() {
         </Card>
 
         <Card>
-          <CardTitle>Répartition des ventes</CardTitle>
+          <CardTitle>{t('analytics.page.distributionTitle')}</CardTitle>
           <div className="mt-3.5 flex items-center gap-4">
             {isLoading ? (
               <div className="h-[128px] w-[128px] shrink-0 animate-pulse rounded-full bg-surface-soft" />
             ) : donutData.length > 0 ? (
               <CategoryDonut
                 data={donutData}
-                centerValue={short(overview?.total_sales ?? 0)}
-                centerLabel="Total ventes"
+                centerValue={short(overview?.total_sales ?? 0, language)}
+                centerLabel={t('analytics.page.totalSalesLabel')}
                 size={128}
                 layout="row"
               />
             ) : (
-              <p className="py-6 text-sm text-subtle">Aucune vente sur cette période.</p>
+              <p className="py-6 text-sm text-subtle">{t('analytics.page.noSalesInPeriod')}</p>
             )}
           </div>
         </Card>
 
         <Card>
-          <CardTitle>Comparaison avec la période précédente</CardTitle>
+          <CardTitle>{t('analytics.page.comparisonTitle')}</CardTitle>
           <div className="mt-3.5 flex flex-col gap-3.5">
             {compareRows.map((row) => {
               const maxVal = Math.max(row.now, row.prev, 1)
-              const delta = kpiDeltaPct(row.change, row.good)
+              const delta = kpiDeltaPct(row.change, row.good, language)
               return (
                 <div key={row.label} className="flex flex-col gap-1.5">
                   <div className="flex justify-between text-sm">
@@ -1053,22 +1070,22 @@ export default function AnalyticsPage() {
             })}
           </div>
           <div className="mt-3.5 flex gap-4 text-xs text-ink-3">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-500" />Période actuelle</span>
-            <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-200" />Période précédente</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-500" />{t('analytics.page.currentPeriod')}</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded bg-brand-200" />{t('analytics.page.previousPeriod')}</span>
           </div>
         </Card>
 
         <Card>
-          <CardTitle>Meilleurs articles</CardTitle>
+          <CardTitle>{t('analytics.page.bestArticlesTitle')}</CardTitle>
           <div className="mt-2.5 flex flex-col gap-2.5">
             {bestArticles.length === 0 ? (
-              <p className="text-sm text-subtle">Aucune vente sur cette période.</p>
+              <p className="text-sm text-subtle">{t('analytics.page.noSalesInPeriod')}</p>
             ) : (
               bestArticles.map((a, i) => (
                 <div key={a.id} className="flex items-center gap-3 text-sm">
                   <span className="w-7 font-extrabold text-brand-500">{i + 1}</span>
                   <span className="flex-1 font-semibold text-ink">{a.name}</span>
-                  <span className="text-ink-3">{a.total_quantity} vente{a.total_quantity > 1 ? 's' : ''}</span>
+                  <span className="text-ink-3">{t('analytics.page.salesCountIcu', { count: a.total_quantity })}</span>
                 </div>
               ))
             )}
@@ -1077,25 +1094,25 @@ export default function AnalyticsPage() {
 
         <Card>
           <div className="flex items-center justify-between gap-2.5">
-            <CardTitle>Transactions de la période</CardTitle>
+            <CardTitle>{t('analytics.page.transactionsTitle')}</CardTitle>
             <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-bold text-brand-700">
-              {txTotal} opération{txTotal > 1 ? 's' : ''}
+              {t('analytics.page.operationsCountIcu', { count: txTotal })}
             </span>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-0.5 rounded-tile bg-success-bg p-2.5">
-              <span className="text-xs font-semibold text-success-strong">Entrées</span>
-              <span className="text-[15px] font-bold text-success-strong">+{fmt(sumIn)} F</span>
+              <span className="text-xs font-semibold text-success-strong">{t('analytics.page.inflows')}</span>
+              <span className="text-[15px] font-bold text-success-strong">+{fmt(sumIn, language)} F</span>
             </div>
             <div className="flex flex-col gap-0.5 rounded-tile bg-danger-bg p-2.5">
-              <span className="text-xs font-semibold text-danger-strong">Sorties</span>
-              <span className="text-[15px] font-bold text-danger-strong">−{fmt(sumOut)} F</span>
+              <span className="text-xs font-semibold text-danger-strong">{t('analytics.page.outflows')}</span>
+              <span className="text-[15px] font-bold text-danger-strong">−{fmt(sumOut, language)} F</span>
             </div>
           </div>
 
           <div className="mt-3 grid grid-cols-3 gap-1 rounded-[22px] bg-surface-soft p-1">
-            {TYPE_OPTIONS.map((opt) => (
+            {typeOptions.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
@@ -1115,24 +1132,24 @@ export default function AnalyticsPage() {
               {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-tile bg-surface-soft" />)}
             </div>
           ) : filteredTx.length === 0 ? (
-            <p className="py-5 text-center text-sm text-subtle">Aucune transaction sur cette période.</p>
+            <p className="py-5 text-center text-sm text-subtle">{t('analytics.page.noTransactionsInPeriod')}</p>
           ) : (
             <div className="flex flex-col">
-              {slicedMobile.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 border-b border-divider py-2.5 last:border-b-0">
+              {slicedMobile.map((tx) => (
+                <div key={tx.id} className="flex items-center gap-3 border-b border-divider py-2.5 last:border-b-0">
                   <span
                     className={`flex size-10 shrink-0 items-center justify-center rounded-[20px] ${
-                      t.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
+                      tx.type === 'sale' ? 'bg-success-bg text-success-strong' : 'bg-danger-bg text-danger-strong'
                     }`}
                   >
-                    {t.type === 'sale' ? <ArrowUpRight className="size-5" /> : <ArrowDownLeft className="size-5" />}
+                    {tx.type === 'sale' ? <ArrowUpRight className="size-5" /> : <ArrowDownLeft className="size-5" />}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="truncate text-sm font-semibold text-ink">{t.name}</span>
-                    <span className="text-xs text-subtle">{formatTxMeta(t.created_at, true, t.type)}</span>
+                    <span className="truncate text-sm font-semibold text-ink">{tx.name}</span>
+                    <span className="text-xs text-subtle">{formatTxMeta(tx.created_at, true, tx.type, language, t)}</span>
                   </span>
-                  <span className={`whitespace-nowrap text-sm font-bold ${t.type === 'sale' ? 'text-success' : 'text-danger'}`}>
-                    {t.type === 'sale' ? '+' : '−'}{fmt(Number(t.amount))}
+                  <span className={`whitespace-nowrap text-sm font-bold ${tx.type === 'sale' ? 'text-success' : 'text-danger'}`}>
+                    {tx.type === 'sale' ? '+' : '−'}{fmt(Number(tx.amount), language)}
                   </span>
                 </div>
               ))}
@@ -1146,13 +1163,13 @@ export default function AnalyticsPage() {
               className="mt-2.5 min-h-[46px] rounded-full border border-line-strong bg-surface text-sm font-bold"
               style={{ color: '#3A20B8' }}
             >
-              {showAllTx ? 'Réduire' : `Voir les ${filteredTx.length} transactions`}
+              {showAllTx ? t('analytics.page.collapse') : t('analytics.page.viewTransactionsCount', { count: filteredTx.length })}
             </button>
           ) : null}
 
           {txTotal > 50 ? (
             <Link href={walletHref} className="mt-2 self-center text-center text-sm font-semibold text-brand-600">
-              Tout voir dans le Portefeuille
+              {t('analytics.page.viewAllInWallet')}
             </Link>
           ) : null}
         </Card>
