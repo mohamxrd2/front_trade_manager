@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { EASE } from '@/lib/motion'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { useLanguage } from '@/lib/i18n/context/LanguageContext'
 
 const NAV_LINKS = [
   { href: '#top', labelKey: 'landing.navbar.home' },
@@ -16,6 +17,42 @@ const NAV_LINKS = [
   { href: '#tarifs', labelKey: 'landing.navbar.pricing' },
   { href: '#faq', labelKey: 'landing.navbar.faq' },
 ]
+
+// Le nom d'une langue s'affiche toujours DANS cette langue, jamais traduit.
+const LANGUAGE_OPTIONS = [
+  { value: 'fr', label: 'FR' }, // i18n:allow — code de langue affiché dans sa propre langue, jamais traduit
+  { value: 'en', label: 'EN' },
+] as const
+
+function LanguageSwitcher({ className }: { className?: string }) {
+  const { language, setLanguage } = useLanguage()
+  const { t } = useTranslation()
+  return (
+    <div
+      role="group"
+      aria-label={t('landing.navbar.languageAria')}
+      className={cn('inline-flex shrink-0 items-center gap-0.5 rounded-full border border-[#E4E4F0] bg-white/60 p-0.5', className)}
+    >
+      {LANGUAGE_OPTIONS.map((opt) => {
+        const active = opt.value === language
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => setLanguage(opt.value)}
+            className={cn(
+              'min-h-9 rounded-full px-3 text-[13px] font-bold transition-colors',
+              active ? 'bg-[#0E0E1A] text-white' : 'text-[#3F3F50] hover:text-[#0E0E1A]'
+            )}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 const SECTION_IDS = ['top', 'fonctionnalites', 'tarifs', 'faq']
 
@@ -145,6 +182,7 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
+          <LanguageSwitcher />
           <AuthCta />
         </div>
 
@@ -188,8 +226,9 @@ export function Navbar() {
                 {t(link.labelKey)}
               </m.a>
             ))}
-            <div className="mt-1 px-1 pb-1">
-              <AuthCta className="w-full" />
+            <div className="mt-1 flex items-center justify-between gap-2 px-1 pb-1">
+              <LanguageSwitcher />
+              <AuthCta className="flex-1" />
             </div>
           </m.div>
         ) : null}

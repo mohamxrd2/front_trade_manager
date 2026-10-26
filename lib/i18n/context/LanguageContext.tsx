@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import {
   type AppLanguage,
@@ -34,6 +35,7 @@ interface LanguageProviderProps {
 }
 
 export function LanguageProvider({ children, initialLanguage }: LanguageProviderProps) {
+  const { isAuthenticated } = useAuth()
   const { settings, updateSettings } = useSettings()
   const [language, setLanguageState] = useState<Language>(initialLanguage)
   // Lu une seule fois ici : état initial identique sur serveur et client
@@ -78,8 +80,16 @@ export function LanguageProvider({ children, initialLanguage }: LanguageProvider
   // cas d'échec, le prochain chargement des settings resynchronisera de
   // toute façon (pas de rollback visuel nécessaire pour un simple réglage
   // d'affichage, contrairement à une mutation de données métier).
+  //
+  // Visiteur anonyme (ex. sélecteur de langue de la landing page) : aucun
+  // compte où persister le réglage — PUT /api/user/settings répondrait 401
+  // et ferait remonter un toast d'erreur sans rapport pour l'utilisateur,
+  // malgré `silent: true` (qui ne couvre que le toast de SUCCÈS). On se
+  // contente de l'état local + du cookie (écrit par l'effet ci-dessus),
+  // repris automatiquement à la connexion suivante par le même mécanisme.
   const setLanguage = useCallback(async (lang: Language) => {
     setLanguageState(lang)
+    if (!isAuthenticated) return
 
     try {
       await updateSettings({ language: lang }, { silent: true })
@@ -88,7 +98,7 @@ export function LanguageProvider({ children, initialLanguage }: LanguageProvider
       // reste sur la langue choisie, l'utilisateur n'est pas bloqué par un
       // échec de sauvegarde pour un simple changement d'affichage.
     }
-  }, [updateSettings])
+  }, [updateSettings, isAuthenticated])
 
   const value = useMemo(
     () => ({ language, setLanguage, pseudoMode, togglePseudoMode }),

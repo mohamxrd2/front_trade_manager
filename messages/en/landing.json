@@ -126,7 +126,8 @@
     "login": "Log in",
     "mainNav": "Main navigation",
     "closeMenu": "Close menu",
-    "openMenu": "Open menu"
+    "openMenu": "Open menu",
+    "languageAria": "Language"
   },
   "faq": {
     "titleLine1": "Got questions?",

@@ -126,7 +126,8 @@
     "login": "Se connecter",
     "mainNav": "Navigation principale",
     "closeMenu": "Fermer le menu",
-    "openMenu": "Ouvrir le menu"
+    "openMenu": "Ouvrir le menu",
+    "languageAria": "Langue"
   },
   "faq": {
     "titleLine1": "Des questions ?",
