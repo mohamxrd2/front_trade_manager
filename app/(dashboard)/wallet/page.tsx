@@ -29,6 +29,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
+  Amount,
+  AmountVisibilityToggle,
   Button,
   Card,
   FilterChips,
@@ -408,8 +410,11 @@ export default function WalletPage() {
         </div>
 
         <div className="flex flex-col gap-1.5 rounded-tile bg-[radial-gradient(120%_120%_at_100%_100%,#3A3AF0_0%,#1717A0_40%,#0A0A4A_85%)] p-3.5 text-white">
-          <span className="text-[13px] text-navy-text">{t('wallet.list.balanceLabel', { period: periodLabel })}</span>
-          <span className="text-2xl font-bold tracking-[-0.02em]">{formatAmount(summary.balance, language)} F</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[13px] text-navy-text">{t('wallet.list.balanceLabel', { period: periodLabel })}</span>
+            <AmountVisibilityToggle variant="hero" />
+          </div>
+          <span className="text-2xl font-bold tracking-[-0.02em]"><Amount value={summary.balance} /> F</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
@@ -418,14 +423,14 @@ export default function WalletPage() {
               <span className="size-2 rounded-full bg-brand-500" />
               {t('wallet.list.entriesLabelWithPeriod', { period: periodShort })}
             </span>
-            <span className="text-xl font-bold text-success">{formatAmount(summary.entries, language)}</span>
+            <span className="text-xl font-bold text-success"><Amount value={summary.entries} /></span>
           </div>
           <div className="flex flex-col gap-1.5 rounded-tile border border-line bg-surface p-3.5">
             <span className="flex items-center gap-1.5 text-[13px] text-subtle">
               <span className="size-2 rounded-full bg-danger" />
               {t('wallet.list.exitsLabelWithPeriod', { period: periodShort })}
             </span>
-            <span className="text-xl font-bold text-danger">{formatAmount(summary.exits, language)}</span>
+            <span className="text-xl font-bold text-danger"><Amount value={summary.exits} /></span>
           </div>
         </div>
 
@@ -492,7 +497,7 @@ export default function WalletPage() {
                         className={`shrink-0 text-sm font-bold ${tx.type === 'sale' ? 'text-success' : 'text-danger'}`}
                       >
                         {tx.type === 'sale' ? '+' : '−'}
-                        {formatAmount(tx.amount ?? 0, language)}
+                        <Amount value={tx.amount ?? 0} />
                       </span>
                     </label>
                   </SwipeableTransactionRow>
@@ -543,19 +548,22 @@ export default function WalletPage() {
 
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5 rounded-[24px] bg-[radial-gradient(120%_120%_at_100%_100%,#3A3AF0_0%,#1717A0_40%,#0A0A4A_85%)] p-5 text-white shadow-[0_14px_30px_rgba(16,16,120,0.24)]">
-            <span className="text-[13px] text-navy-text">{t('wallet.list.balanceLabel', { period: periodLabel })}</span>
-            <span className="text-[30px] font-bold tracking-[-0.02em]">{formatAmount(summary.balance, language)} F</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[13px] text-navy-text">{t('wallet.list.balanceLabel', { period: periodLabel })}</span>
+              <AmountVisibilityToggle variant="hero" />
+            </div>
+            <span className="text-[30px] font-bold tracking-[-0.02em]"><Amount value={summary.balance} /> F</span>
           </div>
           <div className="flex flex-col gap-1.5 rounded-[24px] bg-surface p-5 shadow-card">
             <span className="text-[13px] text-subtle">{t('wallet.list.entriesLabel')}</span>
             <span className="text-[30px] font-bold tracking-[-0.02em] text-success">
-              +{formatAmount(summary.entries, language)} F
+              +<Amount value={summary.entries} /> F
             </span>
           </div>
           <div className="flex flex-col gap-1.5 rounded-[24px] bg-surface p-5 shadow-card">
             <span className="text-[13px] text-subtle">{t('wallet.list.exitsLabel')}</span>
             <span className="text-[30px] font-bold tracking-[-0.02em] text-danger">
-              −{formatAmount(summary.exits, language)} F
+              −<Amount value={summary.exits} /> F
             </span>
           </div>
         </div>
@@ -719,7 +727,7 @@ export default function WalletPage() {
                             }`}
                           >
                             {tx.type === 'sale' ? '+' : '−'}
-                            {formatAmount(tx.amount ?? 0, language)} F
+                            <Amount value={tx.amount ?? 0} /> F
                           </td>
                         </tr>
                       )
