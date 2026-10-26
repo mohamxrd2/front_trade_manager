@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
-import { AlertCircle, ArrowDownLeft, ArrowDownToLine, ArrowUpToLine, Check, Download, Plus } from 'lucide-react'
+import { AlertCircle, ArrowDownLeft, Banknote, Check, Download, PiggyBank, Plus } from 'lucide-react'
 
 import { deleteTransaction, type Transaction } from '@/lib/services/transactions'
 import { useTransactionsQuery } from '@/lib/hooks/useTransactions'
@@ -492,8 +492,8 @@ export default function WalletPage() {
             onClick={() => setMobileDepositMode('apport')}
             className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
           >
-            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface text-brand-700">
-              <ArrowUpToLine className="size-6" strokeWidth={1.9} />
+            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+              <PiggyBank className="size-6" strokeWidth={1.8} />
             </span>
             {t('wallet.list.quickActionDeposit')}
           </button>
@@ -502,8 +502,8 @@ export default function WalletPage() {
             onClick={() => setMobileDepositMode('retrait')}
             className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
           >
-            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface text-warning">
-              <ArrowDownToLine className="size-6" strokeWidth={1.9} />
+            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+              <Banknote className="size-6" strokeWidth={1.8} />
             </span>
             {t('wallet.list.quickActionWithdrawal')}
           </button>
@@ -635,11 +635,11 @@ export default function WalletPage() {
               <Link href="/wallet/new?type=expense">{t('wallet.list.addExpense')}</Link>
             </Button>
             <Button variant="glass" onClick={() => setDesktopDepositMode('apport')}>
-              <ArrowUpToLine className="size-[17px]" />
+              <PiggyBank className="size-[17px]" />
               {t('wallet.list.quickActionDeposit')}
             </Button>
             <Button variant="glass" onClick={() => setDesktopDepositMode('retrait')}>
-              <ArrowDownToLine className="size-[17px]" />
+              <Banknote className="size-[17px]" />
               {t('wallet.list.quickActionWithdrawal')}
             </Button>
           </div>
