@@ -14,7 +14,15 @@ export interface UserStats {
   total_remaining_quantity: number
   total_stock_value: number
   total_low_stock: number
-  calculated_wallet?: number // Revenu total / Portefeuille calculé
+  calculated_wallet?: number // Ventes − dépenses — base du chiffre d'affaires/bénéfice, PAS des parts collaborateurs
+  total_sale?: number
+  total_expense?: number
+  total_deposit?: number
+  total_withdrawal?: number
+  /** Solde réel = ventes − dépenses + apports − retraits. Base de
+   * répartition des parts collaborateurs (gérant compris) depuis le
+   * 26/10/2026 — voir lib/hooks/useCollaboratorShares.ts. */
+  balance?: number
   // Autres champs possibles de l'utilisateur
   id?: string
   first_name?: string

@@ -526,7 +526,12 @@ export default function CollaboratorsPage() {
       }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className={`font-bold ${compact ? 'text-base' : 'text-[17px]'}`}>{t('collaborators.shareDistribution')}</span>
+        <span className="flex flex-col gap-0.5">
+          <span className={`font-bold ${compact ? 'text-base' : 'text-[17px]'}`}>{t('collaborators.shareDistribution')}</span>
+          <span className="text-xs" style={{ color: '#C8C8F0' }}>
+            {t('collaborators.shareDistributionBase', { amount: formatAmount(base, language) })}
+          </span>
+        </span>
         <span className="text-[13px]" style={{ color: '#C8C8F0' }}>
           {t('collaborators.teamSize', { count: members.length })}
         </span>

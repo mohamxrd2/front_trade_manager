@@ -6,9 +6,14 @@
  * l'app ne doit refaire ce calcul.
  *
  * Règle de répartition :
- * - Base = Entrées (total des ventes) − Sorties (total des dépenses),
- *   toujours les TOTAUX renvoyés par le backend (jamais une somme de
- *   transactions paginées côté client, qui serait incomplète).
+ * - Base de répartition = solde (ventes − dépenses + apports − retraits).
+ *   Décision métier du 26/10/2026. Toujours la valeur backend `balance`
+ *   (GET /api/user, voir lib/hooks/useCollaboratorShares.ts), jamais une
+ *   somme de transactions paginées côté client, qui serait incomplète.
+ *   Un apport augmente donc le montant de TOUS les membres (gérant compris)
+ *   selon leur part, un retrait le diminue — contrairement au chiffre
+ *   d'affaires/bénéfice (voir calculated_wallet côté backend), qui n'inclut
+ *   toujours pas les apports/retraits.
  * - Part de chaque collaborateur : la valeur (%) enregistrée.
  * - Part du gérant = 100 − somme des parts des collaborateurs actifs.
  *   Toujours calculée, jamais lue d'une valeur figée (ex. une colonne
@@ -18,13 +23,6 @@
  *   montants déjà arrondis des autres), afin que la somme de TOUS les
  *   montants soit toujours exactement égale à la base, quels que soient les
  *   arrondis individuels.
- *
- * IMPORTANT (prépare la suite) : une fois que les apports de fonds et les
- * retraits existeront, ils NE devront JAMAIS entrer dans `base` — un apport
- * n'est pas un bénéfice à partager, c'est de l'argent que le gérant remet
- * lui-même dans l'entreprise (et un retrait en est le symétrique). `base`
- * doit rester strictement "ventes − dépenses", jamais "ventes − dépenses +
- * apports − retraits".
  */
 
 export interface CollaboratorShareInput {
@@ -36,7 +34,8 @@ export interface CollaboratorShareInput {
 }
 
 export interface ComputeSharesInput {
-  /** Ventes totales − dépenses totales, depuis le début (totaux backend). Peut être négative. */
+  /** Solde (ventes − dépenses + apports − retraits), depuis le début
+   * (valeur backend `balance`). Peut être négative. */
   base: number
   collaborators: CollaboratorShareInput[]
 }

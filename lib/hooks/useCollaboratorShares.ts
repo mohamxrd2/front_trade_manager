@@ -10,9 +10,12 @@ import { computeShares, type ComputedShare } from '@/lib/collaborators/compute-s
 const OWNER_ID = 'owner'
 
 export interface UseCollaboratorSharesResult {
-  /** Base de répartition = ventes totales − dépenses totales, depuis le
-   * début (même source que le solde "depuis le début" du portefeuille,
-   * calculée côté serveur — jamais une somme de transactions paginées). */
+  /** Base de répartition = solde (ventes − dépenses + apports − retraits).
+   * Décision métier du 26/10/2026 : les apports/retraits du gérant font
+   * désormais partie de l'argent partagé entre gérant et collaborateurs —
+   * un apport augmente les montants de tous, un retrait les diminue.
+   * Toujours la valeur backend (`GET /api/user`.balance), jamais une somme
+   * de transactions paginées côté client. */
   base: number
   /** true si la base est négative (plus de dépenses que de ventes sur la période). */
   isNegativeBase: boolean
@@ -37,9 +40,9 @@ export interface UseCollaboratorSharesResult {
  * - après ajout/modification/retrait d'un collaborateur : la clé
  *   `keys.collaborators.all` est invalidée par les mutations de
  *   /collaborators, ce qui refait tourner ce hook avec la part à jour ;
- * - après une vente/dépense : `keys.userStats.all` est invalidée par
- *   invalidateUserStats() (déjà appelé après chaque transaction), ce qui
- *   rafraîchit `base` automatiquement.
+ * - après une vente/dépense/apport/retrait : `keys.userStats.all` est
+ *   invalidée par invalidateUserStats() (déjà appelé après chaque
+ *   transaction), ce qui rafraîchit `base` automatiquement.
  *
  * Avant ce hook, la part du gérant était lue depuis `user.company_share`
  * (contexte d'auth, rafraîchi seulement par un appel explicite à
@@ -54,7 +57,7 @@ export function useCollaboratorShares(): UseCollaboratorSharesResult {
     queryFn: getCollaborators,
   })
 
-  const base = stats?.calculated_wallet ?? 0
+  const base = stats?.balance ?? 0
 
   const shares = React.useMemo(() => {
     const input = [

@@ -24,6 +24,12 @@ export interface User {
   total_sale?: number
   total_expense?: number
   calculated_wallet?: number
+  total_deposit?: number
+  total_withdrawal?: number
+  /** Solde réel = ventes − dépenses + apports − retraits — base de
+   * répartition des parts collaborateurs depuis le 26/10/2026, voir
+   * lib/hooks/useCollaboratorShares.ts. */
+  balance?: number
   wallet?: number
 }
 

@@ -40,7 +40,8 @@
     "delete": "Error deleting"
   },
   "teamSize": "{count, plural, one {# member} other {# members}}",
-  "shareDistribution": "Share breakdown",
+  "shareDistribution": "Balance split",
+  "shareDistributionBase": "Base: {{amount}} F",
   "ownerRole": "Owner · manager",
   "roleSeller": "Salesperson",
   "rolePartner": "Partner",
@@ -48,7 +49,7 @@
   "roleManager": "Manager",
   "teamOf": "The team associated with {{name}}",
   "yourCompanyFallback": "your business",
-  "negativeResultPeriod": "Negative result for the period: {{amount}}",
+  "negativeResultPeriod": "Negative balance: {{amount}}",
   "remainingAvailable": "Remaining available: {{share}}",
   "addPhoto": "Add a photo",
   "fullNameLabel": "Full name",
