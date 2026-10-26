@@ -151,5 +151,25 @@
       "fundingSourceRequired": "Select an origin",
       "collaboratorRequired": "Select a collaborator"
     }
+  },
+  "search": {
+    "inputAria": "Search for a transaction",
+    "placeholder": "Product, date (10/24), amount…",
+    "clearAria": "Clear search",
+    "resultsCount": "{count, plural, one {# result} other {# results}}",
+    "resultsForQuery": "{count, plural, one {# result for “{{query}}”} other {# results for “{{query}}”}}",
+    "emptyState": "No transaction found",
+    "clearSearchButton": "Clear search",
+    "filterButton": "Filter",
+    "shortcutToday": "Today",
+    "shortcutYesterday": "Yesterday",
+    "shortcutLast7Days": "Last 7 days",
+    "shortcutThisMonth": "This month",
+    "shortcutLastMonth": "Last month",
+    "customRangeLabel": "Custom range",
+    "customRangeFrom": "Start date",
+    "customRangeTo": "End date",
+    "applyCustomRange": "Apply",
+    "clearDateFilter": "Clear date filter"
   }
 }

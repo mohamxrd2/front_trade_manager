@@ -283,6 +283,86 @@ export async function getTransactions(): Promise<Transaction[]> {
 }
 
 /**
+ * Paramètres de recherche/filtre pour GET /api/transactions — voir
+ * TransactionController::index(). Tous optionnels : passer un objet vide
+ * revient au comportement de getTransactions() (liste complète).
+ */
+export interface TransactionSearchParams {
+  q?: string
+  type?: 'sale' | 'expense' | 'apport' | 'retrait'
+  date_from?: string // AAAA-MM-JJ
+  date_to?: string // AAAA-MM-JJ
+  page?: number
+  per_page?: number
+}
+
+export interface TransactionSearchMeta {
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
+}
+
+export interface TransactionSearchResult {
+  transactions: Transaction[]
+  meta: TransactionSearchMeta
+}
+
+/**
+ * Recherche/filtre paginée (GET /api/transactions avec q/type/date_from/
+ * date_to/page/per_page) — utilisée par le Portefeuille (barre de
+ * recherche). Distincte de getTransactions() : clé TanStack Query séparée
+ * (voir keys.transactions.search()), ne touche pas au cache partagé avec le
+ * Tableau de bord (keys.transactions.list(), toujours la liste complète).
+ */
+export async function searchTransactions(params: TransactionSearchParams): Promise<TransactionSearchResult> {
+  try {
+    const response = await api.get<ApiResponse<ApiTransaction[]> & { meta?: TransactionSearchMeta }>(
+      '/api/transactions',
+      { params }
+    )
+
+    const rawTransactions = response.data.data
+    const transactions = Array.isArray(rawTransactions) ? rawTransactions.map(mapApiTransactionToTransaction) : []
+    const meta = response.data.meta ?? {
+      total: transactions.length,
+      page: 1,
+      per_page: Math.max(transactions.length, 1),
+      total_pages: 1,
+    }
+
+    return { transactions, meta }
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string; errors?: Record<string, string[]> }>
+
+    if (isSilentError(error)) {
+      throw error
+    }
+
+    if (axiosError.response?.status === 401) {
+      throw new Error('Non authentifié') // i18n:allow — sentinelle interne, testée via .includes() ailleurs, jamais affichée telle quelle
+    }
+
+    if (axiosError.response?.status === 422) {
+      const firstError = Object.values(axiosError.response.data?.errors ?? {})[0]?.[0]
+      throw new Error(firstError || t('transactions.serviceErrors.searchInvalid'))
+    }
+
+    if (axiosError.response?.status === 500) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Erreur serveur lors de la recherche de transactions:', axiosError.response.data)
+      }
+      throw new Error(t('transactions.serviceErrors.serverErrorList'))
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Erreur lors de la recherche de transactions:', error)
+    }
+    throw new Error(t('transactions.serviceErrors.loadListFailed'))
+  }
+}
+
+/**
  * Modifie une transaction (PUT /api/transactions/{id})
  */
 export async function updateTransaction(

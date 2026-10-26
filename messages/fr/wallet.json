@@ -151,5 +151,25 @@
       "fundingSourceRequired": "Sélectionnez une origine",
       "collaboratorRequired": "Sélectionnez un collaborateur"
     }
+  },
+  "search": {
+    "inputAria": "Rechercher une transaction",
+    "placeholder": "Produit, date (24/10), montant…",
+    "clearAria": "Effacer la recherche",
+    "resultsCount": "{count, plural, one {# résultat} other {# résultats}}",
+    "resultsForQuery": "{count, plural, one {# résultat pour « {{query}} »} other {# résultats pour « {{query}} »}}",
+    "emptyState": "Aucune transaction trouvée",
+    "clearSearchButton": "Effacer la recherche",
+    "filterButton": "Filtrer",
+    "shortcutToday": "Aujourd'hui",
+    "shortcutYesterday": "Hier",
+    "shortcutLast7Days": "7 derniers jours",
+    "shortcutThisMonth": "Ce mois-ci",
+    "shortcutLastMonth": "Mois dernier",
+    "customRangeLabel": "Plage personnalisée",
+    "customRangeFrom": "Date de début",
+    "customRangeTo": "Date de fin",
+    "applyCustomRange": "Appliquer",
+    "clearDateFilter": "Effacer le filtre de date"
   }
 }

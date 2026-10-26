@@ -2,16 +2,20 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
-import { AlertCircle, ArrowDownLeft, Banknote, Check, Download, PiggyBank, Plus } from 'lucide-react'
+import { AlertCircle, ArrowDownLeft, Banknote, Check, Download, PiggyBank, Plus, Search, X } from 'lucide-react'
 
 import { deleteTransaction, type Transaction } from '@/lib/services/transactions'
-import { useTransactionsQuery } from '@/lib/hooks/useTransactions'
+import { useTransactionsQuery, useTransactionsSearchQuery } from '@/lib/hooks/useTransactions'
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { useInvoiceLookup } from '@/lib/hooks/useInvoiceLookup'
 import { useDeleteTransactionFlow } from '@/lib/hooks/useDeleteTransactionFlow'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
 import { getTransactionVisual } from '@/lib/transactions/transaction-visual'
+import { isSearchableQuery } from '@/lib/transactions/search-query'
+import { buildWalletSearchUrl, parseWalletSearchUrl, hasActiveSearchFilters as computeHasActiveSearchFilters } from '@/lib/transactions/wallet-search-url'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { keys } from '@/lib/query-keys'
 import { useQueryClient } from '@tanstack/react-query'
@@ -35,16 +39,19 @@ import {
   Button,
   Card,
   FilterChips,
+  Highlight,
   Pagination,
   StatusBadge,
+  TransactionDateFilter,
   TransactionDetailsDialog,
   DeleteTransactionDialog,
   SwipeableTransactionRow,
   TransactionDetailSheet,
   DepositWithdrawalSheet,
+  type DateRangeValue,
 } from '@/components/waelly'
 
-const PAGE_SIZE = 10
+const SEARCH_PAGE_SIZE = 10
 
 const formatAmount = (value: number, language: AppLanguage): string =>
   formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -104,6 +111,23 @@ function transactionTitle(tx: Transaction, translateFn: ReturnType<typeof useTra
   return title
 }
 
+/** Puce de filtre actif (recherche/date/type), sous la barre de recherche — chacune avec son propre ✕. */
+function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-brand-100 py-1 pl-3 pr-1.5 text-xs font-semibold text-brand-700">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={label}
+        className="flex size-5 items-center justify-center rounded-full hover:bg-brand-200"
+      >
+        <X className="size-3" strokeWidth={2.5} />
+      </button>
+    </span>
+  )
+}
+
 /**
  * Portefeuille — reprend design/maquettes/ordinateur/Web-Portefeuille.dc.html
  * (≥ 1024px) et design/maquettes/mobile/Portefeuille.dc.html (< 768px).
@@ -133,21 +157,99 @@ function transactionTitle(tx: Transaction, translateFn: ReturnType<typeof useTra
 export default function WalletPage() {
   const queryClient = useQueryClient()
   const { t, language } = useTranslation()
+  const router = useRouter()
+  const pathname = usePathname()
+  const urlParams = useSearchParams()
   const typeChips = React.useMemo(() => buildTypeChips(t), [t])
   const { data: transactions = [], isLoading: loadingTx, error: txErrorObj, refetch: refetchTransactions } = useTransactionsQuery()
   const txError = txErrorObj ? (txErrorObj as Error).message || t('wallet.list.loadError') : null
   const invoiceLookup = useInvoiceLookup()
   const { requestDelete } = useDeleteTransactionFlow()
 
-  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>('all')
+  // typeFilter sert maintenant à la fois les cartes Entrées/Sorties (filtre
+  // client, inchangé) ET la barre de recherche (envoyé comme `type` au
+  // serveur, voir searchQueryParams) — "les filtres de type existants se
+  // combinent avec la recherche".
+  const [typeFilter, setTypeFilter] = React.useState<TypeFilter>(() => (urlParams.get('type') as TypeFilter) || 'all')
   const [period, setPeriod] = React.useState<Period>('all')
   const [customStart, setCustomStart] = React.useState('')
   const [customEnd, setCustomEnd] = React.useState('')
 
+  // --- Barre de recherche (section 3 de la spec) ---
+  const initialSearchUrlState = React.useMemo(() => parseWalletSearchUrl(urlParams), [urlParams])
+  const [searchInput, setSearchInput] = React.useState(() => initialSearchUrlState.q)
+  const [dateRange, setDateRange] = React.useState<DateRangeValue>(() => ({
+    from: initialSearchUrlState.from,
+    to: initialSearchUrlState.to,
+    // L'étiquette lisible ("24 oct. 2026") n'est pas persistée dans l'URL
+    // (coûteux à encoder proprement) — reconstruite au minimum à partir des
+    // dates brutes si la page est rechargée avec ?from=&to= déjà présents.
+    label: initialSearchUrlState.from
+      ? initialSearchUrlState.from === initialSearchUrlState.to
+        ? initialSearchUrlState.from
+        : `${initialSearchUrlState.from} – ${initialSearchUrlState.to}`
+      : null,
+  }))
+  const [searchPage, setSearchPage] = React.useState(() => initialSearchUrlState.page)
+
+  const debouncedSearchInput = useDebouncedValue(searchInput, 300)
+  // "à partir de 2 caractères (ou dès qu'une date ou un montant est
+  // reconnu)" — en dessous, on n'envoie rien au serveur (pas de q du tout,
+  // différent d'un q vide explicite, pour rester un filtre no-op).
+  const effectiveQuery = isSearchableQuery(debouncedSearchInput) ? debouncedSearchInput.trim() : ''
+
+  const hasActiveSearchFilters = computeHasActiveSearchFilters({ q: effectiveQuery, type: typeFilter, from: dateRange.from })
+
+  const searchQueryParams = React.useMemo(
+    () => ({
+      q: effectiveQuery || undefined,
+      type: typeFilter === 'all' ? undefined : typeFilter,
+      date_from: dateRange.from ?? undefined,
+      date_to: dateRange.to ?? undefined,
+      page: searchPage,
+      per_page: SEARCH_PAGE_SIZE,
+    }),
+    [effectiveQuery, typeFilter, dateRange.from, dateRange.to, searchPage]
+  )
+
+  const { data: searchResult, isFetching: searchFetching } = useTransactionsSearchQuery(searchQueryParams)
+  const searchRows = React.useMemo(() => searchResult?.transactions ?? [], [searchResult])
+  const searchTotal = searchResult?.meta.total ?? 0
+  const searchPageCount = searchResult?.meta.total_pages ?? 1
+
+  // Revient à la page 1 dès que la recherche/le type/la plage de dates change.
+  const searchFilterKey = `${effectiveQuery}|${typeFilter}|${dateRange.from ?? ''}|${dateRange.to ?? ''}`
+  const prevSearchFilterKeyRef = React.useRef(searchFilterKey)
+  React.useEffect(() => {
+    if (prevSearchFilterKeyRef.current !== searchFilterKey) {
+      prevSearchFilterKeyRef.current = searchFilterKey
+      setSearchPage(1)
+    }
+  }, [searchFilterKey])
+
+  // Synchronise avec l'URL (?q=&type=&from=&to=&page=) : lien partageable,
+  // retour arrière du navigateur fonctionnel. replace() (pas push()) pour ne
+  // pas empiler une entrée d'historique à chaque frappe.
+  React.useEffect(() => {
+    const url = buildWalletSearchUrl(pathname, {
+      q: effectiveQuery,
+      type: typeFilter,
+      from: dateRange.from,
+      to: dateRange.to,
+      page: searchPage,
+    })
+    router.replace(url, { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveQuery, typeFilter, dateRange.from, dateRange.to, searchPage])
+
+  const clearSearch = () => {
+    setSearchInput('')
+    setDateRange({ from: null, to: null, label: null })
+    setTypeFilter('all')
+  }
+
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [mobileSelecting, setMobileSelecting] = React.useState(false)
-  const [page, setPage] = React.useState(1)
-  const [mobileVisibleCount, setMobileVisibleCount] = React.useState(PAGE_SIZE)
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -200,11 +302,6 @@ export default function WalletPage() {
     }, 300)
   }
 
-  React.useEffect(() => {
-    setPage(1)
-    setMobileVisibleCount(PAGE_SIZE)
-  }, [typeFilter, period, customStart, customEnd])
-
   const { start, end } = getPeriodRange(period, customStart, customEnd)
 
   const inPeriod = React.useMemo(
@@ -245,14 +342,13 @@ export default function WalletPage() {
     [inPeriod, typeFilter]
   )
 
-  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
-  const paginatedRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-
-  const visibleMobileRows = filteredRows.slice(0, mobileVisibleCount)
-
+  // Rendu de la liste (lignes affichées, sélection, pagination) : entièrement
+  // piloté par la recherche serveur (searchRows/searchPageCount), PAS par
+  // filteredRows — qui ne sert plus qu'à l'export Excel, resté sur son
+  // propre filtre période+type existant (comportement inchangé).
   const groupedMobileRows = React.useMemo(() => {
     const groups: { label: string; items: Transaction[] }[] = []
-    visibleMobileRows.forEach((tx) => {
+    searchRows.forEach((tx) => {
       const label = dayLabel(tx.date, language, t)
       const last = groups[groups.length - 1]
       if (last && last.label === label) {
@@ -262,7 +358,7 @@ export default function WalletPage() {
       }
     })
     return groups
-  }, [visibleMobileRows, language, t])
+  }, [searchRows, language, t])
 
   const periodLabel =
     period === 'all'
@@ -302,7 +398,7 @@ export default function WalletPage() {
   const canSelectForDeletion = (t: Transaction) =>
     isDeletableFromList(t, t.invoice_id ? invoiceLookup[t.invoice_id]?.status : undefined)
 
-  const selectablePaginatedRows = paginatedRows.filter(canSelectForDeletion)
+  const selectablePaginatedRows = searchRows.filter(canSelectForDeletion)
   const allOnPageSelected =
     selectablePaginatedRows.length > 0 && selectablePaginatedRows.every((t) => selectedIds.has(t.id))
   const toggleSelectAllOnPage = () => {
@@ -531,7 +627,53 @@ export default function WalletPage() {
           </div>
         </div>
 
-        <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
+        {/* --- Barre de recherche (sticky pendant le défilement) --- */}
+        <div role="search" className="sticky top-0 z-20 -mx-4 flex flex-col gap-2.5 bg-canvas px-4 pb-2.5 pt-1">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <label htmlFor="wallet-search-mobile" className="sr-only">
+                {t('wallet.search.inputAria')}
+              </label>
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-subtle" />
+              <input
+                id="wallet-search-mobile"
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t('wallet.search.placeholder')}
+                className="h-11 w-full rounded-full border border-[#E2E2EA] bg-surface pl-11 pr-10 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput('')}
+                  aria-label={t('wallet.search.clearAria')}
+                  className="absolute right-2.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-subtle"
+                >
+                  <X className="size-4" />
+                </button>
+              ) : null}
+            </div>
+            <TransactionDateFilter variant="drawer" value={dateRange} onChange={setDateRange} />
+          </div>
+
+          <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
+
+          {hasActiveSearchFilters ? (
+            <div className="flex flex-wrap gap-1.5">
+              {effectiveQuery ? (
+                <FilterPill label={effectiveQuery} onRemove={() => setSearchInput('')} />
+              ) : null}
+              {dateRange.label ? <FilterPill label={dateRange.label} onRemove={() => setDateRange({ from: null, to: null, label: null })} /> : null}
+              {typeFilter !== 'all' ? (
+                <FilterPill
+                  label={typeChips.find((c) => c.value === typeFilter)?.label ?? typeFilter}
+                  onRemove={() => setTypeFilter('all')}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
         {mobileSelecting && selectedIds.size > 0 ? (
           <span className="text-sm font-semibold text-ink-2">
@@ -539,15 +681,32 @@ export default function WalletPage() {
           </span>
         ) : null}
 
-        {filteredRows.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <p className="text-sm text-subtle">{t('wallet.list.noTransactionsInPeriod')}</p>
-            <Button variant="primary" asChild>
-              <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
-            </Button>
-          </div>
+        {hasActiveSearchFilters ? (
+          <p aria-live="polite" className="text-sm text-subtle">
+            {effectiveQuery
+              ? t('wallet.search.resultsForQuery', { count: searchTotal, query: effectiveQuery })
+              : t('wallet.search.resultsCount', { count: searchTotal })}
+          </p>
+        ) : null}
+
+        {searchRows.length === 0 ? (
+          hasActiveSearchFilters ? (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <p className="text-sm text-subtle">{t('wallet.search.emptyState')}</p>
+              <Button variant="secondary" onClick={clearSearch}>
+                {t('wallet.search.clearSearchButton')}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <p className="text-sm text-subtle">{t('wallet.list.noTransactionsInPeriod')}</p>
+              <Button variant="primary" asChild>
+                <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
+              </Button>
+            </div>
+          )
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className={`flex flex-col gap-2 transition-opacity ${searchFetching ? 'opacity-60' : ''}`}>
             {groupedMobileRows.map((group) => (
               <React.Fragment key={group.label}>
                 <span className="px-1 pb-0.5 pt-2.5 text-xs font-bold uppercase tracking-wide text-subtle">
@@ -582,7 +741,11 @@ export default function WalletPage() {
                         {isSaleOrExpense ? visual.sign : <Icon className="size-[18px]" strokeWidth={2} />}
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="truncate text-sm font-semibold text-ink">{transactionTitle(tx, t)}</span>
+                        <Highlight
+                          text={transactionTitle(tx, t)}
+                          query={effectiveQuery}
+                          className="truncate text-sm font-semibold text-ink"
+                        />
                         <span className="truncate text-xs text-subtle">
                           {t(visual.labelKey)} ·{' '}
                           {tx.invoice_id
@@ -600,15 +763,12 @@ export default function WalletPage() {
                 })}
               </React.Fragment>
             ))}
-            {mobileVisibleCount < filteredRows.length ? (
-              <button
-                type="button"
-                onClick={() => setMobileVisibleCount((c) => c + PAGE_SIZE)}
-                className="flex min-h-11 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
-              >
-                {t('wallet.list.loadMore', { count: filteredRows.length - mobileVisibleCount })}
-              </button>
-            ) : null}
+            <Pagination
+              page={searchPage}
+              pageCount={searchPageCount}
+              onPageChange={setSearchPage}
+              summary={t('wallet.list.shownOfTotal', { shown: searchRows.length, total: searchTotal })}
+            />
           </div>
         )}
 
@@ -676,6 +836,48 @@ export default function WalletPage() {
         </div>
 
         <Card className="flex flex-col gap-3.5 rounded-panel">
+          {/* --- Barre de recherche --- */}
+          <div role="search" className="flex flex-wrap items-center gap-2.5">
+            <div className="relative min-w-[260px] flex-1">
+              <label htmlFor="wallet-search-desktop" className="sr-only">
+                {t('wallet.search.inputAria')}
+              </label>
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-[18px] -translate-y-1/2 text-subtle" />
+              <input
+                id="wallet-search-desktop"
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t('wallet.search.placeholder')}
+                className="h-12 w-full rounded-full border border-[#E2E2EA] bg-surface pl-11 pr-10 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput('')}
+                  aria-label={t('wallet.search.clearAria')}
+                  className="absolute right-2.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-subtle"
+                >
+                  <X className="size-4" />
+                </button>
+              ) : null}
+            </div>
+            <TransactionDateFilter variant="popover" value={dateRange} onChange={setDateRange} />
+          </div>
+
+          {hasActiveSearchFilters ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {effectiveQuery ? <FilterPill label={effectiveQuery} onRemove={() => setSearchInput('')} /> : null}
+              {dateRange.label ? <FilterPill label={dateRange.label} onRemove={() => setDateRange({ from: null, to: null, label: null })} /> : null}
+              {typeFilter !== 'all' ? (
+                <FilterPill
+                  label={typeChips.find((c) => c.value === typeFilter)?.label ?? typeFilter}
+                  onRemove={() => setTypeFilter('all')}
+                />
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
             <div className="flex flex-wrap items-center gap-2">
@@ -721,18 +923,37 @@ export default function WalletPage() {
             </div>
           </div>
 
+          {hasActiveSearchFilters ? (
+            <p aria-live="polite" className="text-sm text-subtle">
+              {effectiveQuery
+                ? t('wallet.search.resultsForQuery', { count: searchTotal, query: effectiveQuery })
+                : t('wallet.search.resultsCount', { count: searchTotal })}
+            </p>
+          ) : null}
+
           {selectionBar}
 
-          {filteredRows.length === 0 ? (
+          {searchRows.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <p className="text-sm text-subtle">{t('wallet.list.noTransactionsInPeriod')}</p>
-              <Button variant="primary" asChild>
-                <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
-              </Button>
+              {hasActiveSearchFilters ? (
+                <>
+                  <p className="text-sm text-subtle">{t('wallet.search.emptyState')}</p>
+                  <Button variant="secondary" onClick={clearSearch}>
+                    {t('wallet.search.clearSearchButton')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-subtle">{t('wallet.list.noTransactionsInPeriod')}</p>
+                  <Button variant="primary" asChild>
+                    <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className={`overflow-x-auto transition-opacity ${searchFetching ? 'opacity-60' : ''}`}>
                 <table className="w-full min-w-[760px] border-collapse text-sm">
                   <thead>
                     <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
@@ -759,7 +980,7 @@ export default function WalletPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {paginatedRows.map((tx) => {
+                    {searchRows.map((tx) => {
                       const checked = selectedIds.has(tx.id)
                       const selectable = canSelectForDeletion(tx)
                       const visual = getTransactionVisual(tx.type)
@@ -795,7 +1016,7 @@ export default function WalletPage() {
                               <span className={`flex size-9 shrink-0 items-center justify-center rounded-full text-base font-bold ${visual.iconClassName}`}>
                                 <Icon className="size-4" strokeWidth={2.2} />
                               </span>
-                              <span className="font-semibold text-ink">{transactionTitle(tx, t)}</span>
+                              <Highlight text={transactionTitle(tx, t)} query={effectiveQuery} className="font-semibold text-ink" />
                             </span>
                           </td>
                           <td className="px-2 py-2.5">
@@ -829,10 +1050,10 @@ export default function WalletPage() {
               </div>
 
               <Pagination
-                page={page}
-                pageCount={pageCount}
-                onPageChange={setPage}
-                summary={t('wallet.list.shownOfTotal', { shown: paginatedRows.length, total: filteredRows.length })}
+                page={searchPage}
+                pageCount={searchPageCount}
+                onPageChange={setSearchPage}
+                summary={t('wallet.list.shownOfTotal', { shown: searchRows.length, total: searchTotal })}
               />
             </>
           )}

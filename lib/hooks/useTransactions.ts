@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { keys } from '@/lib/query-keys'
-import { getTransactions } from '@/lib/services/transactions'
+import { getTransactions, searchTransactions, type TransactionSearchParams } from '@/lib/services/transactions'
 
 /**
  * Source UNIQUE de la liste des transactions (Portefeuille, Accueil « Dernières
@@ -13,5 +13,19 @@ export function useTransactionsQuery() {
   return useQuery({
     queryKey: keys.transactions.list(),
     queryFn: getTransactions,
+  })
+}
+
+/**
+ * Recherche/filtre paginée (barre de recherche Portefeuille) —
+ * `placeholderData: keepPreviousData` : la liste affichée reste celle de la
+ * recherche précédente pendant qu'une nouvelle page/requête charge, pas de
+ * clignotement ni de vidage de liste entre deux frappes.
+ */
+export function useTransactionsSearchQuery(params: TransactionSearchParams) {
+  return useQuery({
+    queryKey: keys.transactions.search(params),
+    queryFn: () => searchTransactions(params),
+    placeholderData: keepPreviousData,
   })
 }

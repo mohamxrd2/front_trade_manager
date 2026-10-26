@@ -56,6 +56,11 @@ export const keys = {
   transactions: {
     all: ['transactions'] as const,
     list: () => ['transactions', 'list'] as const,
+    /** Recherche paginée (barre de recherche Portefeuille) — préfixée par
+     * `all`, donc invalidée par n'importe quel invalidateQueries({queryKey:
+     * keys.transactions.all}) existant (création/suppression/restauration),
+     * sans changement ailleurs. */
+    search: (params: object) => ['transactions', 'search', params] as const,
   },
 
   analytics: {
