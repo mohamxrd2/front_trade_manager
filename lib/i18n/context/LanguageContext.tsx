@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react'
 import { useSettings } from '@/contexts/SettingsContext'
 import {
   type AppLanguage,
@@ -90,11 +90,12 @@ export function LanguageProvider({ children, initialLanguage }: LanguageProvider
     }
   }, [updateSettings])
 
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, pseudoMode, togglePseudoMode }}>
-      {children}
-    </LanguageContext.Provider>
+  const value = useMemo(
+    () => ({ language, setLanguage, pseudoMode, togglePseudoMode }),
+    [language, setLanguage, pseudoMode, togglePseudoMode]
   )
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
 
 export function useLanguage() {
