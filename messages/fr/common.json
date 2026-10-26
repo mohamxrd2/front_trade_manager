@@ -65,5 +65,8 @@
   "sidebarDescription": "Affiche la barre latérale mobile.",
   "toggleSidebar": "Basculer la barre latérale",
   "user": "Utilisateur",
-  "toggleTheme": "Changer de thème"
+  "toggleTheme": "Changer de thème",
+  "hideAmounts": "Masquer les montants",
+  "showAmounts": "Afficher les montants",
+  "amountHidden": "Montant masqué"
 }

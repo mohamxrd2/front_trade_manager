@@ -10,7 +10,7 @@ interface TransactionRowProps {
   icon: React.ReactNode
   title: string
   meta: string
-  amount: string
+  amount: React.ReactNode
   type: "income" | "expense"
   className?: string
   /** Rend la ligne cliquable (ex. ouvrir le détail de la transaction) — rendu en <button>, sinon <div>. */

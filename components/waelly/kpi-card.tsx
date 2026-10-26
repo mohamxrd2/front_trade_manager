@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils"
  */
 interface KpiCardProps {
   label: string
-  value: string
+  value: React.ReactNode
   delta?: string
   trend?: "up" | "down"
   positive?: boolean

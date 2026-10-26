@@ -9,6 +9,7 @@ import { GlassSidebar } from "@/components/waelly"
 import { BottomTabBar } from "@/components/navigation/BottomTabBar"
 import { TabPageTransition } from "@/components/navigation/TabPageTransition"
 import { useAuth } from "@/contexts/AuthContext"
+import { AmountVisibilityProvider } from "@/contexts/AmountVisibilityContext"
 import { useNotifications } from "@/hooks/useNotifications"
 import { useArticles } from "@/lib/hooks/useArticles"
 import { useIsAppBusy } from "@/components/navigation-progress-bar"
@@ -64,7 +65,9 @@ export default function DashboardLayout({
               />
             </div>
             <main className="min-w-0 flex-[999_1_560px] pb-nav-safe md:pb-6" aria-busy={isBusy}>
-              <TabPageTransition>{children}</TabPageTransition>
+              <AmountVisibilityProvider>
+                <TabPageTransition>{children}</TabPageTransition>
+              </AmountVisibilityProvider>
             </main>
           </div>
         </div>

@@ -65,5 +65,8 @@
   "sidebarDescription": "Displays the mobile sidebar.",
   "toggleSidebar": "Toggle Sidebar",
   "user": "User",
-  "toggleTheme": "Toggle theme"
+  "toggleTheme": "Toggle theme",
+  "hideAmounts": "Hide amounts",
+  "showAmounts": "Show amounts",
+  "amountHidden": "Amount hidden"
 }

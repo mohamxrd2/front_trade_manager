@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
  */
 interface HeroCardStat {
   label: string
-  value: string
+  value: React.ReactNode
 }
 
 interface HeroCardProgress {
@@ -22,11 +22,13 @@ interface HeroCardProgress {
 interface HeroCardProps {
   label: string
   period?: string
-  amount: string
+  amount: React.ReactNode
   currency?: string
   stats?: HeroCardStat[]
   progress?: HeroCardProgress
   actions?: React.ReactNode
+  /** Emplacement du bouton « œil » (masquer/afficher les montants) — rendu entre le libellé et la pastille de période. */
+  eyeButton?: React.ReactNode
   className?: string
 }
 
@@ -38,6 +40,7 @@ function HeroCard({
   stats,
   progress,
   actions,
+  eyeButton,
   className,
 }: HeroCardProps) {
   return (
@@ -50,11 +53,14 @@ function HeroCard({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-[15px] text-navy-text">{label}</span>
-        {period ? (
-          <span className="rounded-full border border-white/18 bg-white/12 px-3 py-1.5 text-xs font-semibold">
-            {period}
-          </span>
-        ) : null}
+        <span className="flex items-center gap-2">
+          {eyeButton}
+          {period ? (
+            <span className="rounded-full border border-white/18 bg-white/12 px-3 py-1.5 text-xs font-semibold">
+              {period}
+            </span>
+          ) : null}
+        </span>
       </div>
 
       <div className="flex flex-wrap items-baseline gap-2">

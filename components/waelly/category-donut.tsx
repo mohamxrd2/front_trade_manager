@@ -21,7 +21,7 @@ interface CategoryDonutSlice {
 
 interface CategoryDonutProps {
   data: CategoryDonutSlice[]
-  centerValue: string
+  centerValue: React.ReactNode
   centerLabel: string
   size?: number
   className?: string
