@@ -213,15 +213,20 @@ export default function WalletPage() {
   )
 
   const summary = React.useMemo(() => {
-    const entries = inPeriod.filter((t) => t.type === 'sale').reduce((s, t) => s + (t.amount ?? 0), 0)
-    const exits = inPeriod.filter((t) => t.type === 'expense').reduce((s, t) => s + (t.amount ?? 0), 0)
+    const sales = inPeriod.filter((t) => t.type === 'sale').reduce((s, t) => s + (t.amount ?? 0), 0)
+    const expenses = inPeriod.filter((t) => t.type === 'expense').reduce((s, t) => s + (t.amount ?? 0), 0)
     const deposits = inPeriod.filter((t) => t.type === 'apport').reduce((s, t) => s + (t.amount ?? 0), 0)
     const withdrawals = inPeriod.filter((t) => t.type === 'retrait').reduce((s, t) => s + (t.amount ?? 0), 0)
-    // Solde (trésorerie) = ventes − dépenses + apports − retraits. Distinct de
-    // `calculated_wallet` côté backend (ventes − dépenses, base du partage
-    // collaborateurs) — un apport n'est PAS un bénéfice, mais c'est bien de
-    // l'argent disponible en caisse.
-    return { entries, exits, deposits, withdrawals, balance: entries - exits + deposits - withdrawals }
+    // Entrées = ventes + apports, Sorties = dépenses + retraits — un apport
+    // est bien de l'argent qui RENTRE en caisse, un retrait en SORT, au même
+    // titre qu'une vente/dépense (même si ce n'est pas du bénéfice, voir
+    // calculated_wallet côté backend, inchangé par cette règle d'affichage).
+    const entries = sales + deposits
+    const exits = expenses + withdrawals
+    // Solde (trésorerie) = Entrées − Sorties = ventes − dépenses + apports −
+    // retraits. Distinct de `calculated_wallet` côté backend (ventes −
+    // dépenses seulement, base du chiffre d'affaires/bénéfice).
+    return { entries, exits, deposits, withdrawals, balance: entries - exits }
   }, [inPeriod])
 
   // Solde réel TOUTES PÉRIODES (pas filtré) — sert uniquement à avertir si un
