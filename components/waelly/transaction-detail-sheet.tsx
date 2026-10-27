@@ -5,19 +5,19 @@ import Link from 'next/link'
 import { X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
+import { Copy } from 'lucide-react'
+
 import type { Transaction } from '@/lib/services/transactions'
+import { getOperation } from '@/lib/services/operations'
 import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
 import { getTransactionVisual, fundingSourceLabelKey, paymentMethodLabelKey } from '@/lib/transactions/transaction-visual'
 import { keys } from '@/lib/query-keys'
 import { getCollaborators } from '@/lib/services/collaborators'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
-import { formatDate, formatNumber } from '@/lib/i18n/format'
-import type { AppLanguage } from '@/lib/i18n/current-language'
+import { formatDate } from '@/lib/i18n/format'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
-
-const formatAmount = (value: number, language: AppLanguage): string =>
-  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+import { Amount } from './amount'
 
 interface DetailRow {
   label: string
@@ -40,6 +40,7 @@ interface TransactionDetailSheetProps {
 function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onRequestDelete }: TransactionDetailSheetProps) {
   const { t, language } = useTranslation()
   const open = transaction !== null
+  const [copied, setCopied] = React.useState(false)
 
   const { data: collaborators = [] } = useQuery({
     queryKey: keys.collaborators.all,
@@ -47,25 +48,82 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
     enabled: transaction?.funding_source === 'collaborateur',
   })
 
+  // Opération complète (étape 3 du chantier "paniers multi-articles") —
+  // code, moyen de paiement confirmé, TOUTES les lignes, montant reçu/monnaie
+  // rendue en espèces. `transaction` affiche déjà l'essentiel instantanément
+  // (pas d'attente réseau pour le cas courant, une seule ligne) ; cette
+  // requête vient ENRICHIR l'affichage dès qu'elle répond.
+  const { data: operation } = useQuery({
+    queryKey: keys.operations.detail(transaction?.operation_id ?? ''),
+    queryFn: () => getOperation(transaction!.operation_id!),
+    enabled: open && !!transaction?.operation_id,
+  })
+
   if (!transaction) return null
 
   const isSale = transaction.type === 'sale'
   const visual = getTransactionVisual(transaction.type)
   const Icon = visual.Icon
-  const title = (isSale && transaction.article_name) || transaction.name
+  const hasMultipleLines = (operation?.lines.length ?? 0) > 1
+  const title = hasMultipleLines
+    ? t('wallet.list.articlesCount', { count: operation!.lines.length })
+    : (isSale && transaction.article_name) || transaction.name
   const unitPrice = transaction.sale_price ?? transaction.unit_price ?? null
   const canDelete = isDeletableFromList(transaction, invoiceEntry?.status)
+  const totalAmount = operation?.totalAmount ?? transaction.amount ?? 0
+
+  const copyCode = async () => {
+    if (!operation?.code) return
+    try {
+      await navigator.clipboard.writeText(operation.code)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Best-effort — certains navigateurs/contextes non sécurisés refusent l'accès au presse-papiers.
+    }
+  }
 
   const rows: DetailRow[] = [{ label: t('transactions.type'), value: t(visual.labelKey) }]
   rows.push({
     label: t('transactions.detail.dateTime'),
     value: formatDate(transaction.date, language, language === 'en' ? 'MMMM D, YYYY [at] h:mm A' : 'D MMMM YYYY à HH:mm'),
   })
-  if (isSale) {
+  if (isSale && !hasMultipleLines) {
     rows.push({ label: t('transactions.article'), value: transaction.article_name || transaction.name })
     if (transaction.variation_name) rows.push({ label: t('transactions.detail.variant'), value: transaction.variation_name })
     if (transaction.quantity) rows.push({ label: t('transactions.quantity'), value: transaction.quantity })
-    if (unitPrice != null) rows.push({ label: t('transactions.unitPrice'), value: `${formatAmount(unitPrice, language)} F` })
+    if (unitPrice != null)
+      rows.push({
+        label: t('transactions.unitPrice'),
+        value: (
+          <>
+            <Amount value={unitPrice} /> F
+          </>
+        ),
+      })
+  }
+  if (isSale) {
+    const methodKey = paymentMethodLabelKey(operation?.paymentMethod ?? transaction.payment_method)
+    rows.push({ label: t('wallet.deposit.paymentMethodLabel'), value: methodKey ? t(methodKey) : t('wallet.detail.paymentMethodUnknown') })
+    if (operation?.clientName) rows.push({ label: t('transactions.detail.client'), value: operation.clientName })
+    if (operation?.paymentMethod === 'especes' && operation.amountReceived != null) {
+      rows.push({
+        label: t('wallet.checkout.amountReceivedLabel'),
+        value: (
+          <>
+            <Amount value={operation.amountReceived} /> F
+          </>
+        ),
+      })
+      rows.push({
+        label: t('wallet.checkout.changeLabel'),
+        value: (
+          <>
+            <Amount value={operation.changeGiven ?? 0} /> F
+          </>
+        ),
+      })
+    }
   }
   if (visual.kind === 'apport' || visual.kind === 'retrait') {
     const fundingKey = fundingSourceLabelKey(transaction.funding_source)
@@ -118,10 +176,41 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
               <span className="truncate text-base font-bold text-ink">{title}</span>
               <span className={`text-xl font-bold tracking-[-0.02em] ${visual.amountClassName}`}>
                 {visual.sign}
-                {formatAmount(transaction.amount ?? 0, language)} F
+                <Amount value={totalAmount} /> F
               </span>
             </span>
           </div>
+
+          {operation?.code ? (
+            <button
+              type="button"
+              onClick={copyCode}
+              className="flex items-center justify-between gap-2 rounded-tile bg-surface-soft px-4 py-2.5"
+            >
+              <span className="font-mono text-sm font-bold text-ink">{operation.code}</span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-brand-600">
+                <Copy className="size-3.5" />
+                {copied ? t('wallet.confirmation.copied') : t('wallet.confirmation.copyCode')}
+              </span>
+            </button>
+          ) : null}
+
+          {hasMultipleLines ? (
+            <div className="flex flex-col divide-y divide-divider rounded-tile border border-line">
+              {operation!.lines.map((line) => (
+                <div key={line.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                  <span className="text-ink-2">
+                    {line.articleName || line.name}
+                    {line.variationName ? ` · ${line.variationName}` : ''}
+                    {line.quantity && line.quantity > 1 ? ` ×${line.quantity}` : ''}
+                  </span>
+                  <span className="font-semibold text-ink">
+                    <Amount value={line.amount} /> F
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div className="flex flex-col divide-y divide-divider rounded-tile border border-line">
             {rows.map((row) => (
@@ -139,7 +228,7 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
               className="flex min-h-11 items-center justify-center rounded-full border text-sm font-bold"
               style={{ color: '#A3213A', borderColor: '#F3C7CF' }}
             >
-              {t('transactions.detail.deleteTransaction')}
+              {t('wallet.detail.deleteOperation')}
             </button>
           ) : (
             <Link
