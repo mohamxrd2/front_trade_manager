@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Banknote, PiggyBank, type LucideIcon } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Banknote, Building2, PiggyBank, Smartphone, Zap, type LucideIcon } from 'lucide-react'
 
 /**
  * Normalise un `type` de transaction brut (API) vers l'une des 4 natures
@@ -129,5 +129,30 @@ export function paymentMethodLabelKey(paymentMethod: string | null | undefined):
       return 'wallet.deposit.paymentMethodTransfer'
     default:
       return null
+  }
+}
+
+/**
+ * Icône d'un moyen de paiement — puces de l'encaissement (étape 3 du
+ * chantier "paniers multi-articles") et icône discrète sur la liste des
+ * opérations. Wave a sa propre icône (Zap, cohérent avec son identité
+ * "paiement éclair") ; les 3 autres opérateurs mobile money partagent
+ * Smartphone (aucune distinction visuelle fiable sans leurs logos de marque,
+ * hors de portée ici — Lucide n'a pas d'icône par opérateur).
+ */
+export function paymentMethodIcon(paymentMethod: string | null | undefined): LucideIcon {
+  switch (paymentMethod) {
+    case 'especes':
+      return Banknote
+    case 'wave':
+      return Zap
+    case 'orange_money':
+    case 'moov_money':
+    case 'mtn_money':
+      return Smartphone
+    case 'virement':
+      return Building2
+    default:
+      return Banknote
   }
 }

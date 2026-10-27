@@ -4,6 +4,7 @@ import {
   getTransactionVisual,
   fundingSourceLabelKey,
   paymentMethodLabelKey,
+  paymentMethodIcon,
 } from './transaction-visual'
 
 describe('getTransactionKind', () => {
@@ -88,5 +89,33 @@ describe('paymentMethodLabelKey', () => {
   test('moyen de paiement inconnu ou absent : null', () => {
     expect(paymentMethodLabelKey(null)).toBeNull()
     expect(paymentMethodLabelKey('inconnu')).toBeNull()
+  })
+})
+
+describe('paymentMethodIcon', () => {
+  test('chacun des 6 moyens de paiement de l\'encaissement a une icône (jamais undefined)', () => {
+    const methods = ['especes', 'orange_money', 'moov_money', 'wave', 'mtn_money', 'virement']
+    for (const method of methods) {
+      expect(paymentMethodIcon(method)).toBeTruthy()
+    }
+  })
+
+  test('espèces et Wave ont chacun leur propre icône, distincte des opérateurs mobile money', () => {
+    const cash = paymentMethodIcon('especes')
+    const wave = paymentMethodIcon('wave')
+    const orangeMoney = paymentMethodIcon('orange_money')
+    expect(cash).not.toBe(wave)
+    expect(wave).not.toBe(orangeMoney)
+  })
+
+  test('les opérateurs mobile money (Orange/Moov/MTN) partagent la même icône générique', () => {
+    expect(paymentMethodIcon('orange_money')).toBe(paymentMethodIcon('moov_money'))
+    expect(paymentMethodIcon('moov_money')).toBe(paymentMethodIcon('mtn_money'))
+  })
+
+  test('moyen de paiement inconnu ou absent : une icône par défaut, jamais de crash', () => {
+    expect(() => paymentMethodIcon(null)).not.toThrow()
+    expect(() => paymentMethodIcon('inconnu')).not.toThrow()
+    expect(paymentMethodIcon(null)).toBeTruthy()
   })
 })

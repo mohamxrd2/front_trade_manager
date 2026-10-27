@@ -63,6 +63,17 @@ export const keys = {
     search: (params: object) => ['transactions', 'search', params] as const,
   },
 
+  // Étape 3 du chantier "paniers multi-articles" — GET /api/operations
+  // (une entrée par opération, lignes incluses). Préfixé par `all`, donc
+  // toute invalidation existante de keys.transactions.all doit s'accompagner
+  // de la même invalidation ici (les deux reflètent le même événement
+  // métier : création/suppression/restauration d'une opération).
+  operations: {
+    all: ['operations'] as const,
+    list: (params?: Record<string, unknown>) => ['operations', 'list', params ?? {}] as const,
+    detail: (id: string) => ['operations', 'detail', id] as const,
+  },
+
   analytics: {
     all: ['analytics'] as const,
     overview: (period: string) => ['analytics', 'overview', period] as const,

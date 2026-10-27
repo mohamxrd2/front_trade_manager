@@ -34,6 +34,11 @@ export interface ApiTransaction {
   collaborator_id?: string | null
   note?: string | null
   payment_method?: string | null
+  /** Étape 1/2 du chantier "paniers multi-articles" — toujours présent
+   * depuis le backfill, jamais null pour une transaction créée après. */
+  operation_id?: string | null
+  /** Accessor appended côté Laravel (Transaction::getOperationCodeAttribute()). */
+  operation_code?: string | null
   created_at: string
   updated_at: string
   article?: {
@@ -70,6 +75,8 @@ export interface Transaction {
   collaborator_id?: string | null
   note?: string | null
   payment_method?: string | null
+  operation_id?: string | null
+  operation_code?: string | null
 }
 
 /**
@@ -97,6 +104,19 @@ export type TransactionPaymentMethod =
   | 'wave'
   | 'mtn_money'
   | 'virement'
+
+/**
+ * Payload pour créer une dépense (POST /api/transactions, type=expense) —
+ * étape 3 du chantier "paniers multi-articles" : ajoute payment_method
+ * (facultatif, contrairement à l'apport/retrait — l'ancien formulaire de
+ * dépense n'a jamais exigé de moyen de paiement, et ne doit pas commencer à
+ * le faire pour ne pas casser les dépenses déjà en cours de saisie).
+ */
+export interface CreateExpensePayload {
+  name: string
+  amount: number
+  payment_method?: TransactionPaymentMethod
+}
 
 /**
  * Payload pour créer un apport de fonds (POST /api/transactions, type=apport)
@@ -192,6 +212,8 @@ function mapApiTransactionToTransaction(apiTransaction: ApiTransaction): Transac
     collaborator_id: apiTransaction.collaborator_id ?? null,
     note: apiTransaction.note ?? null,
     payment_method: apiTransaction.payment_method ?? null,
+    operation_id: apiTransaction.operation_id ?? null,
+    operation_code: apiTransaction.operation_code ?? null,
   }
 }
 
@@ -608,6 +630,28 @@ function handleDepositWithdrawalError(error: unknown): never {
     console.error('Erreur lors de la création de l\'opération:', error)
   }
   throw new Error(axiosError.response?.data?.message || t('transactions.serviceErrors.createFailed'))
+}
+
+/**
+ * Crée une dépense (POST /api/transactions, type=expense) — mêmes garanties
+ * d'idempotence que createDeposit()/createWithdrawal().
+ */
+export async function createExpense(payload: CreateExpensePayload, idempotencyKey: string): Promise<Transaction> {
+  try {
+    const response = await api.post<ApiResponse<ApiTransaction>>(
+      '/api/transactions',
+      { type: 'expense', ...payload },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
+
+    if (!response.data.data) {
+      throw new Error(t('transactions.serviceErrors.invalidApiResponse'))
+    }
+
+    return mapApiTransactionToTransaction(response.data.data)
+  } catch (error) {
+    handleDepositWithdrawalError(error)
+  }
 }
 
 /**
