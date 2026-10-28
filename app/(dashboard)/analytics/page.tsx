@@ -626,13 +626,13 @@ export default function AnalyticsPage() {
     { label: t('analytics.page.kpiRevenue'), value: `${fmt(overview?.total_sales ?? 0, language)} F`, delta: caDelta, hero: true },
     { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta, hero: false },
     { label: t('analytics.page.kpiNetProfit'), value: `${fmt(overview?.net_revenue ?? 0, language)} F`, delta: netDelta, hero: false },
-    { label: t('transactions.sales'), value: fmt(salesQuantity, language), delta: salesQtyDelta, hero: false },
+    { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta, hero: false },
   ]
   const kpisMobile = [
     { label: t('analytics.page.kpiRevenue'), value: fmt(overview?.total_sales ?? 0, language), delta: caDelta },
     { label: t('analytics.page.kpiNetProfit'), value: fmt(overview?.net_revenue ?? 0, language), delta: netDelta },
     { label: t('analytics.averageBasket'), value: fmt(kpis?.average_basket ?? 0, language), delta: avgBasketDelta },
-    { label: t('transactions.sales'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
+    { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
   ]
 
   const compareRows = comparisons
