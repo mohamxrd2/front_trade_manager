@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import dayjs from 'dayjs'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { TooltipProps } from 'recharts'
 
@@ -9,26 +8,13 @@ import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/payments/methods'
 import type { PaymentMethodSeriesPoint, SummaryPeriod } from '@/lib/services/analytics'
 import { useAmountVisibility } from '@/contexts/AmountVisibilityContext'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
-import { formatAmountDisplay } from '@/lib/amount-visibility/format-amount'
+import { bucketLabel, formatTickValue, formatTooltipValue } from '@/lib/analytics/payment-trend-format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
-
-const HIDDEN_AXIS_LABEL = '•••'
 
 interface PaymentMethodTrendChartProps {
   series: PaymentMethodSeriesPoint[]
   methods: PaymentMethod[]
   period: SummaryPeriod
-}
-
-function bucketLabel(bucket: string, period: SummaryPeriod, language: AppLanguage): string {
-  if (period === 'today') return `${bucket}h`
-  if (period === '12m') return dayjs(`${bucket}-01`).locale(language).format('MMM')
-  return dayjs(bucket).locale(language).format('DD/MM')
-}
-
-function formatTickValue(value: number, language: AppLanguage, hidden: boolean): string {
-  if (hidden) return HIDDEN_AXIS_LABEL
-  return formatAmountDisplay(value, language, false, { maximumFractionDigits: 0 }).text
 }
 
 function TrendTooltip({ active, payload, label, language, hidden }: TooltipProps<number, string> & { language: AppLanguage; hidden: boolean }) {
@@ -49,9 +35,7 @@ function TrendTooltip({ active, payload, label, language, hidden }: TooltipProps
                 <span className="size-2 rounded-full" style={{ backgroundColor: meta.color }} />
                 {t(meta.labelKey)}
               </span>
-              <span className="font-semibold">
-                {hidden ? HIDDEN_AXIS_LABEL : `${formatAmountDisplay(Number(entry.value), language, false, { maximumFractionDigits: 0 }).text} F`}
-              </span>
+              <span className="font-semibold">{formatTooltipValue(Number(entry.value), language, hidden)}</span>
             </p>
           )
         })}
