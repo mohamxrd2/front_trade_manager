@@ -15,6 +15,7 @@ import {
   duplicateInvoice,
   deleteInvoice,
   getInvoicePdfBlob,
+  shareInvoicePdf,
   type Invoice,
   type InvoiceDashboardStats,
   type InvoiceStatus,
@@ -117,6 +118,7 @@ export default function InvoicesPage() {
   const [statusChanging, setStatusChanging] = React.useState(false)
   const [duplicating, setDuplicating] = React.useState(false)
   const [generatingPdf, setGeneratingPdf] = React.useState(false)
+  const [sharing, setSharing] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
 
@@ -340,6 +342,21 @@ export default function InvoicesPage() {
     }
   }
 
+  const handleShare = async () => {
+    if (!selectedInvoice) return
+    setSharing(true)
+    try {
+      const result = await shareInvoicePdf(selectedInvoice.id, selectedInvoice.invoice_number, t('invoices.detail.shareTitle'))
+      if (result.outcome === 'downloaded') {
+        toast.success(t('invoices.detail.pdfDownloaded'))
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t('invoices.detail.shareFailed'))
+    } finally {
+      setSharing(false)
+    }
+  }
+
   const handleExport = async () => {
     try {
       let currentPage = 1
@@ -405,7 +422,7 @@ export default function InvoicesPage() {
   )
 
   const previewActions = selectedInvoice ? (
-    <div className={`grid gap-2 ${selectedInvoice.status === 'paid' || selectedInvoice.status === 'cancelled' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+    <div className={`grid gap-2 ${selectedInvoice.status === 'paid' || selectedInvoice.status === 'cancelled' ? 'grid-cols-3' : 'grid-cols-4'}`}>
       <button
         type="button"
         onClick={handleDownloadPdf}
@@ -413,6 +430,14 @@ export default function InvoicesPage() {
         className="flex min-h-[46px] items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-bold text-ink disabled:opacity-60"
       >
         {generatingPdf ? <Loader2 className="size-4 animate-spin" /> : t('invoices.detail.pdfButton')}
+      </button>
+      <button
+        type="button"
+        onClick={handleShare}
+        disabled={sharing}
+        className="flex min-h-[46px] items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-bold text-ink disabled:opacity-60"
+      >
+        {sharing ? <Loader2 className="size-4 animate-spin" /> : t('invoices.detail.shareButton')}
       </button>
       <button
         type="button"

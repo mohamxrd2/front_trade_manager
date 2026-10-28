@@ -824,3 +824,52 @@ export async function getInvoicePdfBlob(id: string, mode: InvoicePdfMode): Promi
   return response.blob()
 }
 
+export interface ShareInvoiceResult {
+  /**
+   * 'shared' : navigator.share a pris le relais (WhatsApp, SMS…) — l'OS montre déjà son propre retour.
+   * 'downloaded' : repli fichier téléchargé (la plupart des navigateurs ordinateur) — l'appelant DOIT
+   * afficher une confirmation, sinon rien ne semble se produire visuellement.
+   * 'cancelled' : l'utilisateur a fermé lui-même la feuille de partage — pas une erreur, rien à afficher.
+   */
+  outcome: 'shared' | 'downloaded' | 'cancelled'
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * "Partager" une facture déjà générée en PDF côté backend (même blob que le
+ * téléchargement) — navigator.share({ files }) quand disponible (mobile :
+ * WhatsApp, SMS…), sinon téléchargement direct (la plupart des navigateurs
+ * ordinateur ne supportent pas le partage de fichiers).
+ */
+export async function shareInvoicePdf(id: string, invoiceNumber: string, shareTitle: string): Promise<ShareInvoiceResult> {
+  const blob = await getInvoicePdfBlob(id, 'download')
+  const filename = `Facture-${invoiceNumber}.pdf`
+  const file = new File([blob], filename, { type: 'application/pdf' })
+
+  if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: shareTitle })
+      return { outcome: 'shared' }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { outcome: 'cancelled' }
+      }
+      downloadBlob(blob, filename)
+      return { outcome: 'downloaded' }
+    }
+  }
+
+  downloadBlob(blob, filename)
+  return { outcome: 'downloaded' }
+}
+
