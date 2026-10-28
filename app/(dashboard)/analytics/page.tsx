@@ -593,11 +593,12 @@ export default function AnalyticsPage() {
   // calculée côté serveur (AnalyticsSummaryService). Montants via <Amount>
   // (masquables) ; nombre de ventes et articles/panier sont des COMPTES, pas
   // des montants, donc jamais wrappés dans <Amount>.
-  const summaryKpiCards: { label: string; value: React.ReactNode; delta: ReturnType<typeof kpiDeltaPct> }[] = [
+  const summaryKpiCards: { label: string; value: React.ReactNode; delta: ReturnType<typeof kpiDeltaPct>; hero?: boolean }[] = [
     {
       label: t('analytics.page.kpiRevenue'),
       value: summary ? <><Amount value={summary.kpis.revenue.value} /> F</> : '—',
       delta: summary ? kpiDeltaPct(summary.kpis.revenue.change_percent, true, language, comparisonSuffix(t, periodId)) : undefined,
+      hero: true,
     },
     {
       label: t('analytics.page.salesCountLabel'),
@@ -622,9 +623,9 @@ export default function AnalyticsPage() {
   // Articles vendus), pour ne jamais afficher deux fois la même métrique
   // sous le même nom.
   const kpisDesktop = [
-    { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta, hero: false },
-    { label: t('analytics.page.kpiNetProfit'), value: `${fmt(overview?.net_revenue ?? 0, language)} F`, delta: netDelta, hero: false },
-    { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta, hero: false },
+    { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta },
+    { label: t('analytics.page.kpiNetProfit'), value: `${fmt(overview?.net_revenue ?? 0, language)} F`, delta: netDelta },
+    { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
   ]
   const kpisMobile = [
     { label: t('analytics.page.kpiNetProfit'), value: fmt(overview?.net_revenue ?? 0, language), delta: netDelta },
@@ -770,9 +771,9 @@ export default function AnalyticsPage() {
         {periodId === 'custom' ? customDatesDesktop : null}
 
         <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          {isLoading
+          {loadingSummary
             ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-card bg-surface-soft" />)
-            : kpisDesktop.map((k) =>
+            : summaryKpiCards.map((k) =>
                 k.hero ? (
                   <div
                     key={k.label}
@@ -796,9 +797,9 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          {loadingSummary
-            ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[112px] animate-pulse rounded-card bg-surface-soft" />)
-            : summaryKpiCards.map((k) => (
+          {isLoading
+            ? [1, 2, 3].map((i) => <div key={i} className="h-[112px] animate-pulse rounded-card bg-surface-soft" />)
+            : kpisDesktop.map((k) => (
                 <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
               ))}
         </div>
@@ -1054,8 +1055,16 @@ export default function AnalyticsPage() {
         {periodId === 'custom' ? customDatesMobile : null}
 
         <div className="grid grid-cols-2 gap-2.5">
-          {isLoading
+          {loadingSummary
             ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
+            : summaryKpiCards.map((k) => (
+                <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
+              ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {isLoading
+            ? [1, 2].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
             : kpisMobile.map((k) => (
                 <KpiCard
                   key={k.label}
@@ -1065,14 +1074,6 @@ export default function AnalyticsPage() {
                   trend={k.delta?.trend ?? 'up'}
                   positive={k.delta?.positive ?? true}
                 />
-              ))}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          {loadingSummary
-            ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
-            : summaryKpiCards.map((k) => (
-                <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
               ))}
         </div>
 
