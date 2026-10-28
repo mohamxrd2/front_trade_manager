@@ -1,9 +1,27 @@
 import { toPng } from 'html-to-image'
 import { jsPDF } from 'jspdf'
 
-/** PNG à 2x pour la netteté (spec) — un noeud DOM déjà rendu (l'aperçu à l'écran), jamais un second rendu séparé. */
+/**
+ * PNG à 2x pour la netteté (spec) — un noeud DOM déjà rendu (l'aperçu à
+ * l'écran), jamais un second rendu séparé.
+ *
+ * Le logo de l'entreprise est servi par le backend hors de /api/* (route
+ * storage/ publique), donc sans en-tête CORS — html-to-image doit alors lire
+ * les pixels d'une image cross-origin pour produire le PNG, ce qui "salit"
+ * le canvas et fait échouer toPng() avec une SecurityError. Le logo ne doit
+ * JAMAIS empêcher de partager/exporter un ticket : en cas d'échec, on
+ * retente sans lui plutôt que de faire échouer tout le partage.
+ */
 export async function renderReceiptPng(node: HTMLElement): Promise<string> {
-  return toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff' })
+  try {
+    return await toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff' })
+  } catch {
+    return toPng(node, {
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      filter: (domNode) => !(domNode instanceof HTMLElement && domNode.dataset.receiptLogo === 'true'),
+    })
+  }
 }
 
 function dataUrlToFile(dataUrl: string, filename: string): File {

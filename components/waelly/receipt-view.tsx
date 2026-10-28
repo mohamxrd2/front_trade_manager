@@ -43,6 +43,7 @@ function ReceiptView({ model, qrDataUrl, className }: ReceiptViewProps) {
             // eslint-disable-next-line @next/next/no-img-element -- rendu aussi dans un iframe d'impression hors du pipeline next/image.
             <img
               key={key}
+              data-receipt-logo="true"
               src={row.url}
               alt=""
               style={{
