@@ -148,6 +148,13 @@
     "topVariations": {
       "sectionTitle": "Top variations",
       "quantityIcu": "{count, plural, one {# vendu} other {# vendus}}"
+    },
+    "treasury": {
+      "sectionTitle": "Trésorerie",
+      "deposits": "Apports",
+      "withdrawals": "Retraits",
+      "balance": "Solde",
+      "note": "Les apports et retraits ne sont pas comptés dans le chiffre d'affaires."
     }
   }
 }

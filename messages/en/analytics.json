@@ -148,6 +148,13 @@
     "topVariations": {
       "sectionTitle": "Top variations",
       "quantityIcu": "{count, plural, one {# sold} other {# sold}}"
+    },
+    "treasury": {
+      "sectionTitle": "Treasury",
+      "deposits": "Deposits",
+      "withdrawals": "Withdrawals",
+      "balance": "Balance",
+      "note": "Deposits and withdrawals are not counted in revenue."
     }
   }
 }
