@@ -82,6 +82,7 @@ export const keys = {
     category: (period: string) => ['analytics', 'category', period] as const,
     transactions: (period: string) => ['analytics', 'transactions', period] as const,
     forecast: () => ['analytics', 'forecast'] as const,
+    summary: (period: string) => ['analytics', 'summary', period] as const,
   },
 
   dashboard: {

@@ -141,6 +141,7 @@
     "paymentMethodWave": "Wave",
     "paymentMethodMtnMoney": "MTN MoMo",
     "paymentMethodTransfer": "Bank transfer",
+    "paymentMethodOther": "Other",
     "dateLabel": "Date",
     "noteLabel": "Note (optional)",
     "notePlaceholder": "E.g. detail on the source of funds",

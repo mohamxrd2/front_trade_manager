@@ -99,6 +99,8 @@
     "kpiRevenue": "Revenue",
     "kpiNetProfit": "Net profit",
     "salesCountLabel": "Number of sales",
+    "itemsSoldLabel": "Items sold",
+    "itemsPerBasketLabel": "Items per basket",
     "typeAll": "All",
     "others": "Other",
     "period": {
@@ -126,6 +128,34 @@
       "custom": "compared to the previous period"
     },
     "weekLabel": "Week {{n}}",
-    "compactWeekPrefix": "W"
+    "compactWeekPrefix": "W",
+    "paymentMethods": {
+      "sectionTitle": "Payments by method",
+      "totalLabel": "Total",
+      "trendTitle": "Trend by payment method",
+      "salesCountIcu": "{count, plural, one {# sale} other {# sales}}",
+      "averageBasketInline": "average basket"
+    },
+    "heatmap": {
+      "sectionTitle": "Busy hours",
+      "periodNight": "night",
+      "periodMorning": "morning",
+      "periodAfternoon": "afternoon",
+      "periodEvening": "evening",
+      "bestMoments": "Your best times: {{first}} and {{second}}",
+      "bestMomentSingle": "Your best time: {{first}}",
+      "salesCountIcu": "{count, plural, one {# sale} other {# sales}}"
+    },
+    "topVariations": {
+      "sectionTitle": "Top variations",
+      "quantityIcu": "{count, plural, one {# sold} other {# sold}}"
+    },
+    "treasury": {
+      "sectionTitle": "Treasury",
+      "deposits": "Deposits",
+      "withdrawals": "Withdrawals",
+      "balance": "Balance",
+      "note": "Deposits and withdrawals are not counted in revenue."
+    }
   }
 }

@@ -99,6 +99,8 @@
     "kpiRevenue": "Chiffre d’affaires",
     "kpiNetProfit": "Bénéfice net",
     "salesCountLabel": "Nombre de ventes",
+    "itemsSoldLabel": "Articles vendus",
+    "itemsPerBasketLabel": "Articles par panier",
     "typeAll": "Tout",
     "others": "Autres",
     "period": {
@@ -126,6 +128,34 @@
       "custom": "par rapport à la période précédente"
     },
     "weekLabel": "Sem. {{n}}",
-    "compactWeekPrefix": "S"
+    "compactWeekPrefix": "S",
+    "paymentMethods": {
+      "sectionTitle": "Encaissements par moyen de paiement",
+      "totalLabel": "Total",
+      "trendTitle": "Évolution par moyen de paiement",
+      "salesCountIcu": "{count, plural, one {# vente} other {# ventes}}",
+      "averageBasketInline": "panier moyen"
+    },
+    "heatmap": {
+      "sectionTitle": "Heures d'affluence",
+      "periodNight": "nuit",
+      "periodMorning": "matin",
+      "periodAfternoon": "après-midi",
+      "periodEvening": "soir",
+      "bestMoments": "Vos meilleurs moments : {{first}} et {{second}}",
+      "bestMomentSingle": "Votre meilleur moment : {{first}}",
+      "salesCountIcu": "{count, plural, one {# vente} other {# ventes}}"
+    },
+    "topVariations": {
+      "sectionTitle": "Top variations",
+      "quantityIcu": "{count, plural, one {# vendu} other {# vendus}}"
+    },
+    "treasury": {
+      "sectionTitle": "Trésorerie",
+      "deposits": "Apports",
+      "withdrawals": "Retraits",
+      "balance": "Solde",
+      "note": "Les apports et retraits ne sont pas comptés dans le chiffre d'affaires."
+    }
   }
 }

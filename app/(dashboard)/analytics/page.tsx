@@ -17,9 +17,16 @@ import {
   getComparisons,
   getKPIs,
   getAnalyticsTransactions,
+  getAnalyticsSummary,
+  toSummaryPeriod,
   type AnalyticsParams,
   type AnalyticsTransaction,
 } from '@/lib/services/analytics'
+import { PaymentMethodsSection } from '@/components/waelly/payment-methods-section'
+import { AffluenceHeatmap } from '@/components/waelly/affluence-heatmap'
+import { TopVariationsSection } from '@/components/waelly/top-variations-section'
+import { TreasurySection } from '@/components/waelly/treasury-section'
+import { Amount } from '@/components/waelly/amount'
 import { Button, Card, CardTitle, KpiCard, SegmentedControl, FilterChips } from '@/components/waelly'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate, formatNumber } from '@/lib/i18n/format'
@@ -438,6 +445,19 @@ export default function AnalyticsPage() {
     enabled,
   })
 
+  // Chantier "stats-paiements" : un seul résumé pour les sections
+  // "Encaissements par moyen de paiement" / heatmap / top variations /
+  // trésorerie — voir AnalyticsSummaryService (backend) pour pourquoi un
+  // seul endpoint plutôt que plusieurs.
+  const summaryPeriod = toSummaryPeriod(periodId)
+  const { data: summary, isLoading: loadingSummary } = useQuery({
+    queryKey: keys.analytics.summary(summaryPeriod),
+    queryFn: () => getAnalyticsSummary(summaryPeriod),
+    placeholderData: keepPreviousData,
+    staleTime: ANALYTICS_STALE_TIME,
+    enabled,
+  })
+
   const { data: categoryAnalysis, isLoading: loadingCategory, error: categoryError } = useQuery({
     queryKey: keys.analytics.category(queryKeyParams),
     queryFn: () => getCategoryAnalysis(apiParams),
@@ -551,14 +571,8 @@ export default function AnalyticsPage() {
 
   const nextMonthLabel = now ? capitalize(formatDate(now.add(1, 'month').toDate(), language, 'MMMM YYYY')) : ''
 
-  const caDelta = kpiDeltaPct(comparisons?.sales.change, true, language, comparisonSuffix(t, periodId))
   const expensesDelta = kpiDeltaPct(comparisons?.expenses.change, false, language)
   const netDelta = kpiDeltaPct(comparisons?.net_revenue.change, true, language)
-  const avgBasketChange =
-    kpis && prevKpis && prevKpis.average_basket > 0
-      ? ((kpis.average_basket - prevKpis.average_basket) / prevKpis.average_basket) * 100
-      : undefined
-  const avgBasketDelta = kpiDeltaPct(avgBasketChange, true, language)
 
   // « Ventes » = somme des QUANTITÉS vendues sur la période (pas un montant,
   // pas un nombre d'opérations) — à partir du même jeu de transactions que
@@ -573,17 +587,49 @@ export default function AnalyticsPage() {
         : 0
   const salesQtyDelta = kpiDeltaPct(salesQtyChange, true, language)
 
+  // Chantier "stats-paiements", section ① — CA, nombre de VENTES (opérations,
+  // pas quantité d'articles — différent de la carte "Ventes" ci-dessous),
+  // panier moyen et articles par panier, chacune avec sa variation déjà
+  // calculée côté serveur (AnalyticsSummaryService). Montants via <Amount>
+  // (masquables) ; nombre de ventes et articles/panier sont des COMPTES, pas
+  // des montants, donc jamais wrappés dans <Amount>.
+  const summaryKpiCards: { label: string; value: React.ReactNode; delta: ReturnType<typeof kpiDeltaPct>; hero?: boolean }[] = [
+    {
+      label: t('analytics.page.kpiRevenue'),
+      value: summary ? <><Amount value={summary.kpis.revenue.value} /> F</> : '—',
+      delta: summary ? kpiDeltaPct(summary.kpis.revenue.change_percent, true, language, comparisonSuffix(t, periodId)) : undefined,
+      hero: true,
+    },
+    {
+      label: t('analytics.page.salesCountLabel'),
+      value: summary ? formatNumber(summary.kpis.sales_count.value, language, { maximumFractionDigits: 0 }) : '—',
+      delta: summary ? kpiDeltaPct(summary.kpis.sales_count.change_percent, true, language) : undefined,
+    },
+    {
+      label: t('analytics.averageBasket'),
+      value: summary ? <><Amount value={summary.kpis.average_basket.value} /> F</> : '—',
+      delta: summary ? kpiDeltaPct(summary.kpis.average_basket.change_percent, true, language) : undefined,
+    },
+    {
+      label: t('analytics.page.itemsPerBasketLabel'),
+      value: summary ? formatNumber(summary.kpis.items_per_basket.value, language, { maximumFractionDigits: 1 }) : '—',
+      delta: summary ? kpiDeltaPct(summary.kpis.items_per_basket.change_percent, true, language) : undefined,
+    },
+  ]
+
+  // CA, nombre de ventes et panier moyen sont déjà couverts par la nouvelle
+  // rangée "summaryKpiCards" (section ① stats-paiements, ci-dessous) — cette
+  // rangée-ci ne garde que ce qui lui est propre (Dépenses, Bénéfice net,
+  // Articles vendus), pour ne jamais afficher deux fois la même métrique
+  // sous le même nom.
   const kpisDesktop = [
-    { label: t('analytics.page.kpiRevenue'), value: `${fmt(overview?.total_sales ?? 0, language)} F`, delta: caDelta, hero: true },
-    { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta, hero: false },
-    { label: t('analytics.page.kpiNetProfit'), value: `${fmt(overview?.net_revenue ?? 0, language)} F`, delta: netDelta, hero: false },
-    { label: t('transactions.sales'), value: fmt(salesQuantity, language), delta: salesQtyDelta, hero: false },
+    { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta },
+    { label: t('analytics.page.kpiNetProfit'), value: `${fmt(overview?.net_revenue ?? 0, language)} F`, delta: netDelta },
+    { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
   ]
   const kpisMobile = [
-    { label: t('analytics.page.kpiRevenue'), value: fmt(overview?.total_sales ?? 0, language), delta: caDelta },
     { label: t('analytics.page.kpiNetProfit'), value: fmt(overview?.net_revenue ?? 0, language), delta: netDelta },
-    { label: t('analytics.averageBasket'), value: fmt(kpis?.average_basket ?? 0, language), delta: avgBasketDelta },
-    { label: t('transactions.sales'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
+    { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
   ]
 
   const compareRows = comparisons
@@ -725,9 +771,9 @@ export default function AnalyticsPage() {
         {periodId === 'custom' ? customDatesDesktop : null}
 
         <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          {isLoading
+          {loadingSummary
             ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-card bg-surface-soft" />)
-            : kpisDesktop.map((k) =>
+            : summaryKpiCards.map((k) =>
                 k.hero ? (
                   <div
                     key={k.label}
@@ -749,6 +795,22 @@ export default function AnalyticsPage() {
                 )
               )}
         </div>
+
+        <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          {isLoading
+            ? [1, 2, 3].map((i) => <div key={i} className="h-[112px] animate-pulse rounded-card bg-surface-soft" />)
+            : kpisDesktop.map((k) => (
+                <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
+              ))}
+        </div>
+
+        <PaymentMethodsSection
+          data={summary?.payment_methods}
+          isLoading={loadingSummary}
+          period={summaryPeriod}
+          startDate={summary?.start_date ?? ''}
+          endDate={summary?.end_date ?? ''}
+        />
 
         <div className="flex flex-wrap gap-5">
           <Card className="flex-[2_1_560px]">
@@ -855,6 +917,12 @@ export default function AnalyticsPage() {
             </p>
           </section>
         </div>
+
+        <AffluenceHeatmap cells={summary?.heatmap.cells ?? []} isLoading={loadingSummary} />
+
+        <TopVariationsSection rows={summary?.top_variations ?? []} isLoading={loadingSummary} />
+
+        <TreasurySection treasury={summary?.treasury} isLoading={loadingSummary} />
 
         <section className="flex flex-col gap-3.5 rounded-[26px] bg-surface p-5.5 shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -987,8 +1055,16 @@ export default function AnalyticsPage() {
         {periodId === 'custom' ? customDatesMobile : null}
 
         <div className="grid grid-cols-2 gap-2.5">
-          {isLoading
+          {loadingSummary
             ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
+            : summaryKpiCards.map((k) => (
+                <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
+              ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {isLoading
+            ? [1, 2].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
             : kpisMobile.map((k) => (
                 <KpiCard
                   key={k.label}
@@ -1000,6 +1076,14 @@ export default function AnalyticsPage() {
                 />
               ))}
         </div>
+
+        <PaymentMethodsSection
+          data={summary?.payment_methods}
+          isLoading={loadingSummary}
+          period={summaryPeriod}
+          startDate={summary?.start_date ?? ''}
+          endDate={summary?.end_date ?? ''}
+        />
 
         <Card>
           <div className="flex items-center justify-between">
@@ -1091,6 +1175,12 @@ export default function AnalyticsPage() {
             )}
           </div>
         </Card>
+
+        <AffluenceHeatmap cells={summary?.heatmap.cells ?? []} isLoading={loadingSummary} />
+
+        <TopVariationsSection rows={summary?.top_variations ?? []} isLoading={loadingSummary} />
+
+        <TreasurySection treasury={summary?.treasury} isLoading={loadingSummary} />
 
         <Card>
           <div className="flex items-center justify-between gap-2.5">
