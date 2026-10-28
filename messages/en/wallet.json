@@ -65,10 +65,16 @@
     "viewInvoiceShort": "View",
     "subtitleDesktop": "All your sales and expenses",
     "invoiceNumberPrefix": "Invoice {{number}}",
-    "shownOfTotal": "{{shown}} operation(s) shown out of {{total}}"
+    "shownOfTotal": "{{shown}} operation(s) shown out of {{total}}",
+    "articlesCount": "{count, plural, one {# item} other {# items}}"
   },
   "new": {
     "pageTitle": "New operation",
+    "pageTitleSale": "New sale",
+    "noArticlesFound": "No items found",
+    "outOfStock": "Out of stock",
+    "scanButton": "Scan a barcode",
+    "scanComingSoon": "Coming soon",
     "modeOptionSale": "Sale",
     "modeOptionExpense": "Expense",
     "errorLoadArticles": "Error loading items",
@@ -171,5 +177,76 @@
     "customRangeTo": "End date",
     "applyCustomRange": "Apply",
     "clearDateFilter": "Clear date filter"
+  },
+  "cart": {
+    "title": "Cart",
+    "emptyState": "Add a first item",
+    "itemsAndTotal": "{count, plural, one {# item · Total {{total}} F} other {# items · Total {{total}} F}}",
+    "checkoutButton": "Charge",
+    "removeLine": "Remove line",
+    "editPriceHint": "(edit)",
+    "stockMax": "Max stock: {{count}}"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "totalLabel": "Total",
+    "billReceivedLabel": "Bill received",
+    "customAmountLabel": "Other amount (F)",
+    "customAmountLink": "Other amount",
+    "changeGiven": "Change due: {{amount}} F",
+    "changeLabel": "Change given",
+    "amountReceivedLabel": "Amount received",
+    "exactAmountHint": "Paid the exact amount — no change due.",
+    "clientLabel": "Client",
+    "walkInClient": "Walk-in client",
+    "noteLabel": "Note",
+    "notePlaceholder": "Optional note",
+    "submitBusy": "Charging…",
+    "submitIdle": "Confirm sale · {{amount}} F",
+    "codeToastDescription": "Code: {{code}}",
+    "errors": {
+      "paymentMethodRequired": "Select a payment method",
+      "stock": "Insufficient stock",
+      "validation": "Check the cart before confirming",
+      "generic": "Error recording the operation",
+      "server": "Server error recording the operation",
+      "invalidResponse": "Invalid server response",
+      "loadList": "Couldn't load operations",
+      "available": "Available: {{count}}",
+      "adjust": "Adjust"
+    }
+  },
+  "confirmation": {
+    "saleRecorded": "Sale recorded",
+    "copyCode": "Copy code",
+    "copied": "Copied!",
+    "newSale": "New sale",
+    "newExpense": "New expense",
+    "viewTransaction": "View transaction"
+  },
+  "detail": {
+    "deleteOperation": "Delete operation",
+    "paymentMethodUnknown": "Not specified"
+  },
+  "receipt": {
+    "ticketNumber": "Receipt no.",
+    "cashier": "Cashier",
+    "total": "TOTAL",
+    "paidBy": "Paid by",
+    "received": "Received",
+    "duplicate": "DUPLICATE",
+    "defaultFooter": "Thank you for your visit!",
+    "previewToggle": "Receipt preview",
+    "printButton": "Print",
+    "shareButton": "Share",
+    "sharing": "Sharing…",
+    "shareTitle": "Receipt",
+    "shareFailed": "Couldn't share the receipt",
+    "printed": "Receipt printed",
+    "downloaded": "Receipt downloaded",
+    "bluetoothPrinterDisconnected": "Printer not connected",
+    "printClassicAction": "Print normally",
+    "printerHelpLink": "Can't see your printer?",
+    "printerHelpText": "Install a print service (RawBT or your printer's own app) from the Play Store, pair your printer over Bluetooth, then try again."
   }
 }

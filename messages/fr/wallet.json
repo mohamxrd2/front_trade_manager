@@ -65,10 +65,16 @@
     "viewInvoiceShort": "Voir",
     "subtitleDesktop": "Toutes vos ventes et dépenses",
     "invoiceNumberPrefix": "Facture {{number}}",
-    "shownOfTotal": "{{shown}} opération(s) affichée(s) sur {{total}}"
+    "shownOfTotal": "{{shown}} opération(s) affichée(s) sur {{total}}",
+    "articlesCount": "{count, plural, one {# article} other {# articles}}"
   },
   "new": {
     "pageTitle": "Nouvelle opération",
+    "pageTitleSale": "Nouvelle vente",
+    "noArticlesFound": "Aucun article trouvé",
+    "outOfStock": "Épuisé",
+    "scanButton": "Scanner un code-barres",
+    "scanComingSoon": "Bientôt disponible",
     "modeOptionSale": "Vente",
     "modeOptionExpense": "Dépense",
     "errorLoadArticles": "Erreur lors du chargement des articles",
@@ -171,5 +177,76 @@
     "customRangeTo": "Date de fin",
     "applyCustomRange": "Appliquer",
     "clearDateFilter": "Effacer le filtre de date"
+  },
+  "cart": {
+    "title": "Panier",
+    "emptyState": "Ajoutez un premier article",
+    "itemsAndTotal": "{count, plural, one {# article · Total {{total}} F} other {# articles · Total {{total}} F}}",
+    "checkoutButton": "Encaisser",
+    "removeLine": "Retirer la ligne",
+    "editPriceHint": "(modifier)",
+    "stockMax": "Stock max : {{count}}"
+  },
+  "checkout": {
+    "title": "Encaissement",
+    "totalLabel": "Total",
+    "billReceivedLabel": "Billet reçu",
+    "customAmountLabel": "Autre montant (F)",
+    "customAmountLink": "Autre montant",
+    "changeGiven": "Monnaie à rendre : {{amount}} F",
+    "changeLabel": "Monnaie rendue",
+    "amountReceivedLabel": "Montant reçu",
+    "exactAmountHint": "Payé au montant exact — aucune monnaie à rendre.",
+    "clientLabel": "Client",
+    "walkInClient": "Client de passage",
+    "noteLabel": "Note",
+    "notePlaceholder": "Note facultative",
+    "submitBusy": "Encaissement…",
+    "submitIdle": "Valider la vente · {{amount}} F",
+    "codeToastDescription": "Code : {{code}}",
+    "errors": {
+      "paymentMethodRequired": "Sélectionnez un moyen d'encaissement",
+      "stock": "Stock insuffisant",
+      "validation": "Vérifiez le panier avant de valider",
+      "generic": "Erreur lors de l'enregistrement de l'opération",
+      "server": "Erreur serveur lors de l'enregistrement de l'opération",
+      "invalidResponse": "Réponse du serveur invalide",
+      "loadList": "Impossible de charger les opérations",
+      "available": "Disponible : {{count}}",
+      "adjust": "Ajuster"
+    }
+  },
+  "confirmation": {
+    "saleRecorded": "Vente enregistrée",
+    "copyCode": "Copier le code",
+    "copied": "Copié !",
+    "newSale": "Nouvelle vente",
+    "newExpense": "Nouvelle dépense",
+    "viewTransaction": "Voir la transaction"
+  },
+  "detail": {
+    "deleteOperation": "Supprimer l'opération",
+    "paymentMethodUnknown": "Non précisé"
+  },
+  "receipt": {
+    "ticketNumber": "Ticket n°",
+    "cashier": "Caissier",
+    "total": "TOTAL",
+    "paidBy": "Payé par",
+    "received": "Reçu",
+    "duplicate": "DUPLICATA",
+    "defaultFooter": "Merci de votre visite !",
+    "previewToggle": "Aperçu du ticket",
+    "printButton": "Imprimer",
+    "shareButton": "Partager",
+    "sharing": "Partage…",
+    "shareTitle": "Ticket de caisse",
+    "shareFailed": "Impossible de partager le ticket",
+    "printed": "Ticket imprimé",
+    "downloaded": "Ticket téléchargé",
+    "bluetoothPrinterDisconnected": "Imprimante non connectée",
+    "printClassicAction": "Impression classique",
+    "printerHelpLink": "Votre imprimante n'apparaît pas ?",
+    "printerHelpText": "Installez un service d'impression (RawBT ou l'application de votre imprimante) depuis le Play Store, connectez votre imprimante en Bluetooth, puis réessayez."
   }
 }

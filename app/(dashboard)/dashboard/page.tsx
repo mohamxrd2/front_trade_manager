@@ -38,7 +38,8 @@ import {
 } from '@/lib/services/analytics'
 import { type Transaction } from '@/lib/services/transactions'
 import { useTransactionsQuery } from '@/lib/hooks/useTransactions'
-import { getTransactionVisual } from '@/lib/transactions/transaction-visual'
+import { getTransactionVisual, paymentMethodIcon } from '@/lib/transactions/transaction-visual'
+import { groupTransactionsByOperation, operationGroupTitle } from '@/lib/transactions/group-by-operation'
 import { keys } from '@/lib/query-keys'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { OnboardingSkippedBanner } from '@/components/onboarding'
@@ -178,13 +179,6 @@ function bucketTrendPoints(
 }
 
 // Reprend exactement le calcul de montant de components/wallet/transaction-card.tsx
-function getTransactionAmount(transaction: Transaction): number {
-  if (transaction.type === 'sale') {
-    return (transaction.quantity || 0) * (transaction.unit_price || 0)
-  }
-  return transaction.amount || 0
-}
-
 function formatTransactionMeta(dateString: string, language: AppLanguage, todayLabel: string, yesterdayLabel: string): string {
   const d = dayjs(dateString)
   const today = dayjs().startOf('day')
@@ -262,7 +256,10 @@ export default function DashboardPage() {
   // avec un slice(0, 5) mis en cache séparément, donc une suppression côté
   // Portefeuille ne se répercutait jamais ici sans rechargement de page.
   const { data: allTransactions = [], isLoading: isLoadingTransactions } = useTransactionsQuery()
-  const transactions = React.useMemo(() => allTransactions.slice(0, 5), [allTransactions])
+  // Regroupe par opération AVANT de limiter aux 5 plus récentes : une
+  // opération multi-lignes (panier) compte pour UNE seule ligne affichée,
+  // jamais coupée en deux par la limite (voir lib/transactions/group-by-operation.ts).
+  const transactions = React.useMemo(() => groupTransactionsByOperation(allTransactions).slice(0, 5), [allTransactions])
 
   const { articles } = useArticles()
   const lowStockArticles = React.useMemo(
@@ -635,13 +632,15 @@ export default function DashboardPage() {
                    confondu avec une vente/dépense. Même raison que
                    wallet/page.tsx (voir son commentaire de tête). */}
               <div className="divide-y divide-divider lg:hidden">
-                {transactions.map((transaction) => {
-                  const visual = getTransactionVisual(transaction.type)
+                {transactions.map((opGroup) => {
+                  const transaction = opGroup.lines[0]
+                  const visual = getTransactionVisual(opGroup.type)
                   const Icon = visual.Icon
-                  const title = visual.kind === 'sale' || visual.kind === 'expense' ? transaction.name : t(visual.labelKey)
+                  const PaymentIcon = paymentMethodIcon(opGroup.paymentMethod)
+                  const title = operationGroupTitle(opGroup, t)
                   return (
                     <button
-                      key={transaction.id}
+                      key={opGroup.operationId}
                       type="button"
                       onClick={() => setSelectedTransaction(transaction)}
                       className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:bg-surface-soft"
@@ -651,13 +650,14 @@ export default function DashboardPage() {
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate text-sm font-semibold text-ink">{title}</span>
-                        <span className="truncate text-xs text-subtle">
-                          {t(visual.labelKey)} · {formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}
+                        <span className="flex items-center gap-1 truncate text-xs text-subtle">
+                          {t(visual.labelKey)} · {formatTransactionMeta(opGroup.date, language, t('common.today'), t('common.yesterday'))}
+                          {opGroup.paymentMethod ? <PaymentIcon className="size-3 shrink-0" strokeWidth={2} /> : null}
                         </span>
                       </span>
                       <span className={`shrink-0 text-sm font-bold ${visual.amountClassName}`}>
                         {visual.sign}
-                        <Amount value={getTransactionAmount(transaction)} />
+                        <Amount value={opGroup.amount} />
                       </span>
                     </button>
                   )
@@ -676,12 +676,13 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((transaction) => {
-                      const visual = getTransactionVisual(transaction.type)
-                      const title = visual.kind === 'sale' || visual.kind === 'expense' ? transaction.name : t(visual.labelKey)
+                    {transactions.map((opGroup) => {
+                      const transaction = opGroup.lines[0]
+                      const visual = getTransactionVisual(opGroup.type)
+                      const title = operationGroupTitle(opGroup, t)
                       return (
                         <tr
-                          key={transaction.id}
+                          key={opGroup.operationId}
                           onClick={() => setSelectedTransaction(transaction)}
                           className="cursor-pointer border-t border-divider hover:bg-surface-soft"
                         >
@@ -698,10 +699,10 @@ export default function DashboardPage() {
                               {t(visual.labelKey)}
                             </span>
                           </td>
-                          <td className="px-2 py-3 text-ink-3">{formatTransactionMeta(transaction.date, language, t('common.today'), t('common.yesterday'))}</td>
+                          <td className="px-2 py-3 text-ink-3">{formatTransactionMeta(opGroup.date, language, t('common.today'), t('common.yesterday'))}</td>
                           <td className={`whitespace-nowrap px-2 py-3 text-right font-bold ${visual.amountClassName}`}>
                             {visual.sign}
-                            <Amount value={getTransactionAmount(transaction)} />
+                            <Amount value={opGroup.amount} />
                           </td>
                         </tr>
                       )

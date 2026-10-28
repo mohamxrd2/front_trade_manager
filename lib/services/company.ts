@@ -5,10 +5,13 @@ export interface Company {
   id: string
   name: string
   email: string | null
+  phone: string | null
   sector: string | null
   headquarters: string | null
   legal_status: string | null
   bank_account_number: string | null
+  /** RCCM ou numéro contribuable — affiché sur le ticket de caisse si réglé pour l'afficher. */
+  tax_id: string | null
   logo: string | null
   logo_url: string | null
   is_invoice_ready: boolean
@@ -17,10 +20,12 @@ export interface Company {
 export interface CompanyUpdatePayload {
   name?: string
   email?: string | null
+  phone?: string | null
   sector?: string | null
   headquarters?: string | null
   legal_status?: string | null
   bank_account_number?: string | null
+  tax_id?: string | null
 }
 
 interface ApiResponse<T> {

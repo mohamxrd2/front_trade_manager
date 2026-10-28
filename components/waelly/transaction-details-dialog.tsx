@@ -4,19 +4,20 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 
+import { Copy } from 'lucide-react'
+
 import type { Transaction } from '@/lib/services/transactions'
+import { getOperation } from '@/lib/services/operations'
 import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
 import { getTransactionVisual, fundingSourceLabelKey, paymentMethodLabelKey } from '@/lib/transactions/transaction-visual'
 import { keys } from '@/lib/query-keys'
 import { getCollaborators } from '@/lib/services/collaborators'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
-import { formatDate, formatNumber } from '@/lib/i18n/format'
-import type { AppLanguage } from '@/lib/i18n/current-language'
+import { formatDate } from '@/lib/i18n/format'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTitle } from '@/components/ui/dialog'
-
-const formatAmount = (value: number, language: AppLanguage): string =>
-  formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+import { Amount } from './amount'
+import { ReceiptActions } from './receipt-actions'
 
 interface DetailRow {
   label: string
@@ -50,21 +51,71 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
     enabled: transaction?.funding_source === 'collaborateur',
   })
 
+  const { data: operation } = useQuery({
+    queryKey: keys.operations.detail(transaction?.operation_id ?? ''),
+    queryFn: () => getOperation(transaction!.operation_id!),
+    enabled: transaction !== null && !!transaction?.operation_id,
+  })
+
   if (!transaction) return null
 
   const isSale = transaction.type === 'sale'
   const visual = getTransactionVisual(transaction.type)
   const Icon = visual.Icon
-  const title = (isSale && transaction.article_name) || transaction.name
+  const hasMultipleLines = (operation?.lines.length ?? 0) > 1
+  const title = hasMultipleLines
+    ? t('wallet.list.articlesCount', { count: operation!.lines.length })
+    : (isSale && transaction.article_name) || transaction.name
   const unitPrice = transaction.sale_price ?? transaction.unit_price ?? null
   const canDelete = isDeletableFromList(transaction, invoiceEntry?.status)
+  const totalAmount = operation?.totalAmount ?? transaction.amount ?? 0
+
+  const copyCode = async () => {
+    if (!operation?.code) return
+    try {
+      await navigator.clipboard.writeText(operation.code)
+    } catch {
+      // Best-effort — certains navigateurs/contextes non sécurisés refusent l'accès au presse-papiers.
+    }
+  }
 
   const rows: DetailRow[] = []
-  if (isSale && transaction.quantity) rows.push({ label: t('transactions.quantity'), value: transaction.quantity })
-  if (isSale && unitPrice != null) rows.push({ label: t('transactions.unitPrice'), value: `${formatAmount(unitPrice, language)} F` })
-  if (isSale && transaction.variation_name) rows.push({ label: t('transactions.detail.variant'), value: transaction.variation_name })
-  if (isSale && transaction.article_name && transaction.article_name !== transaction.name) {
+  if (isSale && !hasMultipleLines && transaction.quantity) rows.push({ label: t('transactions.quantity'), value: transaction.quantity })
+  if (isSale && !hasMultipleLines && unitPrice != null)
+    rows.push({
+      label: t('transactions.unitPrice'),
+      value: (
+        <>
+          <Amount value={unitPrice} /> F
+        </>
+      ),
+    })
+  if (isSale && !hasMultipleLines && transaction.variation_name) rows.push({ label: t('transactions.detail.variant'), value: transaction.variation_name })
+  if (isSale && !hasMultipleLines && transaction.article_name && transaction.article_name !== transaction.name) {
     rows.push({ label: t('transactions.detail.saleName'), value: transaction.name })
+  }
+  if (isSale) {
+    const methodKey = paymentMethodLabelKey(operation?.paymentMethod ?? transaction.payment_method)
+    rows.push({ label: t('wallet.deposit.paymentMethodLabel'), value: methodKey ? t(methodKey) : t('wallet.detail.paymentMethodUnknown') })
+    if (operation?.clientName) rows.push({ label: t('transactions.detail.client'), value: operation.clientName })
+    if (operation?.paymentMethod === 'especes' && operation.amountReceived != null) {
+      rows.push({
+        label: t('wallet.checkout.amountReceivedLabel'),
+        value: (
+          <>
+            <Amount value={operation.amountReceived} /> F
+          </>
+        ),
+      })
+      rows.push({
+        label: t('wallet.checkout.changeLabel'),
+        value: (
+          <>
+            <Amount value={operation.changeGiven ?? 0} /> F
+          </>
+        ),
+      })
+    }
   }
   rows.push({
     label: t('transactions.date'),
@@ -117,8 +168,39 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
 
           <span className={`text-[32px] font-bold tracking-[-0.02em] ${visual.amountClassName}`}>
             {visual.sign}
-            {formatAmount(transaction.amount ?? 0, language)} F
+            <Amount value={totalAmount} /> F
           </span>
+
+          {operation?.code ? (
+            <button
+              type="button"
+              onClick={copyCode}
+              className="flex items-center justify-between gap-2 rounded-tile bg-surface-soft px-4 py-2.5"
+            >
+              <span className="font-mono text-sm font-bold text-ink">{operation.code}</span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-brand-600">
+                <Copy className="size-3.5" />
+                {t('wallet.confirmation.copyCode')}
+              </span>
+            </button>
+          ) : null}
+
+          {hasMultipleLines ? (
+            <div className="flex flex-col divide-y divide-divider rounded-tile border border-line">
+              {operation!.lines.map((line) => (
+                <div key={line.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                  <span className="text-ink-2">
+                    {line.articleName || line.name}
+                    {line.variationName ? ` · ${line.variationName}` : ''}
+                    {line.quantity && line.quantity > 1 ? ` ×${line.quantity}` : ''}
+                  </span>
+                  <span className="font-semibold text-ink">
+                    <Amount value={line.amount} /> F
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div className="flex flex-col divide-y divide-divider rounded-tile border border-line">
             {rows.map((row) => (
@@ -128,6 +210,8 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
               </div>
             ))}
           </div>
+
+          {isSale && operation ? <ReceiptActions operation={operation} duplicate /> : null}
 
           <div className="flex gap-2.5">
             <button

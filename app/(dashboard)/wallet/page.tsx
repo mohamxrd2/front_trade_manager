@@ -7,13 +7,15 @@ import dayjs from 'dayjs'
 import { toast } from 'sonner'
 import { AlertCircle, ArrowDownLeft, Banknote, Check, Download, PiggyBank, Plus, Search, X } from 'lucide-react'
 
-import { deleteTransaction, type Transaction } from '@/lib/services/transactions'
+import type { Transaction } from '@/lib/services/transactions'
+import { deleteOperation } from '@/lib/services/operations'
 import { useTransactionsQuery, useTransactionsSearchQuery } from '@/lib/hooks/useTransactions'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { useInvoiceLookup } from '@/lib/hooks/useInvoiceLookup'
 import { useDeleteTransactionFlow } from '@/lib/hooks/useDeleteTransactionFlow'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
-import { getTransactionVisual } from '@/lib/transactions/transaction-visual'
+import { getTransactionVisual, paymentMethodIcon } from '@/lib/transactions/transaction-visual'
+import { groupTransactionsByOperation, operationGroupTitle, type OperationGroup } from '@/lib/transactions/group-by-operation'
 import { isSearchableQuery } from '@/lib/transactions/search-query'
 import { buildWalletSearchUrl, parseWalletSearchUrl, hasActiveSearchFilters as computeHasActiveSearchFilters } from '@/lib/transactions/wallet-search-url'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
@@ -347,18 +349,26 @@ export default function WalletPage() {
   // filteredRows — qui ne sert plus qu'à l'export Excel, resté sur son
   // propre filtre période+type existant (comportement inchangé).
   const groupedMobileRows = React.useMemo(() => {
-    const groups: { label: string; items: Transaction[] }[] = []
-    searchRows.forEach((tx) => {
-      const label = dayLabel(tx.date, language, t)
+    const groups: { label: string; items: OperationGroup[] }[] = []
+    // Regroupe par opération (voir lib/transactions/group-by-operation.ts)
+    // AVANT de regrouper par jour : une opération multi-lignes (panier)
+    // s'affiche comme UNE ligne de liste, pas une par article.
+    const byOperation = groupTransactionsByOperation(searchRows)
+    byOperation.forEach((opGroup) => {
+      const label = dayLabel(opGroup.date, language, t)
       const last = groups[groups.length - 1]
       if (last && last.label === label) {
-        last.items.push(tx)
+        last.items.push(opGroup)
       } else {
-        groups.push({ label, items: [tx] })
+        groups.push({ label, items: [opGroup] })
       }
     })
     return groups
   }, [searchRows, language, t])
+
+  // Même principe que groupedMobileRows, sans le regroupement par jour (le
+  // tableau ordinateur a sa propre colonne Date par ligne).
+  const desktopGroupedRows = React.useMemo(() => groupTransactionsByOperation(searchRows), [searchRows])
 
   const periodLabel =
     period === 'all'
@@ -382,11 +392,12 @@ export default function WalletPage() {
             ? t('wallet.list.periodShort30d')
             : t('wallet.list.periodShortCustom')
 
-  const toggleRow = (id: string) => {
+  /** Coche/décoche TOUTES les lignes d'une même opération ensemble (panier multi-articles) — y compris une seule ligne. */
+  const toggleRows = (ids: string[]) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      const allSelected = ids.every((id) => next.has(id))
+      ids.forEach((id) => (allSelected ? next.delete(id) : next.add(id)))
       return next
     })
   }
@@ -427,10 +438,15 @@ export default function WalletPage() {
 
   const handleDeleteSelected = async () => {
     setDeleting(true)
-    const ids = Array.from(selectedIds)
-    const results = await Promise.allSettled(ids.map((id) => deleteTransaction(id)))
+    // Toute suppression cible désormais l'OPÉRATION (voir
+    // lib/hooks/useDeleteTransaction.ts pour la suppression simple/le
+    // glissement) — deux lignes sélectionnées de la même opération ne
+    // doivent déclencher qu'UN SEUL appel, sans quoi le second échouerait
+    // (déjà supprimée par le premier).
+    const operationIds = Array.from(new Set(selectedTransactions.map((tr) => tr.operation_id ?? tr.id)))
+    const results = await Promise.allSettled(operationIds.map((id) => deleteOperation(id)))
     const failedCount = results.filter((r) => r.status === 'rejected').length
-    const okCount = ids.length - failedCount
+    const okCount = operationIds.length - failedCount
 
     if (okCount > 0) toast.success(t('wallet.list.deletedCount', { count: okCount }))
     if (failedCount > 0) toast.error(t('wallet.list.deleteFailedCount', { count: failedCount }))
@@ -712,13 +728,17 @@ export default function WalletPage() {
                 <span className="px-1 pb-0.5 pt-2.5 text-xs font-bold uppercase tracking-wide text-subtle">
                   {group.label}
                 </span>
-                {group.items.map((tx) => {
-                  const visual = getTransactionVisual(tx.type)
+                {group.items.map((opGroup) => {
+                  const tx = opGroup.lines[0]
+                  const lineIds = opGroup.lines.map((l) => l.id)
+                  const visual = getTransactionVisual(opGroup.type)
                   const Icon = visual.Icon
+                  const PaymentIcon = paymentMethodIcon(opGroup.paymentMethod)
                   const isSaleOrExpense = visual.kind === 'sale' || visual.kind === 'expense'
+                  const title = operationGroupTitle(opGroup, t)
                   return (
                   <SwipeableTransactionRow
-                    key={tx.id}
+                    key={opGroup.operationId}
                     className="rounded-tile border border-line"
                     exiting={exitingRowId === tx.id}
                     disabled={mobileSelecting || !isDeletableFromList(tx, tx.invoice_id ? invoiceLookup[tx.invoice_id]?.status : undefined)}
@@ -731,9 +751,9 @@ export default function WalletPage() {
                       {mobileSelecting ? (
                         <input
                           type="checkbox"
-                          aria-label={t('wallet.list.selectRowAria', { name: transactionTitle(tx, t) })}
-                          checked={selectedIds.has(tx.id)}
-                          onChange={() => toggleRow(tx.id)}
+                          aria-label={t('wallet.list.selectRowAria', { name: title })}
+                          checked={lineIds.every((id) => selectedIds.has(id))}
+                          onChange={() => toggleRows(lineIds)}
                           className="size-[22px] accent-brand-500"
                         />
                       ) : null}
@@ -742,20 +762,22 @@ export default function WalletPage() {
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <Highlight
-                          text={transactionTitle(tx, t)}
+                          text={title}
                           query={effectiveQuery}
                           className="truncate text-sm font-semibold text-ink"
                         />
-                        <span className="truncate text-xs text-subtle">
+                        <span className="flex items-center gap-1 truncate text-xs text-subtle">
                           {t(visual.labelKey)} ·{' '}
                           {tx.invoice_id
                             ? t('wallet.list.invoiceNumberPrefix', { number: invoiceLookup[tx.invoice_id]?.invoice_number || '' }).trim()
-                            : formatDate(tx.date, language, 'HH:mm')}
+                            : formatDate(opGroup.date, language, 'HH:mm')}
+                          {opGroup.paymentMethod ? <PaymentIcon className="size-3 shrink-0" strokeWidth={2} /> : null}
+                          {opGroup.operationCode ? <span className="shrink-0 font-mono text-[11px]">{opGroup.operationCode}</span> : null}
                         </span>
                       </span>
                       <span className={`shrink-0 text-sm font-bold ${visual.amountClassName}`}>
                         {visual.sign}
-                        <Amount value={tx.amount ?? 0} />
+                        <Amount value={opGroup.amount} />
                       </span>
                     </label>
                   </SwipeableTransactionRow>
@@ -980,14 +1002,18 @@ export default function WalletPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {searchRows.map((tx) => {
-                      const checked = selectedIds.has(tx.id)
+                    {desktopGroupedRows.map((opGroup) => {
+                      const tx = opGroup.lines[0]
+                      const lineIds = opGroup.lines.map((l) => l.id)
+                      const checked = lineIds.every((id) => selectedIds.has(id))
                       const selectable = canSelectForDeletion(tx)
-                      const visual = getTransactionVisual(tx.type)
+                      const visual = getTransactionVisual(opGroup.type)
                       const Icon = visual.Icon
+                      const PaymentIcon = paymentMethodIcon(opGroup.paymentMethod)
+                      const title = operationGroupTitle(opGroup, t)
                       return (
                         <tr
-                          key={tx.id}
+                          key={opGroup.operationId}
                           onClick={() => setDesktopDetailTransaction(tx)}
                           className={`cursor-pointer border-t border-divider hover:bg-surface-soft ${checked ? 'bg-brand-50' : ''}`}
                         >
@@ -998,12 +1024,12 @@ export default function WalletPage() {
                               aria-checked={checked}
                               aria-label={
                                 selectable
-                                  ? t('wallet.list.selectRowAria', { name: transactionTitle(tx, t) })
-                                  : t('wallet.list.notSelectableAria', { name: transactionTitle(tx, t) })
+                                  ? t('wallet.list.selectRowAria', { name: title })
+                                  : t('wallet.list.notSelectableAria', { name: title })
                               }
                               disabled={!selectable}
                               title={selectable ? undefined : t('wallet.list.notSelectableTitle')}
-                              onClick={(e) => { e.stopPropagation(); toggleRow(tx.id) }}
+                              onClick={(e) => { e.stopPropagation(); toggleRows(lineIds) }}
                               className={`flex size-6 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-40 ${
                                 checked ? 'bg-brand-500' : 'border-[1.5px] border-line-strong bg-surface'
                               }`}
@@ -1016,14 +1042,22 @@ export default function WalletPage() {
                               <span className={`flex size-9 shrink-0 items-center justify-center rounded-full text-base font-bold ${visual.iconClassName}`}>
                                 <Icon className="size-4" strokeWidth={2.2} />
                               </span>
-                              <Highlight text={transactionTitle(tx, t)} query={effectiveQuery} className="font-semibold text-ink" />
+                              <span className="flex min-w-0 flex-col gap-0.5">
+                                <Highlight text={title} query={effectiveQuery} className="font-semibold text-ink" />
+                                {opGroup.operationCode ? (
+                                  <span className="flex items-center gap-1 font-mono text-[11px] text-subtle">
+                                    {opGroup.paymentMethod ? <PaymentIcon className="size-3" strokeWidth={2} /> : null}
+                                    {opGroup.operationCode}
+                                  </span>
+                                ) : null}
+                              </span>
                             </span>
                           </td>
                           <td className="px-2 py-2.5">
                             <StatusBadge tone={visual.badgeTone} label={t(visual.labelKey)} />
                           </td>
                           <td className="whitespace-nowrap px-2 py-2.5 text-ink-3">
-                            {formatDate(tx.date, language, 'D MMM · HH:mm')}
+                            {formatDate(opGroup.date, language, 'D MMM · HH:mm')}
                           </td>
                           <td className="px-2 py-2.5">
                             {tx.invoice_id ? (
@@ -1040,7 +1074,7 @@ export default function WalletPage() {
                           </td>
                           <td className={`whitespace-nowrap px-2 py-2.5 text-right font-bold ${visual.amountClassName}`}>
                             {visual.sign}
-                            <Amount value={tx.amount ?? 0} /> F
+                            <Amount value={opGroup.amount} /> F
                           </td>
                         </tr>
                       )

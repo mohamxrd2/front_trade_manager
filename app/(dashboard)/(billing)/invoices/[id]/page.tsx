@@ -12,6 +12,7 @@ import {
   duplicateInvoice,
   deleteInvoice,
   getInvoicePdfBlob,
+  shareInvoicePdf,
   type Invoice,
   type InvoiceStatus,
 } from '@/lib/services/invoices'
@@ -51,6 +52,7 @@ export default function InvoiceDetailPage() {
   const [statusChanging, setStatusChanging] = React.useState(false)
   const [duplicating, setDuplicating] = React.useState(false)
   const [generatingPdf, setGeneratingPdf] = React.useState(false)
+  const [sharing, setSharing] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
 
@@ -149,6 +151,24 @@ export default function InvoiceDetailPage() {
     }
   }
 
+  const handleShare = async () => {
+    if (!invoice) return
+    setSharing(true)
+    try {
+      const result = await shareInvoicePdf(invoice.id, invoice.invoice_number, t('invoices.detail.shareTitle'))
+      // 'shared' : l'OS affiche déjà son propre retour (feuille de partage). 'cancelled' : fermée par
+      // l'utilisateur lui-même, rien à dire. 'downloaded' : repli silencieux sinon — sans ce toast, rien
+      // ne semble se produire (la plupart des navigateurs ordinateur ne supportent pas le partage de fichiers).
+      if (result.outcome === 'downloaded') {
+        toast.success(t('invoices.detail.pdfDownloaded'))
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t('invoices.detail.shareFailed'))
+    } finally {
+      setSharing(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4">
@@ -192,7 +212,7 @@ export default function InvoiceDetailPage() {
       <InvoicePreviewCard invoice={invoice} />
 
       <div
-        className={`grid gap-2 ${invoice.status === 'paid' || invoice.status === 'cancelled' ? 'grid-cols-2' : 'grid-cols-3'}`}
+        className={`grid gap-2 ${invoice.status === 'paid' || invoice.status === 'cancelled' ? 'grid-cols-3' : 'grid-cols-4'}`}
       >
         <button
           type="button"
@@ -201,6 +221,14 @@ export default function InvoiceDetailPage() {
           className="flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-bold text-ink disabled:opacity-60"
         >
           {generatingPdf ? <Loader2 className="size-4 animate-spin" /> : t('invoices.detail.pdfButton')}
+        </button>
+        <button
+          type="button"
+          onClick={handleShare}
+          disabled={sharing}
+          className="flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-bold text-ink disabled:opacity-60"
+        >
+          {sharing ? <Loader2 className="size-4 animate-spin" /> : t('invoices.detail.shareButton')}
         </button>
         <button
           type="button"

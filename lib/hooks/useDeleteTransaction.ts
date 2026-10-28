@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 
 import { keys } from '@/lib/query-keys'
-import { deleteTransaction, restoreTransaction, type Transaction } from '@/lib/services/transactions'
+import type { Transaction } from '@/lib/services/transactions'
+import { deleteOperation, restoreOperation, type Operation } from '@/lib/services/operations'
 
 interface TransactionListContext {
   previous: Transaction[] | undefined
@@ -35,7 +36,15 @@ function invalidateTransactionSideEffects(queryClient: QueryClient, transaction:
  */
 export function createDeleteTransactionMutationOptions(queryClient: QueryClient) {
   return {
-    mutationFn: (transaction: Transaction) => deleteTransaction(transaction.id),
+    // Étape 3 du chantier "paniers multi-articles" : TOUTE suppression passe
+    // désormais par l'opération (DELETE /api/operations/{id}), jamais par la
+    // ligne seule — une transaction isolée appartient toujours à UNE
+    // opération (même à une seule ligne, depuis le backfill), et c'est
+    // l'opération qui porte la règle "pas de suppression partielle d'un
+    // panier à plusieurs lignes" côté serveur. `operation_id` est toujours
+    // présent ; le repli sur `transaction.id` ne sert qu'à ne jamais planter
+    // sur une donnée antérieure au backfill qui aurait échappé à la migration.
+    mutationFn: (transaction: Transaction) => deleteOperation(transaction.operation_id ?? transaction.id),
 
     onMutate: async (transaction: Transaction): Promise<TransactionListContext> => {
       await queryClient.cancelQueries({ queryKey: keys.transactions.list() })
@@ -72,7 +81,7 @@ export function useDeleteTransaction() {
  */
 export function createRestoreTransactionMutationOptions(queryClient: QueryClient) {
   return {
-    mutationFn: (transaction: Transaction) => restoreTransaction(transaction.id),
+    mutationFn: (transaction: Transaction) => restoreOperation(transaction.operation_id ?? transaction.id),
 
     onMutate: async (transaction: Transaction): Promise<TransactionListContext> => {
       await queryClient.cancelQueries({ queryKey: keys.transactions.list() })
@@ -89,8 +98,12 @@ export function createRestoreTransactionMutationOptions(queryClient: QueryClient
       }
     },
 
-    onSuccess: (restored: Transaction) => {
-      invalidateTransactionSideEffects(queryClient, restored)
+    // Le serveur renvoie l'Operation restaurée (pas une Transaction) — les
+    // effets de bord n'ont besoin que de l'article_id, déjà connu AVANT
+    // l'appel (voir `transaction`, l'objet passé à .mutate() ci-dessous),
+    // inutile d'attendre/mapper la réponse serveur pour ça.
+    onSuccess: (_restored: Operation, transaction: Transaction) => {
+      invalidateTransactionSideEffects(queryClient, transaction)
     },
   }
 }

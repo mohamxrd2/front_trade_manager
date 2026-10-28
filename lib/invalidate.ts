@@ -36,3 +36,34 @@ export function invalidateInvoices(options?: { paid?: boolean }) {
 export function invalidateClients() {
   queryClient.invalidateQueries({ queryKey: keys.clients.all })
 }
+
+/**
+ * Opération créée/supprimée/restaurée (étape 3 du chantier "paniers
+ * multi-articles") — invalide tout ce qui dépend de son résultat : les deux
+ * listes (transactions ET operations, qui coexistent le temps de la
+ * migration de l'affichage), le solde, le tableau de bord, les analyses, les
+ * parts des collaborateurs, et le stock de CHAQUE article/variation touché
+ * (une opération peut toucher plusieurs lignes, contrairement à l'ancienne
+ * suppression d'une transaction unique — voir lib/hooks/useDeleteTransaction.ts).
+ */
+export function invalidateAfterOperation(articleIds: Array<string | null | undefined> = []) {
+  queryClient.invalidateQueries({ queryKey: keys.operations.all })
+  queryClient.invalidateQueries({ queryKey: keys.transactions.all })
+  queryClient.invalidateQueries({ queryKey: keys.userStats.all })
+  queryClient.invalidateQueries({ queryKey: keys.wallet.all })
+  queryClient.invalidateQueries({ queryKey: keys.collaborators.all })
+  queryClient.invalidateQueries({ queryKey: keys.analytics.all })
+  queryClient.invalidateQueries({ queryKey: keys.dashboard.all })
+
+  const seen = new Set<string>()
+  for (const id of articleIds) {
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    queryClient.invalidateQueries({ queryKey: keys.products.detail(id) })
+  }
+  if (seen.size > 0) {
+    queryClient.invalidateQueries({ queryKey: keys.products.list() })
+  }
+
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('notification-updated'))
+}

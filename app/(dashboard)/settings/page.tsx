@@ -18,10 +18,34 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useLanguage } from '@/lib/i18n/context/LanguageContext'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import type { AppLanguage } from '@/lib/i18n/current-language'
 import { keys } from '@/lib/query-keys'
 import { useNotifications } from '@/hooks/useNotifications'
 import { updateUserProfile, updateUserPassword } from '@/lib/auth'
 import { getCompany, updateCompany, uploadCompanyLogo, type Company } from '@/lib/services/company'
+import {
+  getReceiptSettings,
+  updateReceiptSettings,
+  DEFAULT_RECEIPT_SETTINGS,
+  type ReceiptSettings,
+  type ReceiptWidth,
+} from '@/lib/services/receipt-settings'
+import { buildReceipt, type ReceiptOperationInput, type ReceiptModel } from '@/lib/receipt/build-receipt'
+import { generateReceiptQrDataUrl } from '@/lib/receipt/qr'
+import { printReceiptModel } from '@/lib/receipt/print-receipt'
+import { encodeReceiptEscPos } from '@/lib/receipt/escpos-encoder'
+import { isWebBluetoothSupported } from '@/lib/receipt/bluetooth-transport'
+import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
+import {
+  readDefaultPrintMode,
+  writeDefaultPrintMode,
+  readCompatibilityMode,
+  writeCompatibilityMode,
+  readCutPaper,
+  writeCutPaper,
+  type DefaultPrintMode,
+} from '@/lib/receipt/printer-preferences'
+import { ReceiptView } from '@/components/waelly/receipt-view'
 import { getCollaborators } from '@/lib/services/collaborators'
 import { Button } from '@/components/waelly'
 import {
@@ -58,13 +82,19 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
  *   message d'indisponibilité plutôt que d'appeler une route inexistante.
  */
 
-type TabId = 'profil' | 'entreprise' | 'preferences' | 'securite'
+type TabId = 'profil' | 'entreprise' | 'preferences' | 'ticket' | 'securite'
 
 const TABS: { id: TabId; labelKey: string }[] = [
   { id: 'profil', labelKey: 'settings.tabs.profile' },
   { id: 'entreprise', labelKey: 'settings.tabs.company' },
   { id: 'preferences', labelKey: 'settings.tabs.preferences' },
+  { id: 'ticket', labelKey: 'settings.tabs.receipt' },
   { id: 'securite', labelKey: 'settings.tabs.security' },
+]
+
+const RECEIPT_WIDTH_OPTIONS: { value: ReceiptWidth; labelKey: string }[] = [
+  { value: '58mm', labelKey: 'settings.receipt.width58' },
+  { value: '80mm', labelKey: 'settings.receipt.width80' },
 ]
 
 // FCFA (XOF)/Euro/Dollar : le CODE devise (abréviation) reste identique quelle
@@ -121,8 +151,10 @@ interface CompanyDraft {
   name: string
   sector: string
   headquarters: string
+  phone: string
   legal_status: string
   bank_account_number: string
+  tax_id: string
 }
 
 function companyToDraft(company: Company | null | undefined): CompanyDraft {
@@ -130,8 +162,10 @@ function companyToDraft(company: Company | null | undefined): CompanyDraft {
     name: company?.name ?? '',
     sector: company?.sector ?? '',
     headquarters: company?.headquarters ?? '',
+    phone: company?.phone ?? '',
     legal_status: company?.legal_status ?? '',
     bank_account_number: company?.bank_account_number ?? '',
+    tax_id: company?.tax_id ?? '',
   }
 }
 
@@ -332,6 +366,19 @@ function CompanyFields({
           />
         </div>
         <div className="flex flex-col gap-2">
+          <label htmlFor={`${idPrefix}-phone`} className="text-[13px] font-semibold text-ink">
+            {t('settings.company.phone')}
+          </label>
+          <input
+            id={`${idPrefix}-phone`}
+            type="tel"
+            value={draft.phone}
+            onChange={(e) => onChange({ ...draft, phone: e.target.value })}
+            placeholder={t('settings.company.phonePlaceholder')}
+            className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+          />
+        </div>
+        <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-legal`} className="text-[13px] font-semibold text-ink">
             {t('settings.company.legalStatus')}
           </label>
@@ -360,6 +407,403 @@ function CompanyFields({
             className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
           />
         </div>
+        <div className="flex flex-col gap-2">
+          <label htmlFor={`${idPrefix}-tax-id`} className="text-[13px] font-semibold text-ink">
+            {t('settings.company.taxId')}
+          </label>
+          <input
+            id={`${idPrefix}-tax-id`}
+            value={draft.tax_id}
+            onChange={(e) => onChange({ ...draft, tax_id: e.target.value })}
+            placeholder={t('settings.company.taxIdPlaceholder')}
+            className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Un seul exemple, jamais envoyé au serveur — juste de quoi faire vivre l'aperçu en direct des réglages du ticket. */
+function sampleReceiptOperation(t: ReturnType<typeof useTranslation>['t']): ReceiptOperationInput {
+  return {
+    code: 'V-261028-0042',
+    date: '2026-10-28T14:32:00Z',
+    paymentMethodLabel: t('wallet.deposit.paymentMethodCash'),
+    totalAmount: 24000,
+    amountReceived: 25000,
+    changeGiven: 1000,
+    clientName: null,
+    authorName: null,
+    lines: [{ name: t('settings.receipt.sampleArticle'), quantity: 2, unitPrice: 12000, amount: 24000 }],
+  }
+}
+
+const RECEIPT_TOGGLES: { key: keyof ReceiptSettings; labelKey: string }[] = [
+  { key: 'show_logo', labelKey: 'settings.receipt.showLogo' },
+  { key: 'show_address', labelKey: 'settings.receipt.showAddress' },
+  { key: 'show_phone', labelKey: 'settings.receipt.showPhone' },
+  { key: 'show_tax_id', labelKey: 'settings.receipt.showTaxId' },
+  { key: 'show_qr', labelKey: 'settings.receipt.showQr' },
+  { key: 'show_waelly_mention', labelKey: 'settings.receipt.showWaellyMention' },
+  { key: 'auto_print', labelKey: 'settings.receipt.autoPrint' },
+]
+
+/** Réglages "Ticket de caisse" + aperçu en direct — réutilisé onglet ordinateur / bottom sheet mobile (même principe que CompanyFields). */
+function ReceiptSettingsFields({
+  draft,
+  onChange,
+  company,
+  idPrefix,
+  t,
+  language,
+  currency,
+}: {
+  draft: ReceiptSettings
+  onChange: (next: ReceiptSettings) => void
+  company: Company | null | undefined
+  idPrefix: string
+  t: ReturnType<typeof useTranslation>['t']
+  language: AppLanguage
+  currency: string | undefined
+}) {
+  const [testPrinting, setTestPrinting] = React.useState(false)
+
+  const model = React.useMemo(
+    () =>
+      buildReceipt(
+        sampleReceiptOperation(t),
+        {
+          name: company?.name || 'Waelly', // i18n:allow — nom de secours uniquement si l'entreprise n'a pas encore été configurée
+          logoUrl: company?.logo_url ?? null,
+          address: company?.headquarters ?? null,
+          phone: company?.phone ?? null,
+          taxId: company?.tax_id ?? null,
+        },
+        {
+          width: draft.width,
+          showLogo: draft.show_logo,
+          showAddress: draft.show_address,
+          showPhone: draft.show_phone,
+          showTaxId: draft.show_tax_id,
+          footerMessage: draft.footer_message,
+          showQr: draft.show_qr,
+          showWaellyMention: draft.show_waelly_mention,
+        },
+        {
+          language,
+          currency,
+          labels: {
+            ticketNumber: t('wallet.receipt.ticketNumber'),
+            cashier: t('wallet.receipt.cashier'),
+            client: t('wallet.checkout.clientLabel'),
+            total: t('wallet.receipt.total'),
+            paidBy: t('wallet.receipt.paidBy'),
+            received: t('wallet.receipt.received'),
+            changeGiven: t('wallet.checkout.changeLabel'),
+            duplicate: t('wallet.receipt.duplicate'),
+            paymentMethodUnknown: t('wallet.detail.paymentMethodUnknown'),
+            defaultFooter: t('wallet.receipt.defaultFooter'),
+            waellyMention: 'Waelly', // i18n:allow — nom de marque, jamais traduit
+          },
+        }
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [draft, company, language, currency]
+  )
+
+  const handleTestPrint = async () => {
+    setTestPrinting(true)
+    try {
+      const qrDataUrl = draft.show_qr ? await generateReceiptQrDataUrl('V-261028-0042') : null
+      printReceiptModel(model, qrDataUrl)
+    } finally {
+      setTestPrinting(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-4.5">
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-semibold text-ink">{t('settings.receipt.widthLabel')}</span>
+          <div className="flex gap-2">
+            {RECEIPT_WIDTH_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onChange({ ...draft, width: opt.value })}
+                aria-pressed={draft.width === opt.value}
+                className={`flex h-11 flex-1 items-center justify-center rounded-field border text-sm font-semibold ${
+                  draft.width === opt.value ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line-strong text-ink-2'
+                }`}
+              >
+                {t(opt.labelKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col">
+          {RECEIPT_TOGGLES.map((toggle) => {
+            const on = Boolean(draft[toggle.key])
+            return (
+              <div key={toggle.key} className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0">
+                <span id={`${idPrefix}-${toggle.key}`} className="flex-1 text-sm font-semibold text-ink">
+                  {t(toggle.labelKey)}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={on}
+                  aria-labelledby={`${idPrefix}-${toggle.key}`}
+                  onClick={() => onChange({ ...draft, [toggle.key]: !on })}
+                  className="flex p-[3px]"
+                  style={{
+                    width: 50,
+                    height: 30,
+                    borderRadius: 15,
+                    justifyContent: on ? 'flex-end' : 'flex-start',
+                    background: on ? '#5B3FE6' : '#C9C9D6',
+                  }}
+                >
+                  <span className="rounded-full bg-white" style={{ width: 24, height: 24, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor={`${idPrefix}-footer`} className="text-[13px] font-semibold text-ink">
+            {t('settings.receipt.footerMessageLabel')}
+          </label>
+          <input
+            id={`${idPrefix}-footer`}
+            value={draft.footer_message ?? ''}
+            onChange={(e) => onChange({ ...draft, footer_message: e.target.value.slice(0, 120) })}
+            placeholder={t('settings.receipt.footerMessagePlaceholder')}
+            maxLength={120}
+            className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+          />
+          <span className="self-end text-xs text-subtle">{(draft.footer_message ?? '').length}/120</span>
+        </div>
+
+        <Button type="button" variant="secondary" className="h-11 self-start px-5" onClick={handleTestPrint} disabled={testPrinting}>
+          {t('settings.receipt.testPrintButton')}
+        </Button>
+
+        <BluetoothPrinterSection idPrefix={idPrefix} t={t} charsPerLine={draft.width === '80mm' ? 48 : 32} />
+      </div>
+
+      <div className="flex w-full flex-col items-center gap-2 rounded-panel border border-line bg-canvas p-4 lg:w-auto">
+        <span className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('settings.receipt.previewLabel')}</span>
+        <div className="rounded-tile bg-white p-3 shadow-sm">
+          <ReceiptView model={model} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Imprimante Bluetooth" (étape 2 du chantier ticket de caisse) — impression
+ * ESC/POS directe, sans fenêtre d'impression. Web Bluetooth n'existe QUE sur
+ * Chrome/Chromium (Android et ordinateur) — absent sur Safari/iOS : cette
+ * section entière se masque (return null) si indisponible, jamais un bouton
+ * mort. Mode par défaut, mode compatibilité et coupe papier sont des
+ * préférences PROPRES À CET APPAREIL (un appairage Bluetooth ne se
+ * synchronise pas entre appareils) — localStorage, pas receipt_settings.
+ */
+function BluetoothPrinterSection({
+  idPrefix,
+  t,
+  charsPerLine,
+}: {
+  idPrefix: string
+  t: ReturnType<typeof useTranslation>['t']
+  charsPerLine: 32 | 48
+}) {
+  const [supported, setSupported] = React.useState(false)
+  const [showAllDevices, setShowAllDevices] = React.useState(false)
+  const [defaultMode, setDefaultModeState] = React.useState<DefaultPrintMode>('classic')
+  const [compatibilityMode, setCompatibilityModeState] = React.useState(false)
+  const [cutPaper, setCutPaperState] = React.useState(false)
+  const [testPrinting, setTestPrinting] = React.useState(false)
+
+  const status = useBluetoothPrinterStore((s) => s.status)
+  const deviceName = useBluetoothPrinterStore((s) => s.deviceName)
+  const batteryLevel = useBluetoothPrinterStore((s) => s.batteryLevel)
+  const connect = useBluetoothPrinterStore((s) => s.connect)
+  const reconnect = useBluetoothPrinterStore((s) => s.reconnect)
+  const disconnect = useBluetoothPrinterStore((s) => s.disconnect)
+  const printBytes = useBluetoothPrinterStore((s) => s.print)
+  const init = useBluetoothPrinterStore((s) => s.init)
+
+  React.useEffect(() => {
+    setSupported(isWebBluetoothSupported())
+    setDefaultModeState(readDefaultPrintMode())
+    setCompatibilityModeState(readCompatibilityMode())
+    setCutPaperState(readCutPaper())
+    init()
+  }, [init])
+
+  if (!supported) return null
+
+  const handleConnect = async () => {
+    try {
+      await connect(showAllDevices)
+    } catch {
+      toast.error(t('settings.receipt.bluetoothConnectFailed'))
+    }
+  }
+
+  const handleReconnect = async () => {
+    try {
+      await reconnect()
+    } catch {
+      toast.error(t('settings.receipt.bluetoothConnectFailed'))
+    }
+  }
+
+  const handleTestPrint = async () => {
+    setTestPrinting(true)
+    try {
+      const testModel: ReceiptModel = {
+        width: charsPerLine === 48 ? '80mm' : '58mm',
+        charsPerLine,
+        rows: [
+          { kind: 'text', text: t('settings.receipt.bluetoothTestLine'), align: 'center', bold: true },
+          { kind: 'text', text: new Date().toLocaleString(), align: 'center' },
+        ],
+      }
+      const bytes = encodeReceiptEscPos(testModel, { compatibilityMode, cutPaper })
+      const result = await printBytes(bytes)
+      if (!result.ok) toast.error(t('settings.receipt.bluetoothNotConnected'))
+    } finally {
+      setTestPrinting(false)
+    }
+  }
+
+  const statusLabel =
+    status === 'connected'
+      ? t('settings.receipt.bluetoothConnected', { name: deviceName ?? '' })
+      : status === 'connecting'
+        ? t('settings.receipt.bluetoothConnecting')
+        : t('settings.receipt.bluetoothDisconnected')
+
+  const toggleRow = (id: string, label: string, value: boolean, onToggle: () => void, lastRow = false) => (
+    <div className={`flex items-center gap-3 py-2.5 ${lastRow ? '' : 'border-b border-line'}`}>
+      <span id={id} className="flex-1 text-sm font-semibold text-ink">
+        {label}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        aria-labelledby={id}
+        onClick={onToggle}
+        className="flex p-[3px]"
+        style={{
+          width: 50,
+          height: 30,
+          borderRadius: 15,
+          justifyContent: value ? 'flex-end' : 'flex-start',
+          background: value ? '#5B3FE6' : '#C9C9D6',
+        }}
+      >
+        <span className="rounded-full bg-white" style={{ width: 24, height: 24, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-divider pt-4.5">
+      <h3 className="text-[15px] font-bold text-ink">{t('settings.receipt.bluetoothTitle')}</h3>
+
+      <div className="flex items-center gap-2 rounded-tile bg-surface-soft px-4 py-3">
+        <span className={`size-2.5 shrink-0 rounded-full ${status === 'connected' ? 'bg-success-strong' : 'bg-line-strong'}`} />
+        <span className="flex-1 text-sm font-semibold text-ink">{statusLabel}</span>
+        {status === 'connected' && batteryLevel != null && batteryLevel <= 20 ? (
+          <span className="text-xs font-semibold text-warning">{t('settings.receipt.bluetoothLowBattery')}</span>
+        ) : null}
+      </div>
+
+      <label className="flex items-center gap-2 text-[13px] text-ink-2">
+        <input
+          type="checkbox"
+          checked={showAllDevices}
+          onChange={(e) => setShowAllDevices(e.target.checked)}
+          className="size-4"
+        />
+        {t('settings.receipt.bluetoothShowAllDevices')}
+      </label>
+
+      <div className="flex flex-wrap gap-2">
+        {status === 'connected' ? (
+          <Button type="button" variant="secondary" className="h-11 px-5" onClick={disconnect}>
+            {t('settings.receipt.bluetoothDisconnectButton')}
+          </Button>
+        ) : (
+          <>
+            <Button type="button" variant="secondary" className="h-11 px-5" onClick={handleConnect} disabled={status === 'connecting'}>
+              {t('settings.receipt.bluetoothConnectButton')}
+            </Button>
+            <Button type="button" variant="secondary" className="h-11 px-5" onClick={handleReconnect} disabled={status === 'connecting'}>
+              {t('settings.receipt.bluetoothReconnectButton')}
+            </Button>
+          </>
+        )}
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-11 px-5"
+          onClick={handleTestPrint}
+          disabled={testPrinting || status !== 'connected'}
+        >
+          {t('settings.receipt.bluetoothTestPrintButton')}
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[13px] font-semibold text-ink">{t('settings.receipt.defaultModeLabel')}</span>
+        <div className="flex gap-2">
+          {(['bluetooth', 'classic'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => {
+                setDefaultModeState(mode)
+                writeDefaultPrintMode(mode)
+              }}
+              aria-pressed={defaultMode === mode}
+              className={`flex h-11 flex-1 items-center justify-center rounded-field border text-sm font-semibold ${
+                defaultMode === mode ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line-strong text-ink-2'
+              }`}
+            >
+              {mode === 'bluetooth' ? t('settings.receipt.defaultModeBluetooth') : t('settings.receipt.defaultModeClassic')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col">
+        {toggleRow(`${idPrefix}-compat`, t('settings.receipt.compatibilityModeLabel'), compatibilityMode, () => {
+          const next = !compatibilityMode
+          setCompatibilityModeState(next)
+          writeCompatibilityMode(next)
+        })}
+        {toggleRow(
+          `${idPrefix}-cut`,
+          t('settings.receipt.cutPaperLabel'),
+          cutPaper,
+          () => {
+            const next = !cutPaper
+            setCutPaperState(next)
+            writeCutPaper(next)
+          },
+          true
+        )}
       </div>
     </div>
   )
@@ -504,6 +948,11 @@ export default function SettingsPage() {
     queryFn: getCollaborators,
     staleTime: 5 * 60 * 1000, // Collaborateurs : 5 min — même clé que /collaborators
   })
+  const { data: receiptSettingsData } = useQuery({
+    queryKey: keys.settings.receipt(),
+    queryFn: getReceiptSettings,
+    staleTime: 10 * 60 * 1000,
+  })
 
   // ---- Brouillon Profil ----
   const [fullName, setFullName] = React.useState('')
@@ -551,15 +1000,32 @@ export default function SettingsPage() {
   const prefsDirty =
     !!settings && (currency !== settings.currency || threshold !== settings.low_stock_threshold)
 
+  // ---- Brouillon Ticket de caisse ----
+  const [receiptDraft, setReceiptDraft] = React.useState<ReceiptSettings>(DEFAULT_RECEIPT_SETTINGS)
+  React.useEffect(() => {
+    if (receiptSettingsData) setReceiptDraft(receiptSettingsData)
+  }, [receiptSettingsData])
+  const receiptDirty = !!receiptSettingsData && JSON.stringify(receiptDraft) !== JSON.stringify(receiptSettingsData)
+
   const [saving, setSaving] = React.useState(false)
   const [mobileEditProfileOpen, setMobileEditProfileOpen] = React.useState(false)
   const [mobileCompanyOpen, setMobileCompanyOpen] = React.useState(false)
+  const [mobileTicketOpen, setMobileTicketOpen] = React.useState(false)
   const [mobilePasswordOpen, setMobilePasswordOpen] = React.useState(false)
   const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = React.useState('')
 
-  const isDirty = activeTab === 'profil' ? profileDirty : activeTab === 'entreprise' ? companyDirty : activeTab === 'preferences' ? prefsDirty : false
+  const isDirty =
+    activeTab === 'profil'
+      ? profileDirty
+      : activeTab === 'entreprise'
+        ? companyDirty
+        : activeTab === 'preferences'
+          ? prefsDirty
+          : activeTab === 'ticket'
+            ? receiptDirty
+            : false
 
   const handlePickPhoto = (file: File) => {
     setPhotoPicked(true)
@@ -591,6 +1057,11 @@ export default function SettingsPage() {
         toast.success(t('settings.saveSuccess'))
       } else if (activeTab === 'preferences') {
         await updateSettings({ currency, low_stock_threshold: threshold })
+      } else if (activeTab === 'ticket') {
+        const updated = await updateReceiptSettings(receiptDraft)
+        setReceiptDraft(updated)
+        await queryClient.invalidateQueries({ queryKey: keys.settings.receipt() })
+        toast.success(t('settings.saveSuccess'))
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('settings.saveFailed'))
@@ -599,6 +1070,7 @@ export default function SettingsPage() {
         setFullName(sourceFullName)
         setEmail(user?.email ?? '')
       }
+      if (activeTab === 'ticket') setReceiptDraft(receiptSettingsData ?? DEFAULT_RECEIPT_SETTINGS)
     } finally {
       setSaving(false)
     }
@@ -873,6 +1345,21 @@ export default function SettingsPage() {
           </section>
         ) : null}
 
+        {activeTab === 'ticket' ? (
+          <section className="flex flex-col gap-4.5 rounded-panel bg-surface p-6 shadow-card">
+            <h2 className="text-lg font-bold text-ink">{t('settings.tabs.receipt')}</h2>
+            <ReceiptSettingsFields
+              draft={receiptDraft}
+              onChange={setReceiptDraft}
+              company={company}
+              idPrefix="ticket-desktop"
+              t={t}
+              language={language}
+              currency={settings?.currency}
+            />
+          </section>
+        ) : null}
+
         {activeTab === 'securite' ? (
           <div className="flex flex-wrap items-start gap-5">
             <section className="flex flex-[3_1_420px] flex-col gap-4 rounded-panel bg-surface p-6 shadow-card">
@@ -968,6 +1455,23 @@ export default function SettingsPage() {
               </span>
               <ChevronRight className="size-[18px] text-subtle" />
             </Link>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.tabs.receipt')}</h2>
+          <div className="flex flex-col rounded-tile border border-line bg-surface">
+            <button
+              type="button"
+              onClick={() => setMobileTicketOpen(true)}
+              className="flex min-h-14 items-center gap-3 px-4 text-left"
+            >
+              <span className="flex flex-1 flex-col gap-0.5">
+                <span className="text-[15px] font-semibold text-ink">{t('settings.tabs.receipt')}</span>
+                <span className="text-xs text-subtle">{t('settings.receipt.mobileSubtitle')}</span>
+              </span>
+              <ChevronRight className="size-[18px] text-subtle" />
+            </button>
           </div>
         </div>
 
@@ -1187,6 +1691,49 @@ export default function SettingsPage() {
               } catch (error) {
                 toast.error(error instanceof Error ? error.message : t('settings.saveFailed'))
                 setCompanyDraft(sourceCompanyDraft)
+              } finally {
+                setSaving(false)
+              }
+            }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+            {t('common.save')}
+          </Button>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={mobileTicketOpen} onOpenChange={setMobileTicketOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-[28px] border-0 bg-surface p-5 pb-8">
+          <SheetHeader className="p-0">
+            <SheetTitle className="text-lg font-bold text-ink">{t('settings.tabs.receipt')}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <ReceiptSettingsFields
+              draft={receiptDraft}
+              onChange={setReceiptDraft}
+              company={company}
+              idPrefix="ticket-mobile"
+              t={t}
+              language={language}
+              currency={settings?.currency}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            className="mt-5 w-full"
+            disabled={!receiptDirty || saving}
+            onClick={async () => {
+              setSaving(true)
+              try {
+                const updated = await updateReceiptSettings(receiptDraft)
+                setReceiptDraft(updated)
+                await queryClient.invalidateQueries({ queryKey: keys.settings.receipt() })
+                toast.success(t('settings.saveSuccess'))
+                setMobileTicketOpen(false)
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : t('settings.saveFailed'))
+                setReceiptDraft(receiptSettingsData ?? DEFAULT_RECEIPT_SETTINGS)
               } finally {
                 setSaving(false)
               }

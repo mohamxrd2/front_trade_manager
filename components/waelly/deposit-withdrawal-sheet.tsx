@@ -169,7 +169,13 @@ function DepositWithdrawalSheet({ mode, onOpenChange, currentBalance, onCreated,
       toast.success(
         t(isDeposit ? 'wallet.deposit.successDeposit' : 'wallet.deposit.successWithdrawal', {
           amount: formatAmount(amountNum, language),
-        })
+        }),
+        // Code affiché après validation (étape 3 du chantier "paniers
+        // multi-articles") — en description du toast plutôt qu'un nouvel
+        // écran : cette sheet se referme immédiatement après succès
+        // (onOpenChange(false) ci-dessous), un écran de confirmation séparé
+        // n'aurait pas le temps d'être lu avant de disparaître avec elle.
+        created.operation_code ? { description: t('wallet.checkout.codeToastDescription', { code: created.operation_code }) } : undefined
       )
       onCreated(created)
       onOpenChange(false)
