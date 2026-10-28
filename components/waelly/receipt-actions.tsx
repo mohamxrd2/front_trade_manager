@@ -229,7 +229,13 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     if (!previewRef.current) return
     setSharing(true)
     try {
-      await shareReceiptImage(previewRef.current, operation.code, t('wallet.receipt.shareTitle'))
+      const result = await shareReceiptImage(previewRef.current, operation.code, t('wallet.receipt.shareTitle'))
+      // 'shared' : l'OS affiche déjà son propre retour (feuille de partage). 'cancelled' : fermée par
+      // l'utilisateur lui-même, rien à dire. 'downloaded' : repli silencieux sinon — sans ce toast, rien
+      // ne semble se produire (la plupart des navigateurs ordinateur ne supportent pas le partage de fichiers).
+      if (result.outcome === 'downloaded') {
+        toast.success(t('wallet.receipt.downloaded'))
+      }
     } catch {
       toast.error(t('wallet.receipt.shareFailed'))
     } finally {

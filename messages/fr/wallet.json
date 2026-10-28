@@ -243,6 +243,7 @@
     "shareTitle": "Ticket de caisse",
     "shareFailed": "Impossible de partager le ticket",
     "printed": "Ticket imprimé",
+    "downloaded": "Ticket téléchargé",
     "bluetoothPrinterDisconnected": "Imprimante non connectée",
     "printClassicAction": "Impression classique",
     "printerHelpLink": "Votre imprimante n'apparaît pas ?",

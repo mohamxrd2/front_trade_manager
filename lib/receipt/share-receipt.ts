@@ -26,14 +26,20 @@ function downloadDataUrl(dataUrl: string, filename: string): void {
 }
 
 export interface ShareReceiptResult {
-  /** `true` si navigator.share a pris le relais (WhatsApp, SMS…), `false` si on est retombé sur un téléchargement direct. */
-  shared: boolean
+  /**
+   * 'shared' : navigator.share a pris le relais (WhatsApp, SMS…) — l'OS montre déjà son propre retour.
+   * 'downloaded' : repli fichier téléchargé (la plupart des navigateurs ordinateur) — l'appelant DOIT
+   * afficher une confirmation, sinon rien ne semble se produire visuellement.
+   * 'cancelled' : l'utilisateur a fermé lui-même la feuille de partage — pas une erreur, rien à afficher.
+   */
+  outcome: 'shared' | 'downloaded' | 'cancelled'
 }
 
 /**
  * "Partager" du ticket — PNG à 2x, navigator.share({ files }) quand
  * disponible (mobile : WhatsApp, SMS…), sinon téléchargement direct du
- * fichier. Nom de fichier : ticket-{code}.png.
+ * fichier (la plupart des navigateurs ordinateur ne supportent pas le
+ * partage de fichiers). Nom de fichier : ticket-{code}.png.
  */
 export async function shareReceiptImage(node: HTMLElement, code: string, shareTitle: string): Promise<ShareReceiptResult> {
   const dataUrl = await renderReceiptPng(node)
@@ -43,20 +49,20 @@ export async function shareReceiptImage(node: HTMLElement, code: string, shareTi
   if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: shareTitle })
-      return { shared: true }
+      return { outcome: 'shared' }
     } catch (error) {
       // AbortError = l'utilisateur a annulé la feuille de partage — pas une erreur, rien à faire.
       if (error instanceof DOMException && error.name === 'AbortError') {
-        return { shared: false }
+        return { outcome: 'cancelled' }
       }
       // Tout autre échec (API indisponible en pratique malgré canShare) : repli téléchargement.
       downloadDataUrl(dataUrl, filename)
-      return { shared: false }
+      return { outcome: 'downloaded' }
     }
   }
 
   downloadDataUrl(dataUrl, filename)
-  return { shared: false }
+  return { outcome: 'downloaded' }
 }
 
 /** Export PDF — en option (spec), à côté du PNG : même image, encapsulée dans un PDF à la largeur du ticket (58/80mm). */
