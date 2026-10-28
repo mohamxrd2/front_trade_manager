@@ -9,9 +9,9 @@ describe('toSummaryPeriod', () => {
     expect(toSummaryPeriod('365')).toBe('12m')
   })
 
-  test('90 jours et plage personnalisée retombent sur 30d (palier le plus proche)', () => {
-    expect(toSummaryPeriod('90')).toBe('30d')
-    expect(toSummaryPeriod('custom')).toBe('30d')
+  test('90 jours et plage personnalisée ont désormais une correspondance exacte (plus d\'approximation)', () => {
+    expect(toSummaryPeriod('90')).toBe('90d')
+    expect(toSummaryPeriod('custom')).toBe('custom')
   })
 
   test('une valeur inconnue retombe sur 30d plutôt que de planter', () => {

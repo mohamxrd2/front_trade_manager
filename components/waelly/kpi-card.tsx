@@ -18,6 +18,8 @@ interface KpiCardProps {
   delta?: string
   trend?: "up" | "down"
   positive?: boolean
+  /** false : aucune icône flèche (ex. variation nulle ou "Nouveau") — `delta` reste affiché, sans flèche. Défaut true. */
+  showArrow?: boolean
   dotColor?: string
   className?: string
 }
@@ -28,6 +30,7 @@ function KpiCard({
   delta,
   trend = "up",
   positive = true,
+  showArrow = true,
   dotColor,
   className,
 }: KpiCardProps) {
@@ -55,14 +58,16 @@ function KpiCard({
         <span
           className={cn(
             "flex items-center gap-1 text-[13px] font-bold",
-            positive ? "text-success" : "text-danger"
+            !showArrow ? "text-subtle" : positive ? "text-success" : "text-danger"
           )}
         >
-          {trend === "up" ? (
-            <ArrowUp className="size-3.5" strokeWidth={2.5} />
-          ) : (
-            <ArrowDown className="size-3.5" strokeWidth={2.5} />
-          )}
+          {showArrow ? (
+            trend === "up" ? (
+              <ArrowUp className="size-3.5" strokeWidth={2.5} />
+            ) : (
+              <ArrowDown className="size-3.5" strokeWidth={2.5} />
+            )
+          ) : null}
           {delta}
         </span>
       ) : null}

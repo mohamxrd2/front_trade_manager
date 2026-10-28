@@ -12,7 +12,6 @@ import { AlertCircle, ArrowDownLeft, ArrowUpRight, Calendar } from 'lucide-react
 import { getErrorStatus, isSilentError } from '@/lib/utils/error-handler'
 import { keys } from '@/lib/query-keys'
 import {
-  getAnalyticsOverview,
   getCategoryAnalysis,
   getComparisons,
   getKPIs,
@@ -27,6 +26,7 @@ import { AffluenceHeatmap } from '@/components/waelly/affluence-heatmap'
 import { TopVariationsSection } from '@/components/waelly/top-variations-section'
 import { TreasurySection } from '@/components/waelly/treasury-section'
 import { Amount } from '@/components/waelly/amount'
+import { computeKpiDelta } from '@/lib/analytics/kpi-delta'
 import { Button, Card, CardTitle, KpiCard, SegmentedControl, FilterChips } from '@/components/waelly'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate, formatNumber } from '@/lib/i18n/format'
@@ -413,14 +413,6 @@ export default function AnalyticsPage() {
   // d'affaires/tendances) : 1 min, pas le défaut 5 min "stock/factures".
   const ANALYTICS_STALE_TIME = 60 * 1000
 
-  const { data: overview, isLoading: loadingOverview, error: overviewError } = useQuery({
-    queryKey: keys.analytics.overview(queryKeyParams),
-    queryFn: () => getAnalyticsOverview(apiParams),
-    placeholderData: keepPreviousData,
-    staleTime: ANALYTICS_STALE_TIME,
-    enabled,
-  })
-
   const { data: kpis, isLoading: loadingKpis, error: kpisError } = useQuery({
     queryKey: keys.analytics.kpis(queryKeyParams),
     queryFn: () => getKPIs(apiParams),
@@ -451,8 +443,8 @@ export default function AnalyticsPage() {
   // seul endpoint plutôt que plusieurs.
   const summaryPeriod = toSummaryPeriod(periodId)
   const { data: summary, isLoading: loadingSummary } = useQuery({
-    queryKey: keys.analytics.summary(summaryPeriod),
-    queryFn: () => getAnalyticsSummary(summaryPeriod),
+    queryKey: keys.analytics.summary(`${summaryPeriod}:${customFrom}:${customTo}`),
+    queryFn: () => getAnalyticsSummary(summaryPeriod, customFrom || undefined, customTo || undefined),
     placeholderData: keepPreviousData,
     staleTime: ANALYTICS_STALE_TIME,
     enabled,
@@ -483,17 +475,6 @@ export default function AnalyticsPage() {
     enabled,
   })
 
-  // Transactions de vente de la période PRÉCÉDENTE (quantité uniquement) :
-  // sert au delta de la tuile KPI « Ventes » (quantité vendue vs période
-  // précédente).
-  const { data: prevSalesTransactions } = useQuery({
-    queryKey: keys.analytics.transactions(`${queryKeyParams}:prev-sales`),
-    queryFn: () => fetchAllTransactions({ ...prevApiParams, type: 'sale' }),
-    placeholderData: keepPreviousData,
-    staleTime: ANALYTICS_STALE_TIME,
-    enabled,
-  })
-
   // 6 derniers mois de ventes (indépendant de la période choisie) pour
   // l'estimation par régression linéaire de la carte « Prévision ».
   const { data: forecastTransactions } = useQuery({
@@ -511,10 +492,10 @@ export default function AnalyticsPage() {
     enabled,
   })
 
-  const queries = [overviewError, kpisError, comparisonsError, categoryError, transactionsError]
+  const queries = [kpisError, comparisonsError, categoryError, transactionsError]
   const authError = queries.find((e) => e && getErrorStatus(e) === 401)
   const otherError = queries.find((e) => e && !isSilentError(e) && getErrorStatus(e) !== 401)
-  const isLoading = !enabled || loadingOverview || loadingKpis || loadingComparisons || loadingCategory || loadingTransactions
+  const isLoading = !enabled || loadingKpis || loadingComparisons || loadingCategory || loadingTransactions
 
   const salesInPeriod = React.useMemo(
     () => (allTransactions ?? []).filter((tx) => tx.type === 'sale'),
@@ -535,7 +516,7 @@ export default function AnalyticsPage() {
   // le top 5 par quantité — cf. note en tête de fichier — donc un article à
   // forte valeur mais faible quantité peut finir dans « Autres »).
   const donutData = React.useMemo(() => {
-    const totalSales = overview?.total_sales ?? 0
+    const totalSales = summary?.kpis.revenue.value ?? 0
     const topProducts = [...(categoryAnalysis?.top_products ?? [])].sort((a, b) => b.total_amount - a.total_amount)
     if (totalSales <= 0 || topProducts.length === 0) return []
     const top3 = topProducts.slice(0, 3)
@@ -550,7 +531,7 @@ export default function AnalyticsPage() {
     }
     if (slices.length > 1) slices[slices.length - 1].ringColor = '#B9ACF5'
     return slices
-  }, [categoryAnalysis, overview, t])
+  }, [categoryAnalysis, summary, t])
 
   const bestArticles = (categoryAnalysis?.top_products ?? []).slice(0, 4)
 
@@ -571,65 +552,41 @@ export default function AnalyticsPage() {
 
   const nextMonthLabel = now ? capitalize(formatDate(now.add(1, 'month').toDate(), language, 'MMMM YYYY')) : ''
 
-  const expensesDelta = kpiDeltaPct(comparisons?.expenses.change, false, language)
-  const netDelta = kpiDeltaPct(comparisons?.net_revenue.change, true, language)
+  // Chantier "stats-paiements" / fix/analytics-zero — LES 7 CARTES KPI
+  // viennent maintenant du MÊME endpoint (summary.kpis), avec la MÊME
+  // période : plus de double source pour "Chiffre d'affaires" (ancien
+  // `overview` vs nouveau `summary`), qui pouvait sembler incohérente.
+  //
+  // `goodWhenIncreasing` varie par indicateur : une baisse des Dépenses est
+  // une bonne nouvelle (vert), une baisse du CA est une mauvaise nouvelle
+  // (rouge) — voir computeKpiDelta(). Montants via <Amount> (masquables) ;
+  // nombre de ventes/articles vendus/articles-par-panier sont des COMPTES,
+  // jamais wrappés dans <Amount>.
+  const deltaLabels = { flat: '—', new: t('common.new') }
+  const formatPct = (n: number) => pctFmt(n, language)
 
-  // « Ventes » = somme des QUANTITÉS vendues sur la période (pas un montant,
-  // pas un nombre d'opérations) — à partir du même jeu de transactions que
-  // la section « Transactions de la période » plus bas.
-  const salesQuantity = salesInPeriod.reduce((a, tx) => a + (Number(tx.quantity) || 0), 0)
-  const prevSalesQuantity = (prevSalesTransactions ?? []).reduce((a, tx) => a + (Number(tx.quantity) || 0), 0)
-  const salesQtyChange =
-    prevSalesQuantity > 0
-      ? ((salesQuantity - prevSalesQuantity) / prevSalesQuantity) * 100
-      : salesQuantity > 0
-        ? 100
-        : 0
-  const salesQtyDelta = kpiDeltaPct(salesQtyChange, true, language)
+  function kpiRow(
+    label: string,
+    value: React.ReactNode,
+    metric: { value: number; previous: number; change_percent: number } | undefined,
+    goodWhenIncreasing: boolean,
+    suffix?: string
+  ) {
+    const delta = metric ? computeKpiDelta(metric.value, metric.previous, metric.change_percent, goodWhenIncreasing, formatPct, deltaLabels, suffix) : undefined
+    return { label, value, delta: delta?.text, trend: delta?.trend ?? 'up', positive: delta?.positive ?? true, showArrow: delta?.showArrow ?? false, hero: false }
+  }
 
-  // Chantier "stats-paiements", section ① — CA, nombre de VENTES (opérations,
-  // pas quantité d'articles — différent de la carte "Ventes" ci-dessous),
-  // panier moyen et articles par panier, chacune avec sa variation déjà
-  // calculée côté serveur (AnalyticsSummaryService). Montants via <Amount>
-  // (masquables) ; nombre de ventes et articles/panier sont des COMPTES, pas
-  // des montants, donc jamais wrappés dans <Amount>.
-  const summaryKpiCards: { label: string; value: React.ReactNode; delta: ReturnType<typeof kpiDeltaPct>; hero?: boolean }[] = [
+  const summaryKpiCards = [
     {
-      label: t('analytics.page.kpiRevenue'),
-      value: summary ? <><Amount value={summary.kpis.revenue.value} /> F</> : '—',
-      delta: summary ? kpiDeltaPct(summary.kpis.revenue.change_percent, true, language, comparisonSuffix(t, periodId)) : undefined,
+      ...kpiRow(t('analytics.page.kpiRevenue'), summary ? <><Amount value={summary.kpis.revenue.value} /> F</> : '—', summary?.kpis.revenue, true, comparisonSuffix(t, periodId)),
       hero: true,
     },
-    {
-      label: t('analytics.page.salesCountLabel'),
-      value: summary ? formatNumber(summary.kpis.sales_count.value, language, { maximumFractionDigits: 0 }) : '—',
-      delta: summary ? kpiDeltaPct(summary.kpis.sales_count.change_percent, true, language) : undefined,
-    },
-    {
-      label: t('analytics.averageBasket'),
-      value: summary ? <><Amount value={summary.kpis.average_basket.value} /> F</> : '—',
-      delta: summary ? kpiDeltaPct(summary.kpis.average_basket.change_percent, true, language) : undefined,
-    },
-    {
-      label: t('analytics.page.itemsPerBasketLabel'),
-      value: summary ? formatNumber(summary.kpis.items_per_basket.value, language, { maximumFractionDigits: 1 }) : '—',
-      delta: summary ? kpiDeltaPct(summary.kpis.items_per_basket.change_percent, true, language) : undefined,
-    },
-  ]
-
-  // CA, nombre de ventes et panier moyen sont déjà couverts par la nouvelle
-  // rangée "summaryKpiCards" (section ① stats-paiements, ci-dessous) — cette
-  // rangée-ci ne garde que ce qui lui est propre (Dépenses, Bénéfice net,
-  // Articles vendus), pour ne jamais afficher deux fois la même métrique
-  // sous le même nom.
-  const kpisDesktop = [
-    { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta },
-    { label: t('analytics.page.kpiNetProfit'), value: `${fmt(overview?.net_revenue ?? 0, language)} F`, delta: netDelta },
-    { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
-  ]
-  const kpisMobile = [
-    { label: t('analytics.page.kpiNetProfit'), value: fmt(overview?.net_revenue ?? 0, language), delta: netDelta },
-    { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
+    kpiRow(t('transactions.expenses'), summary ? <><Amount value={summary.kpis.expenses.value} /> F</> : '—', summary?.kpis.expenses, false),
+    kpiRow(t('analytics.page.kpiNetProfit'), summary ? <><Amount value={summary.kpis.net_profit.value} /> F</> : '—', summary?.kpis.net_profit, true),
+    kpiRow(t('analytics.page.salesCountLabel'), summary ? formatNumber(summary.kpis.sales_count.value, language, { maximumFractionDigits: 0 }) : '—', summary?.kpis.sales_count, true),
+    kpiRow(t('analytics.averageBasket'), summary ? <><Amount value={summary.kpis.average_basket.value} /> F</> : '—', summary?.kpis.average_basket, true),
+    kpiRow(t('analytics.page.itemsPerBasketLabel'), summary ? formatNumber(summary.kpis.items_per_basket.value, language, { maximumFractionDigits: 1 }) : '—', summary?.kpis.items_per_basket, true),
+    kpiRow(t('analytics.page.itemsSoldLabel'), summary ? formatNumber(summary.kpis.items_sold.value, language, { maximumFractionDigits: 0 }) : '—', summary?.kpis.items_sold, true),
   ]
 
   const compareRows = comparisons
@@ -772,7 +729,7 @@ export default function AnalyticsPage() {
 
         <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
           {loadingSummary
-            ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-card bg-surface-soft" />)
+            ? [1, 2, 3, 4, 5, 6, 7].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-card bg-surface-soft" />)
             : summaryKpiCards.map((k) =>
                 k.hero ? (
                   <div
@@ -781,27 +738,20 @@ export default function AnalyticsPage() {
                   >
                     <span className="text-[13px] text-navy-text">{k.label}</span>
                     <span className="text-[28px] font-bold tracking-tight">{k.value}</span>
-                    {k.delta ? <span className="text-[13px] font-bold" style={{ color: '#9FF0C4' }}>{k.delta.text}</span> : null}
+                    {k.delta ? <span className="text-[13px] font-bold" style={{ color: '#9FF0C4' }}>{k.delta}</span> : null}
                   </div>
                 ) : (
                   <KpiCard
                     key={k.label}
                     label={k.label}
                     value={k.value}
-                    delta={k.delta?.text}
-                    trend={k.delta?.trend ?? 'up'}
-                    positive={k.delta?.positive ?? true}
+                    delta={k.delta}
+                    trend={k.trend}
+                    positive={k.positive}
+                    showArrow={k.showArrow}
                   />
                 )
               )}
-        </div>
-
-        <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          {isLoading
-            ? [1, 2, 3].map((i) => <div key={i} className="h-[112px] animate-pulse rounded-card bg-surface-soft" />)
-            : kpisDesktop.map((k) => (
-                <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
-              ))}
         </div>
 
         <PaymentMethodsSection
@@ -843,7 +793,7 @@ export default function AnalyticsPage() {
               ) : donutData.length > 0 ? (
                 <CategoryDonut
                   data={donutData}
-                  centerValue={short(overview?.total_sales ?? 0, language)}
+                  centerValue={short(summary?.kpis.revenue.value ?? 0, language)}
                   centerLabel={t('analytics.page.totalSalesLabel')}
                 />
               ) : (
@@ -1056,25 +1006,26 @@ export default function AnalyticsPage() {
 
         <div className="grid grid-cols-2 gap-2.5">
           {loadingSummary
-            ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
-            : summaryKpiCards.map((k) => (
-                <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
-              ))}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          {isLoading
-            ? [1, 2].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
-            : kpisMobile.map((k) => (
-                <KpiCard
-                  key={k.label}
-                  label={k.label}
-                  value={k.value}
-                  delta={k.delta?.text}
-                  trend={k.delta?.trend ?? 'up'}
-                  positive={k.delta?.positive ?? true}
-                />
-              ))}
+            ? [1, 2, 3, 4, 5, 6, 7].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
+            : summaryKpiCards.map((k) =>
+                k.hero ? (
+                  <div key={k.label} className="col-span-2 flex flex-col gap-2 rounded-hero bg-hero p-5 text-white shadow-hero">
+                    <span className="text-[13px] text-navy-text">{k.label}</span>
+                    <span className="text-[28px] font-bold tracking-tight">{k.value}</span>
+                    {k.delta ? <span className="text-[13px] font-bold" style={{ color: '#9FF0C4' }}>{k.delta}</span> : null}
+                  </div>
+                ) : (
+                  <KpiCard
+                    key={k.label}
+                    label={k.label}
+                    value={k.value}
+                    delta={k.delta}
+                    trend={k.trend}
+                    positive={k.positive}
+                    showArrow={k.showArrow}
+                  />
+                )
+              )}
         </div>
 
         <PaymentMethodsSection
@@ -1116,7 +1067,7 @@ export default function AnalyticsPage() {
             ) : donutData.length > 0 ? (
               <CategoryDonut
                 data={donutData}
-                centerValue={short(overview?.total_sales ?? 0, language)}
+                centerValue={short(summary?.kpis.revenue.value ?? 0, language)}
                 centerLabel={t('analytics.page.totalSalesLabel')}
                 size={128}
                 layout="row"

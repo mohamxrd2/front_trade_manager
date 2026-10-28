@@ -384,7 +384,7 @@ export async function getPredictions(): Promise<PredictionData[]> {
 | AnalyticsSummaryService (backend) pour la justification complète.
 */
 
-export type SummaryPeriod = 'today' | '7d' | '30d' | '12m'
+export type SummaryPeriod = 'today' | '7d' | '30d' | '90d' | '12m' | 'custom'
 
 export interface SummaryKpiValue {
   value: number
@@ -397,6 +397,9 @@ export interface SummaryKpis {
   sales_count: SummaryKpiValue
   average_basket: SummaryKpiValue
   items_per_basket: SummaryKpiValue
+  items_sold: SummaryKpiValue
+  expenses: SummaryKpiValue
+  net_profit: SummaryKpiValue
 }
 
 export interface PaymentMethodRow {
@@ -447,10 +450,16 @@ export interface SummaryTreasury {
   balance: number
 }
 
+export interface SummaryConsistency {
+  net_profit_matches: boolean
+  payment_methods_total_matches: boolean
+}
+
 export interface AnalyticsSummaryData {
   period: SummaryPeriod
   start_date: string
   end_date: string
+  consistency: SummaryConsistency
   kpis: SummaryKpis
   payment_methods: SummaryPaymentMethods
   heatmap: SummaryHeatmap
@@ -458,10 +467,10 @@ export interface AnalyticsSummaryData {
   treasury: SummaryTreasury
 }
 
-export async function getAnalyticsSummary(period: SummaryPeriod): Promise<AnalyticsSummaryData> {
+export async function getAnalyticsSummary(period: SummaryPeriod, from?: string, to?: string): Promise<AnalyticsSummaryData> {
   try {
     const response = await api.get<ApiResponse<AnalyticsSummaryData>>('/api/analytics/summary', {
-      params: { period },
+      params: period === 'custom' ? { period, from, to } : { period },
     })
     return response.data.data
   } catch (error) {
@@ -474,6 +483,9 @@ export async function getAnalyticsSummary(period: SummaryPeriod): Promise<Analyt
     if (axiosError.response?.status === 401) {
       throw new Error('Non authentifié')
     }
+    if (axiosError.response?.status === 422) {
+      throw new Error(axiosError.response.data?.message || 'Période invalide')
+    }
     console.error('Erreur lors de la récupération du résumé analytique:', error)
     throw new Error('Erreur lors du chargement du résumé analytique')
   }
@@ -481,11 +493,11 @@ export async function getAnalyticsSummary(period: SummaryPeriod): Promise<Analyt
 
 /**
  * Convertit le `PeriodId` du sélecteur existant de la page Analyses
- * (today/7/30/90/365/custom) vers l'enum du nouvel endpoint. 90 jours,
- * 365 jours (déjà couvert par '12m' en fait, voir ci-dessous) et "custom"
- * retombent sur le palier le plus proche parmi (today/7d/30d/12m) — limite
- * documentée : ces sections n'ont pas de granularité dédiée pour une plage
- * personnalisée ou 90 jours précisément.
+ * (today/7/30/90/365/custom) vers l'enum accepté par /api/analytics/summary
+ * (today/7d/30d/90d/12m/custom) — UN SEUL helper, aucune approximation : le
+ * backend (AnalyticsPeriod::canonicalize) accepte exactement les mêmes
+ * alias, donc toute période du sélecteur a une correspondance exacte, y
+ * compris "custom" qui passe désormais ses vraies dates from/to.
  */
 export function toSummaryPeriod(periodId: string): SummaryPeriod {
   switch (periodId) {
@@ -493,11 +505,14 @@ export function toSummaryPeriod(periodId: string): SummaryPeriod {
       return 'today'
     case '7':
       return '7d'
+    case '30':
+      return '30d'
+    case '90':
+      return '90d'
     case '365':
       return '12m'
-    case '30':
-    case '90':
     case 'custom':
+      return 'custom'
     default:
       return '30d'
   }

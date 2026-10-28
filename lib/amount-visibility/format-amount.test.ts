@@ -27,11 +27,19 @@ describe('formatAmountDisplay', () => {
     expect(formatAmountDisplay(12_450_000, 'fr', true).text.length).toBeLessThanOrEqual(10)
   })
 
-  test('minWidthCh est derive du montant REEL, identique masque ou visible (pas de saut de mise en page)', () => {
+  test('minWidthCh correspond exactement au texte affiché (visible ou masque), sans rembourrage artificiel', () => {
     const visible = formatAmountDisplay(1_245_000, 'fr', false)
+    expect(visible.minWidthCh).toBe(visible.text.length)
+
     const hidden = formatAmountDisplay(1_245_000, 'fr', true)
-    expect(hidden.minWidthCh).toBe(visible.minWidthCh)
-    expect(visible.minWidthCh).toBeGreaterThanOrEqual(visible.text.length)
+    expect(hidden.minWidthCh).toBe(hidden.text.length)
+  })
+
+  test('la devise reste collee au montant visible, meme pour un petit nombre (pas de grand espace avant "F")', () => {
+    // Avant correctif : minWidthCh etait force a 6 meme en visible, ce qui
+    // creait un grand espace reserve entre "0" et la devise suivante.
+    expect(formatAmountDisplay(0, 'fr', false).minWidthCh).toBe(1)
+    expect(formatAmountDisplay(0, 'fr', false).text).toBe('0')
   })
 
   test('respecte les options Intl.NumberFormat (ex. maximumFractionDigits)', () => {
