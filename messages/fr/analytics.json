@@ -134,6 +134,16 @@
       "trendTitle": "Évolution par moyen de paiement",
       "salesCountIcu": "{count, plural, one {# vente} other {# ventes}}",
       "averageBasketInline": "panier moyen"
+    },
+    "heatmap": {
+      "sectionTitle": "Heures d'affluence",
+      "periodNight": "nuit",
+      "periodMorning": "matin",
+      "periodAfternoon": "après-midi",
+      "periodEvening": "soir",
+      "bestMoments": "Vos meilleurs moments : {{first}} et {{second}}",
+      "bestMomentSingle": "Votre meilleur moment : {{first}}",
+      "salesCountIcu": "{count, plural, one {# vente} other {# ventes}}"
     }
   }
 }

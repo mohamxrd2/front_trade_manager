@@ -134,6 +134,16 @@
       "trendTitle": "Trend by payment method",
       "salesCountIcu": "{count, plural, one {# sale} other {# sales}}",
       "averageBasketInline": "average basket"
+    },
+    "heatmap": {
+      "sectionTitle": "Busy hours",
+      "periodNight": "night",
+      "periodMorning": "morning",
+      "periodAfternoon": "afternoon",
+      "periodEvening": "evening",
+      "bestMoments": "Your best times: {{first}} and {{second}}",
+      "bestMomentSingle": "Your best time: {{first}}",
+      "salesCountIcu": "{count, plural, one {# sale} other {# sales}}"
     }
   }
 }
