@@ -74,6 +74,7 @@
     "previewLabel": "Aperçu",
     "sampleArticle": "Article",
     "bluetoothTitle": "Imprimante Bluetooth",
+    "bluetoothUnsupported": "Fonctionnalité disponible uniquement sur Chrome (Android ou ordinateur) — absente sur Safari/iPhone.",
     "bluetoothConnected": "Connectée · {{name}}",
     "bluetoothConnecting": "Connexion…",
     "bluetoothDisconnected": "Déconnectée",

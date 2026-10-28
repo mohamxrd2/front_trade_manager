@@ -74,6 +74,7 @@
     "previewLabel": "Preview",
     "sampleArticle": "Item",
     "bluetoothTitle": "Bluetooth printer",
+    "bluetoothUnsupported": "Only available on Chrome (Android or desktop) — not supported on Safari/iPhone.",
     "bluetoothConnected": "Connected · {{name}}",
     "bluetoothConnecting": "Connecting…",
     "bluetoothDisconnected": "Disconnected",
