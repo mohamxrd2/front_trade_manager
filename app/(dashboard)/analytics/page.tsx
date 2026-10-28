@@ -24,6 +24,7 @@ import {
 } from '@/lib/services/analytics'
 import { PaymentMethodsSection } from '@/components/waelly/payment-methods-section'
 import { AffluenceHeatmap } from '@/components/waelly/affluence-heatmap'
+import { TopVariationsSection } from '@/components/waelly/top-variations-section'
 import { Amount } from '@/components/waelly/amount'
 import { Button, Card, CardTitle, KpiCard, SegmentedControl, FilterChips } from '@/components/waelly'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
@@ -921,6 +922,8 @@ export default function AnalyticsPage() {
 
         <AffluenceHeatmap cells={summary?.heatmap.cells ?? []} isLoading={loadingSummary} />
 
+        <TopVariationsSection rows={summary?.top_variations ?? []} isLoading={loadingSummary} />
+
         <section className="flex flex-col gap-3.5 rounded-[26px] bg-surface p-5.5 shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -1174,6 +1177,8 @@ export default function AnalyticsPage() {
         </Card>
 
         <AffluenceHeatmap cells={summary?.heatmap.cells ?? []} isLoading={loadingSummary} />
+
+        <TopVariationsSection rows={summary?.top_variations ?? []} isLoading={loadingSummary} />
 
         <Card>
           <div className="flex items-center justify-between gap-2.5">

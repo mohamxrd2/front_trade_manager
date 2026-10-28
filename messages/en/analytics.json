@@ -144,6 +144,10 @@
       "bestMoments": "Your best times: {{first}} and {{second}}",
       "bestMomentSingle": "Your best time: {{first}}",
       "salesCountIcu": "{count, plural, one {# sale} other {# sales}}"
+    },
+    "topVariations": {
+      "sectionTitle": "Top variations",
+      "quantityIcu": "{count, plural, one {# sold} other {# sold}}"
     }
   }
 }

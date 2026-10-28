@@ -144,6 +144,10 @@
       "bestMoments": "Vos meilleurs moments : {{first}} et {{second}}",
       "bestMomentSingle": "Votre meilleur moment : {{first}}",
       "salesCountIcu": "{count, plural, one {# vente} other {# ventes}}"
+    },
+    "topVariations": {
+      "sectionTitle": "Top variations",
+      "quantityIcu": "{count, plural, one {# vendu} other {# vendus}}"
     }
   }
 }

@@ -432,6 +432,8 @@ export interface SummaryHeatmap {
 }
 
 export interface TopVariationRow {
+  /** null si l'article a depuis été supprimé (set null, voir migration transactions.article_id) — pas de lien cliquable dans ce cas. */
+  article_id: string | null
   article_name: string
   variation_name: string | null
   quantity: number
