@@ -375,3 +375,129 @@ export async function getPredictions(): Promise<PredictionData[]> {
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Chantier "stats-paiements" — GET /api/analytics/summary
+|--------------------------------------------------------------------------
+| Un seul endpoint pour les 5 blocs (kpis, répartition par moyen de
+| paiement, heatmap d'affluence, top variations, trésorerie) — voir
+| AnalyticsSummaryService (backend) pour la justification complète.
+*/
+
+export type SummaryPeriod = 'today' | '7d' | '30d' | '12m'
+
+export interface SummaryKpiValue {
+  value: number
+  previous: number
+  change_percent: number
+}
+
+export interface SummaryKpis {
+  revenue: SummaryKpiValue
+  sales_count: SummaryKpiValue
+  average_basket: SummaryKpiValue
+  items_per_basket: SummaryKpiValue
+}
+
+export interface PaymentMethodRow {
+  payment_method: string
+  amount: number
+  percentage: number
+  sales_count: number
+  average_basket: number
+  change_percent: number
+}
+
+/** `amounts` : montant par moyen de paiement pour cet intervalle (clé = payment_method, ex. "wave"). */
+export interface PaymentMethodSeriesPoint {
+  bucket: string
+  amounts: Record<string, number>
+}
+
+export interface SummaryPaymentMethods {
+  rows: PaymentMethodRow[]
+  series: PaymentMethodSeriesPoint[]
+}
+
+export interface HeatmapCell {
+  /** 0 = dimanche … 6 = samedi. */
+  day_of_week: number
+  hour: number
+  revenue: number
+  sales_count: number
+}
+
+export interface SummaryHeatmap {
+  cells: HeatmapCell[]
+}
+
+export interface TopVariationRow {
+  article_name: string
+  variation_name: string | null
+  quantity: number
+  revenue: number
+}
+
+export interface SummaryTreasury {
+  deposits: number
+  withdrawals: number
+  /** Solde cumulé en fin de période — même formule que User::balance, jamais compté dans le CA. */
+  balance: number
+}
+
+export interface AnalyticsSummaryData {
+  period: SummaryPeriod
+  start_date: string
+  end_date: string
+  kpis: SummaryKpis
+  payment_methods: SummaryPaymentMethods
+  heatmap: SummaryHeatmap
+  top_variations: TopVariationRow[]
+  treasury: SummaryTreasury
+}
+
+export async function getAnalyticsSummary(period: SummaryPeriod): Promise<AnalyticsSummaryData> {
+  try {
+    const response = await api.get<ApiResponse<AnalyticsSummaryData>>('/api/analytics/summary', {
+      params: { period },
+    })
+    return response.data.data
+  } catch (error) {
+    const axiosError = error as AxiosError<{ message?: string }>
+
+    if (isSilentError(error)) {
+      throw error
+    }
+
+    if (axiosError.response?.status === 401) {
+      throw new Error('Non authentifié')
+    }
+    console.error('Erreur lors de la récupération du résumé analytique:', error)
+    throw new Error('Erreur lors du chargement du résumé analytique')
+  }
+}
+
+/**
+ * Convertit le `PeriodId` du sélecteur existant de la page Analyses
+ * (today/7/30/90/365/custom) vers l'enum du nouvel endpoint. 90 jours,
+ * 365 jours (déjà couvert par '12m' en fait, voir ci-dessous) et "custom"
+ * retombent sur le palier le plus proche parmi (today/7d/30d/12m) — limite
+ * documentée : ces sections n'ont pas de granularité dédiée pour une plage
+ * personnalisée ou 90 jours précisément.
+ */
+export function toSummaryPeriod(periodId: string): SummaryPeriod {
+  switch (periodId) {
+    case 'today':
+      return 'today'
+    case '7':
+      return '7d'
+    case '365':
+      return '12m'
+    case '30':
+    case '90':
+    case 'custom':
+    default:
+      return '30d'
+  }
+}
+
