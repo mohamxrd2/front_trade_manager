@@ -358,7 +358,7 @@ function SaleCart() {
           <DrawerHeader className="mt-1.5">
             <DrawerTitle>{t('wallet.checkout.title')}</DrawerTitle>
           </DrawerHeader>
-          <div className="mt-3.5 max-h-[70vh] overflow-y-auto">
+          <div className="mt-3.5 max-h-[70vh] touch-pan-y overflow-y-auto">
             <SaleCheckoutForm
               total={total}
               onSuccess={(operation) => {
