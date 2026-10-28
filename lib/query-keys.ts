@@ -108,6 +108,7 @@ export const keys = {
     all: ['settings'] as const,
     user: () => ['settings', 'user'] as const,
     company: () => ['settings', 'company'] as const,
+    receipt: () => ['settings', 'receipt'] as const,
   },
 
   onboarding: {

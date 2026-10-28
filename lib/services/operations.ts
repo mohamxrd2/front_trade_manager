@@ -43,6 +43,8 @@ export interface ApiOperation {
   created_at: string
   updated_at: string
   transactions: ApiOperationLine[]
+  /** "Caissier : {nom}" — `null` pour les très anciennes opérations sans auteur. */
+  author_name?: string | null
 }
 
 export interface OperationLine {
@@ -72,6 +74,7 @@ export interface Operation {
   note: string | null
   date: string
   lines: OperationLine[]
+  authorName: string | null
 }
 
 function mapApiOperation(api: ApiOperation): Operation {
@@ -88,6 +91,7 @@ function mapApiOperation(api: ApiOperation): Operation {
     invoiceId: api.invoice_id ?? null,
     note: api.note ?? null,
     date: api.occurred_at || api.created_at,
+    authorName: api.author_name ?? null,
     lines: (api.transactions || []).map((line) => ({
       id: line.id,
       articleId: line.article_id ?? null,
