@@ -23,6 +23,7 @@ import {
   type AnalyticsTransaction,
 } from '@/lib/services/analytics'
 import { PaymentMethodsSection } from '@/components/waelly/payment-methods-section'
+import { Amount } from '@/components/waelly/amount'
 import { Button, Card, CardTitle, KpiCard, SegmentedControl, FilterChips } from '@/components/waelly'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate, formatNumber } from '@/lib/i18n/format'
@@ -589,6 +590,35 @@ export default function AnalyticsPage() {
         : 0
   const salesQtyDelta = kpiDeltaPct(salesQtyChange, true, language)
 
+  // Chantier "stats-paiements", section ① — CA, nombre de VENTES (opérations,
+  // pas quantité d'articles — différent de la carte "Ventes" ci-dessous),
+  // panier moyen et articles par panier, chacune avec sa variation déjà
+  // calculée côté serveur (AnalyticsSummaryService). Montants via <Amount>
+  // (masquables) ; nombre de ventes et articles/panier sont des COMPTES, pas
+  // des montants, donc jamais wrappés dans <Amount>.
+  const summaryKpiCards: { label: string; value: React.ReactNode; delta: ReturnType<typeof kpiDeltaPct> }[] = [
+    {
+      label: t('analytics.page.kpiRevenue'),
+      value: summary ? <><Amount value={summary.kpis.revenue.value} /> F</> : '—',
+      delta: summary ? kpiDeltaPct(summary.kpis.revenue.change_percent, true, language, comparisonSuffix(t, periodId)) : undefined,
+    },
+    {
+      label: t('analytics.page.salesCountLabel'),
+      value: summary ? formatNumber(summary.kpis.sales_count.value, language, { maximumFractionDigits: 0 }) : '—',
+      delta: summary ? kpiDeltaPct(summary.kpis.sales_count.change_percent, true, language) : undefined,
+    },
+    {
+      label: t('analytics.averageBasket'),
+      value: summary ? <><Amount value={summary.kpis.average_basket.value} /> F</> : '—',
+      delta: summary ? kpiDeltaPct(summary.kpis.average_basket.change_percent, true, language) : undefined,
+    },
+    {
+      label: t('analytics.page.itemsPerBasketLabel'),
+      value: summary ? formatNumber(summary.kpis.items_per_basket.value, language, { maximumFractionDigits: 1 }) : '—',
+      delta: summary ? kpiDeltaPct(summary.kpis.items_per_basket.change_percent, true, language) : undefined,
+    },
+  ]
+
   const kpisDesktop = [
     { label: t('analytics.page.kpiRevenue'), value: `${fmt(overview?.total_sales ?? 0, language)} F`, delta: caDelta, hero: true },
     { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta, hero: false },
@@ -764,6 +794,14 @@ export default function AnalyticsPage() {
                   />
                 )
               )}
+        </div>
+
+        <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          {loadingSummary
+            ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[112px] animate-pulse rounded-card bg-surface-soft" />)
+            : summaryKpiCards.map((k) => (
+                <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
+              ))}
         </div>
 
         <PaymentMethodsSection
@@ -1022,6 +1060,14 @@ export default function AnalyticsPage() {
                   trend={k.delta?.trend ?? 'up'}
                   positive={k.delta?.positive ?? true}
                 />
+              ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          {loadingSummary
+            ? [1, 2, 3, 4].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-tile bg-surface-soft" />)
+            : summaryKpiCards.map((k) => (
+                <KpiCard key={k.label} label={k.label} value={k.value} delta={k.delta?.text} trend={k.delta?.trend ?? 'up'} positive={k.delta?.positive ?? true} />
               ))}
         </div>
 

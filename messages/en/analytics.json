@@ -99,6 +99,7 @@
     "kpiRevenue": "Revenue",
     "kpiNetProfit": "Net profit",
     "salesCountLabel": "Number of sales",
+    "itemsPerBasketLabel": "Items per basket",
     "typeAll": "All",
     "others": "Other",
     "period": {

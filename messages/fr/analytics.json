@@ -99,6 +99,7 @@
     "kpiRevenue": "Chiffre d’affaires",
     "kpiNetProfit": "Bénéfice net",
     "salesCountLabel": "Nombre de ventes",
+    "itemsPerBasketLabel": "Articles par panier",
     "typeAll": "Tout",
     "others": "Autres",
     "period": {
