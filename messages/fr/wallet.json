@@ -242,6 +242,9 @@
     "sharing": "Partage…",
     "shareTitle": "Ticket de caisse",
     "shareFailed": "Impossible de partager le ticket",
+    "printed": "Ticket imprimé",
+    "bluetoothPrinterDisconnected": "Imprimante non connectée",
+    "printClassicAction": "Impression classique",
     "printerHelpLink": "Votre imprimante n'apparaît pas ?",
     "printerHelpText": "Installez un service d'impression (RawBT ou l'application de votre imprimante) depuis le Play Store, connectez votre imprimante en Bluetooth, puis réessayez."
   }

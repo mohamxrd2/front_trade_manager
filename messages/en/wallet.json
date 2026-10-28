@@ -242,6 +242,9 @@
     "sharing": "Sharing…",
     "shareTitle": "Receipt",
     "shareFailed": "Couldn't share the receipt",
+    "printed": "Receipt printed",
+    "bluetoothPrinterDisconnected": "Printer not connected",
+    "printClassicAction": "Print normally",
     "printerHelpLink": "Can't see your printer?",
     "printerHelpText": "Install a print service (RawBT or your printer's own app) from the Play Store, pair your printer over Bluetooth, then try again."
   }
