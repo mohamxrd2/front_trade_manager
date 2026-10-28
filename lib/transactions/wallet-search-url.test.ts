@@ -1,49 +1,65 @@
 import { describe, expect, test } from 'vitest'
 import { buildWalletSearchUrl, parseWalletSearchUrl, hasActiveSearchFilters } from './wallet-search-url'
 
+const base = { q: '', type: 'all', from: null, to: null, page: 1, paymentMethod: null }
+
 describe('buildWalletSearchUrl', () => {
   test('aucun filtre actif : juste le chemin, pas de "?"', () => {
-    expect(buildWalletSearchUrl('/wallet', { q: '', type: 'all', from: null, to: null, page: 1 })).toBe('/wallet')
+    expect(buildWalletSearchUrl('/wallet', base)).toBe('/wallet')
   })
 
   test('q seul', () => {
-    expect(buildWalletSearchUrl('/wallet', { q: 'robe', type: 'all', from: null, to: null, page: 1 })).toBe('/wallet?q=robe')
+    expect(buildWalletSearchUrl('/wallet', { ...base, q: 'robe' })).toBe('/wallet?q=robe')
   })
 
   test('type seul (pas "all")', () => {
-    expect(buildWalletSearchUrl('/wallet', { q: '', type: 'sale', from: null, to: null, page: 1 })).toBe('/wallet?type=sale')
+    expect(buildWalletSearchUrl('/wallet', { ...base, type: 'sale' })).toBe('/wallet?type=sale')
   })
 
   test('plage de dates', () => {
-    expect(buildWalletSearchUrl('/wallet', { q: '', type: 'all', from: '2026-10-01', to: '2026-10-31', page: 1 })).toBe(
+    expect(buildWalletSearchUrl('/wallet', { ...base, from: '2026-10-01', to: '2026-10-31' })).toBe(
       '/wallet?from=2026-10-01&to=2026-10-31'
     )
   })
 
   test('page > 1 seulement (page 1 omise)', () => {
-    expect(buildWalletSearchUrl('/wallet', { q: '', type: 'all', from: null, to: null, page: 3 })).toBe('/wallet?page=3')
+    expect(buildWalletSearchUrl('/wallet', { ...base, page: 3 })).toBe('/wallet?page=3')
+  })
+
+  test('moyen de paiement seul (déeplink depuis Analyses)', () => {
+    expect(buildWalletSearchUrl('/wallet', { ...base, paymentMethod: 'wave' })).toBe('/wallet?payment_method=wave')
   })
 
   test('tous les filtres combinés', () => {
-    const url = buildWalletSearchUrl('/wallet', { q: 'robe M', type: 'sale', from: '2026-10-01', to: '2026-10-31', page: 2 })
+    const url = buildWalletSearchUrl('/wallet', {
+      q: 'robe M',
+      type: 'sale',
+      from: '2026-10-01',
+      to: '2026-10-31',
+      page: 2,
+      paymentMethod: 'wave',
+    })
     const [, qs] = url.split('?')
     const params = new URLSearchParams(qs)
     expect(params.get('q')).toBe('robe M')
     expect(params.get('type')).toBe('sale')
     expect(params.get('from')).toBe('2026-10-01')
     expect(params.get('to')).toBe('2026-10-31')
+    expect(params.get('payment_method')).toBe('wave')
     expect(params.get('page')).toBe('2')
   })
 })
 
 describe('parseWalletSearchUrl', () => {
   test('querystring vide : valeurs par défaut', () => {
-    expect(parseWalletSearchUrl(new URLSearchParams(''))).toEqual({ q: '', type: 'all', from: null, to: null, page: 1 })
+    expect(parseWalletSearchUrl(new URLSearchParams(''))).toEqual(base)
   })
 
   test('relit tous les paramètres', () => {
-    const parsed = parseWalletSearchUrl(new URLSearchParams('q=robe&type=sale&from=2026-10-01&to=2026-10-31&page=2'))
-    expect(parsed).toEqual({ q: 'robe', type: 'sale', from: '2026-10-01', to: '2026-10-31', page: 2 })
+    const parsed = parseWalletSearchUrl(
+      new URLSearchParams('q=robe&type=sale&from=2026-10-01&to=2026-10-31&page=2&payment_method=wave')
+    )
+    expect(parsed).toEqual({ q: 'robe', type: 'sale', from: '2026-10-01', to: '2026-10-31', page: 2, paymentMethod: 'wave' })
   })
 
   test('page invalide ou négative retombe sur 1', () => {
@@ -52,7 +68,7 @@ describe('parseWalletSearchUrl', () => {
   })
 
   test('aller-retour build → parse donne le même état', () => {
-    const state = { q: 'robe', type: 'sale', from: '2026-10-01', to: '2026-10-31', page: 2 }
+    const state = { q: 'robe', type: 'sale', from: '2026-10-01', to: '2026-10-31', page: 2, paymentMethod: 'wave' }
     const url = buildWalletSearchUrl('/wallet', state)
     const qs = url.split('?')[1] ?? ''
     expect(parseWalletSearchUrl(new URLSearchParams(qs))).toEqual(state)
@@ -74,5 +90,9 @@ describe('hasActiveSearchFilters', () => {
 
   test('type différent de "all" : vrai', () => {
     expect(hasActiveSearchFilters({ q: '', type: 'sale', from: null })).toBe(true)
+  })
+
+  test('moyen de paiement actif (sans autre filtre) : vrai', () => {
+    expect(hasActiveSearchFilters({ q: '', type: 'all', from: null, paymentMethod: 'wave' })).toBe(true)
   })
 })

@@ -312,6 +312,8 @@ export async function getTransactions(): Promise<Transaction[]> {
 export interface TransactionSearchParams {
   q?: string
   type?: 'sale' | 'expense' | 'apport' | 'retrait'
+  /** Déeplink depuis Analyses ("Encaissements par moyen de paiement") — voir lib/payments/methods.ts pour les valeurs possibles. */
+  payment_method?: string
   date_from?: string // AAAA-MM-JJ
   date_to?: string // AAAA-MM-JJ
   page?: number

@@ -11,6 +11,8 @@ export interface WalletSearchUrlState {
   from: string | null
   to: string | null
   page: number
+  /** Déeplink depuis la section "Encaissements par moyen de paiement" des Analyses — null si absent. */
+  paymentMethod: string | null
 }
 
 /**
@@ -24,6 +26,7 @@ export function buildWalletSearchUrl(pathname: string, state: WalletSearchUrlSta
   if (state.type !== 'all') params.set('type', state.type)
   if (state.from) params.set('from', state.from)
   if (state.to) params.set('to', state.to)
+  if (state.paymentMethod) params.set('payment_method', state.paymentMethod)
   if (state.page > 1) params.set('page', String(state.page))
 
   const qs = params.toString()
@@ -41,16 +44,17 @@ export function parseWalletSearchUrl(searchParams: URLSearchParams): WalletSearc
     from: searchParams.get('from'),
     to: searchParams.get('to'),
     page: Math.max(1, Number(searchParams.get('page')) || 1),
+    paymentMethod: searchParams.get('payment_method'),
   }
 }
 
 /**
- * Un filtre (recherche texte, plage de dates ou type) est actif — pilote
- * l'affichage des puces de filtre actif, de l'en-tête "N résultats" et du
- * choix entre l'état vide "Aucune transaction trouvée" (recherche active
- * sans résultat) et l'état vide générique "Aucune opération sur cette
- * période" (aucun filtre, juste pas de données).
+ * Un filtre (recherche texte, plage de dates, type ou moyen de paiement) est
+ * actif — pilote l'affichage des puces de filtre actif, de l'en-tête "N
+ * résultats" et du choix entre l'état vide "Aucune transaction trouvée"
+ * (recherche active sans résultat) et l'état vide générique "Aucune
+ * opération sur cette période" (aucun filtre, juste pas de données).
  */
-export function hasActiveSearchFilters(state: { q: string; type: string; from: string | null }): boolean {
-  return state.q !== '' || state.from !== null || state.type !== 'all'
+export function hasActiveSearchFilters(state: { q: string; type: string; from: string | null; paymentMethod?: string | null }): boolean {
+  return state.q !== '' || state.from !== null || state.type !== 'all' || !!state.paymentMethod
 }

@@ -15,6 +15,7 @@ import { useInvoiceLookup } from '@/lib/hooks/useInvoiceLookup'
 import { useDeleteTransactionFlow } from '@/lib/hooks/useDeleteTransactionFlow'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
 import { getTransactionVisual, paymentMethodIcon } from '@/lib/transactions/transaction-visual'
+import { paymentMethodMeta } from '@/lib/payments/methods'
 import { groupTransactionsByOperation, operationGroupTitle, type OperationGroup } from '@/lib/transactions/group-by-operation'
 import { isSearchableQuery } from '@/lib/transactions/search-query'
 import { buildWalletSearchUrl, parseWalletSearchUrl, hasActiveSearchFilters as computeHasActiveSearchFilters } from '@/lib/transactions/wallet-search-url'
@@ -193,6 +194,10 @@ export default function WalletPage() {
       : null,
   }))
   const [searchPage, setSearchPage] = React.useState(() => initialSearchUrlState.page)
+  // Déeplink depuis Analyses ("Encaissements par moyen de paiement") —
+  // ?payment_method=wave&from=...&to=... ; from/to sont déjà couverts par
+  // dateRange ci-dessus (même paramètres).
+  const [paymentMethodFilter, setPaymentMethodFilter] = React.useState<string | null>(() => initialSearchUrlState.paymentMethod)
 
   const debouncedSearchInput = useDebouncedValue(searchInput, 300)
   // "à partir de 2 caractères (ou dès qu'une date ou un montant est
@@ -200,18 +205,24 @@ export default function WalletPage() {
   // différent d'un q vide explicite, pour rester un filtre no-op).
   const effectiveQuery = isSearchableQuery(debouncedSearchInput) ? debouncedSearchInput.trim() : ''
 
-  const hasActiveSearchFilters = computeHasActiveSearchFilters({ q: effectiveQuery, type: typeFilter, from: dateRange.from })
+  const hasActiveSearchFilters = computeHasActiveSearchFilters({
+    q: effectiveQuery,
+    type: typeFilter,
+    from: dateRange.from,
+    paymentMethod: paymentMethodFilter,
+  })
 
   const searchQueryParams = React.useMemo(
     () => ({
       q: effectiveQuery || undefined,
       type: typeFilter === 'all' ? undefined : typeFilter,
+      payment_method: paymentMethodFilter ?? undefined,
       date_from: dateRange.from ?? undefined,
       date_to: dateRange.to ?? undefined,
       page: searchPage,
       per_page: SEARCH_PAGE_SIZE,
     }),
-    [effectiveQuery, typeFilter, dateRange.from, dateRange.to, searchPage]
+    [effectiveQuery, typeFilter, paymentMethodFilter, dateRange.from, dateRange.to, searchPage]
   )
 
   const { data: searchResult, isFetching: searchFetching } = useTransactionsSearchQuery(searchQueryParams)
@@ -220,7 +231,7 @@ export default function WalletPage() {
   const searchPageCount = searchResult?.meta.total_pages ?? 1
 
   // Revient à la page 1 dès que la recherche/le type/la plage de dates change.
-  const searchFilterKey = `${effectiveQuery}|${typeFilter}|${dateRange.from ?? ''}|${dateRange.to ?? ''}`
+  const searchFilterKey = `${effectiveQuery}|${typeFilter}|${dateRange.from ?? ''}|${dateRange.to ?? ''}|${paymentMethodFilter ?? ''}`
   const prevSearchFilterKeyRef = React.useRef(searchFilterKey)
   React.useEffect(() => {
     if (prevSearchFilterKeyRef.current !== searchFilterKey) {
@@ -239,15 +250,17 @@ export default function WalletPage() {
       from: dateRange.from,
       to: dateRange.to,
       page: searchPage,
+      paymentMethod: paymentMethodFilter,
     })
     router.replace(url, { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveQuery, typeFilter, dateRange.from, dateRange.to, searchPage])
+  }, [effectiveQuery, typeFilter, dateRange.from, dateRange.to, searchPage, paymentMethodFilter])
 
   const clearSearch = () => {
     setSearchInput('')
     setDateRange({ from: null, to: null, label: null })
     setTypeFilter('all')
+    setPaymentMethodFilter(null)
   }
 
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
@@ -687,6 +700,9 @@ export default function WalletPage() {
                   onRemove={() => setTypeFilter('all')}
                 />
               ) : null}
+              {paymentMethodFilter ? (
+                <FilterPill label={t(paymentMethodMeta(paymentMethodFilter).labelKey)} onRemove={() => setPaymentMethodFilter(null)} />
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -896,6 +912,9 @@ export default function WalletPage() {
                   label={typeChips.find((c) => c.value === typeFilter)?.label ?? typeFilter}
                   onRemove={() => setTypeFilter('all')}
                 />
+              ) : null}
+              {paymentMethodFilter ? (
+                <FilterPill label={t(paymentMethodMeta(paymentMethodFilter).labelKey)} onRemove={() => setPaymentMethodFilter(null)} />
               ) : null}
             </div>
           ) : null}
