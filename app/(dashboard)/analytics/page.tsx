@@ -17,9 +17,12 @@ import {
   getComparisons,
   getKPIs,
   getAnalyticsTransactions,
+  getAnalyticsSummary,
+  toSummaryPeriod,
   type AnalyticsParams,
   type AnalyticsTransaction,
 } from '@/lib/services/analytics'
+import { PaymentMethodsSection } from '@/components/waelly/payment-methods-section'
 import { Button, Card, CardTitle, KpiCard, SegmentedControl, FilterChips } from '@/components/waelly'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate, formatNumber } from '@/lib/i18n/format'
@@ -438,6 +441,19 @@ export default function AnalyticsPage() {
     enabled,
   })
 
+  // Chantier "stats-paiements" : un seul résumé pour les sections
+  // "Encaissements par moyen de paiement" / heatmap / top variations /
+  // trésorerie — voir AnalyticsSummaryService (backend) pour pourquoi un
+  // seul endpoint plutôt que plusieurs.
+  const summaryPeriod = toSummaryPeriod(periodId)
+  const { data: summary, isLoading: loadingSummary } = useQuery({
+    queryKey: keys.analytics.summary(summaryPeriod),
+    queryFn: () => getAnalyticsSummary(summaryPeriod),
+    placeholderData: keepPreviousData,
+    staleTime: ANALYTICS_STALE_TIME,
+    enabled,
+  })
+
   const { data: categoryAnalysis, isLoading: loadingCategory, error: categoryError } = useQuery({
     queryKey: keys.analytics.category(queryKeyParams),
     queryFn: () => getCategoryAnalysis(apiParams),
@@ -750,6 +766,14 @@ export default function AnalyticsPage() {
               )}
         </div>
 
+        <PaymentMethodsSection
+          data={summary?.payment_methods}
+          isLoading={loadingSummary}
+          period={summaryPeriod}
+          startDate={summary?.start_date ?? ''}
+          endDate={summary?.end_date ?? ''}
+        />
+
         <div className="flex flex-wrap gap-5">
           <Card className="flex-[2_1_560px]">
             {isLoading ? (
@@ -1000,6 +1024,14 @@ export default function AnalyticsPage() {
                 />
               ))}
         </div>
+
+        <PaymentMethodsSection
+          data={summary?.payment_methods}
+          isLoading={loadingSummary}
+          period={summaryPeriod}
+          startDate={summary?.start_date ?? ''}
+          endDate={summary?.end_date ?? ''}
+        />
 
         <Card>
           <div className="flex items-center justify-between">

@@ -126,6 +126,13 @@
       "custom": "compared to the previous period"
     },
     "weekLabel": "Week {{n}}",
-    "compactWeekPrefix": "W"
+    "compactWeekPrefix": "W",
+    "paymentMethods": {
+      "sectionTitle": "Payments by method",
+      "totalLabel": "Total",
+      "trendTitle": "Trend by payment method",
+      "salesCountIcu": "{count, plural, one {# sale} other {# sales}}",
+      "averageBasketInline": "average basket"
+    }
   }
 }

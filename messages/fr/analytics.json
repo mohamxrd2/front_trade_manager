@@ -126,6 +126,13 @@
       "custom": "par rapport à la période précédente"
     },
     "weekLabel": "Sem. {{n}}",
-    "compactWeekPrefix": "S"
+    "compactWeekPrefix": "S",
+    "paymentMethods": {
+      "sectionTitle": "Encaissements par moyen de paiement",
+      "totalLabel": "Total",
+      "trendTitle": "Évolution par moyen de paiement",
+      "salesCountIcu": "{count, plural, one {# vente} other {# ventes}}",
+      "averageBasketInline": "panier moyen"
+    }
   }
 }
