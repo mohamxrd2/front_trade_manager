@@ -516,7 +516,8 @@ function ReceiptSettingsFields({
     setTestPrinting(true)
     try {
       const qrDataUrl = draft.show_qr ? await generateReceiptQrDataUrl('V-261028-0042') : null
-      printReceiptModel(model, qrDataUrl)
+      const started = printReceiptModel(model, qrDataUrl)
+      if (!started) toast.error(t('wallet.receipt.printFailed'))
     } finally {
       setTestPrinting(false)
     }
@@ -648,7 +649,14 @@ function BluetoothPrinterSection({
     init()
   }, [init])
 
-  if (!supported) return null
+  if (!supported) {
+    return (
+      <div className="flex flex-col gap-2 border-t border-divider pt-4.5">
+        <h3 className="text-[15px] font-bold text-ink">{t('settings.receipt.bluetoothTitle')}</h3>
+        <p className="text-[13px] text-subtle">{t('settings.receipt.bluetoothUnsupported')}</p>
+      </div>
+    )
+  }
 
   const handleConnect = async () => {
     try {

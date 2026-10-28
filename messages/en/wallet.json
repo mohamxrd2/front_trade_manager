@@ -243,6 +243,7 @@
     "shareTitle": "Receipt",
     "shareFailed": "Couldn't share the receipt",
     "printed": "Receipt printed",
+    "printFailed": "Couldn't start printing",
     "downloaded": "Receipt downloaded",
     "bluetoothPrinterDisconnected": "Printer not connected",
     "printClassicAction": "Print normally",

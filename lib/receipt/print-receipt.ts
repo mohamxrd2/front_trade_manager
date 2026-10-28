@@ -16,16 +16,21 @@ import type { ReceiptModel, ReceiptWidth } from './build-receipt'
  * Réutilise ReceiptView tel quel (rendu statique) — "un seul composant
  * pour l'aperçu, l'impression et l'export" (voir ce composant).
  */
-export function printReceiptModel(model: ReceiptModel, qrDataUrl?: string | null): void {
+/** `false` si l'impression n'a pas pu démarrer (iframe/fenêtre indisponible) — l'appelant doit alors prévenir l'utilisateur plutôt que de laisser le bouton "Imprimer" ne rien faire en silence. */
+export function printReceiptModel(model: ReceiptModel, qrDataUrl?: string | null): boolean {
   const markup = renderToStaticMarkup(React.createElement(ReceiptView, { model, qrDataUrl }))
   const pageSize: ReceiptWidth = model.width
 
   const iframe = document.createElement('iframe')
   iframe.style.position = 'fixed'
-  iframe.style.right = '0'
-  iframe.style.bottom = '0'
-  iframe.style.width = '0'
-  iframe.style.height = '0'
+  // Hors écran mais avec une VRAIE taille (jamais 0×0) : certains navigateurs
+  // mobiles refusent silencieusement d'imprimer un iframe sans dimensions —
+  // aucune boîte de dialogue ne s'ouvre, rien ne se passe, "le bouton ne
+  // fonctionne pas". Décalé hors de l'écran plutôt que réduit à rien.
+  iframe.style.left = '-10000px'
+  iframe.style.top = '0'
+  iframe.style.width = '380px'
+  iframe.style.height = '600px'
   iframe.style.border = '0'
   iframe.setAttribute('aria-hidden', 'true')
   document.body.appendChild(iframe)
@@ -37,7 +42,7 @@ export function printReceiptModel(model: ReceiptModel, qrDataUrl?: string | null
   const doc = iframe.contentWindow?.document
   if (!doc) {
     cleanup()
-    return
+    return false
   }
 
   doc.open()
@@ -59,7 +64,7 @@ export function printReceiptModel(model: ReceiptModel, qrDataUrl?: string | null
   const win = iframe.contentWindow
   if (!win) {
     cleanup()
-    return
+    return false
   }
 
   win.onafterprint = cleanup
@@ -84,7 +89,13 @@ export function printReceiptModel(model: ReceiptModel, qrDataUrl?: string | null
   const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 2000))
 
   Promise.race([waitForImages, timeout]).then(() => {
-    win.focus()
-    win.print()
+    try {
+      win.focus()
+      win.print()
+    } catch {
+      // Best-effort — certains navigateurs mobiles refusent print() dans de rares cas ; l'iframe est nettoyée quoi qu'il arrive (timeout ci-dessus).
+    }
   })
+
+  return true
 }

@@ -162,8 +162,11 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
   }, [bluetoothInit])
 
   const printClassic = React.useCallback(() => {
-    printReceiptModel(model, qrDataUrl)
-  }, [model, qrDataUrl])
+    const started = printReceiptModel(model, qrDataUrl)
+    if (!started) {
+      toast.error(t('wallet.receipt.printFailed'))
+    }
+  }, [model, qrDataUrl, t])
 
   const showDisconnectedToast = React.useCallback(() => {
     toast.error(t('wallet.receipt.bluetoothPrinterDisconnected'), {
