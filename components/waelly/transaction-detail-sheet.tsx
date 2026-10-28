@@ -168,7 +168,7 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
           </button>
         </DrawerHeader>
 
-        <div className="mt-3.5 flex flex-col gap-4">
+        <div className="mt-3.5 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           <div className="flex items-center gap-3">
             <span className={`flex size-11 shrink-0 items-center justify-center rounded-full ${visual.iconClassName}`}>
               <Icon className="size-5" strokeWidth={2.2} />

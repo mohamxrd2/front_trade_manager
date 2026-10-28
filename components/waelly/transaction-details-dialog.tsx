@@ -154,7 +154,7 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
         <DialogOverlay className="bg-[rgba(14,14,26,0.42)] backdrop-blur-[4px]" />
         <DialogContent
           showCloseButton={false}
-          className="w-[calc(100%-2.5rem)] max-w-[440px] rounded-[26px] border-none bg-surface p-6 shadow-[0_40px_90px_rgba(10,10,60,0.35)]"
+          className="max-h-[85vh] w-[calc(100%-2.5rem)] max-w-[440px] overflow-y-auto rounded-[26px] border-none bg-surface p-6 shadow-[0_40px_90px_rgba(10,10,60,0.35)]"
         >
           <div className="flex items-start gap-3.5">
             <span className={`flex size-11 shrink-0 items-center justify-center rounded-full ${visual.iconClassName}`}>
