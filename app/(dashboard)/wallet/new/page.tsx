@@ -740,12 +740,12 @@ function SaleConfirmation({ operation, onNewSale }: { operation: Operation; onNe
       </Card>
 
       <div className="flex w-full flex-col gap-2.5 sm:flex-row">
-        <Button variant="secondary" className="h-12 flex-1 rounded-full" onClick={onNewSale}>
+        <Button variant="secondary" className="h-14 flex-1 rounded-full text-base" onClick={onNewSale}>
           {t('wallet.confirmation.newSale')}
         </Button>
         <Link
           href="/wallet"
-          className="flex h-12 flex-1 items-center justify-center rounded-full bg-ink text-sm font-bold text-white"
+          className="flex h-14 flex-1 items-center justify-center rounded-full bg-ink text-base font-bold text-white"
         >
           {t('wallet.confirmation.viewTransaction')}
         </Link>
@@ -831,7 +831,7 @@ function ExpenseForm({
         <div className="flex w-full flex-col gap-2.5 sm:flex-row">
           <Button
             variant="secondary"
-            className="h-12 flex-1 rounded-full"
+            className="h-14 flex-1 rounded-full text-base"
             onClick={() => {
               setExpenseName('')
               setExpenseAmount('')
@@ -840,7 +840,7 @@ function ExpenseForm({
           >
             {t('wallet.confirmation.newExpense')}
           </Button>
-          <Button variant="primary" className="h-12 flex-1 rounded-full" onClick={() => router.push('/wallet')}>
+          <Button variant="primary" className="h-14 flex-1 rounded-full text-base" onClick={() => router.push('/wallet')}>
             {t('wallet.confirmation.viewTransaction')}
           </Button>
         </div>
