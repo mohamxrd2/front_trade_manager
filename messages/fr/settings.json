@@ -6,6 +6,7 @@
     "profile": "Profil",
     "company": "Entreprise",
     "preferences": "Préférences",
+    "receipt": "Ticket de caisse",
     "security": "Sécurité"
   },
   "saveSuccess": "Modifications enregistrées",
@@ -29,9 +30,13 @@
     "name": "Nom de l'entreprise",
     "sector": "Secteur",
     "headquarters": "Siège",
+    "phone": "Téléphone",
+    "phonePlaceholder": "+225 07 00 00 00 00",
     "legalStatus": "Statut légal",
     "bankAccount": "IBAN / compte bancaire",
     "bankAccountPlaceholder": "CI00 0000 0000 0000 0000",
+    "taxId": "RCCM ou numéro contribuable",
+    "taxIdPlaceholder": "CI-ABJ-2024-B-12345",
     "mobileSubtitle": "Logo, statut légal, compte bancaire"
   },
   "preferences": {
@@ -50,6 +55,24 @@
     "themeLight": "Clair",
     "themeDark": "Sombre",
     "themeAuto": "Auto"
+  },
+  "receipt": {
+    "mobileSubtitle": "Format, logo, message de bas de page, QR code",
+    "widthLabel": "Largeur du ticket",
+    "width58": "58 mm",
+    "width80": "80 mm",
+    "showLogo": "Afficher le logo",
+    "showAddress": "Afficher l'adresse",
+    "showPhone": "Afficher le téléphone",
+    "showTaxId": "Afficher le RCCM / numéro contribuable",
+    "showQr": "QR code",
+    "showWaellyMention": "Mention « Waelly »",
+    "autoPrint": "Imprimer automatiquement après chaque vente",
+    "footerMessageLabel": "Message de bas de page",
+    "footerMessagePlaceholder": "Merci de votre visite !",
+    "testPrintButton": "Imprimer un ticket de test",
+    "previewLabel": "Aperçu",
+    "sampleArticle": "Article"
   },
   "security": {
     "changePassword": "Changer le mot de passe",

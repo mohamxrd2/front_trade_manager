@@ -222,12 +222,27 @@
     "copied": "Copié !",
     "newSale": "Nouvelle vente",
     "newExpense": "Nouvelle dépense",
-    "viewTransaction": "Voir la transaction",
-    "ticketButton": "Ticket",
-    "ticketComingSoon": "Bientôt disponible"
+    "viewTransaction": "Voir la transaction"
   },
   "detail": {
     "deleteOperation": "Supprimer l'opération",
     "paymentMethodUnknown": "Non précisé"
+  },
+  "receipt": {
+    "ticketNumber": "Ticket n°",
+    "cashier": "Caissier",
+    "total": "TOTAL",
+    "paidBy": "Payé par",
+    "received": "Reçu",
+    "duplicate": "DUPLICATA",
+    "defaultFooter": "Merci de votre visite !",
+    "previewToggle": "Aperçu du ticket",
+    "printButton": "Imprimer",
+    "shareButton": "Partager",
+    "sharing": "Partage…",
+    "shareTitle": "Ticket de caisse",
+    "shareFailed": "Impossible de partager le ticket",
+    "printerHelpLink": "Votre imprimante n'apparaît pas ?",
+    "printerHelpText": "Installez un service d'impression (RawBT ou l'application de votre imprimante) depuis le Play Store, connectez votre imprimante en Bluetooth, puis réessayez."
   }
 }

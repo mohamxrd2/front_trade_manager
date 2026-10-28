@@ -6,6 +6,7 @@
     "profile": "Profile",
     "company": "Company",
     "preferences": "Preferences",
+    "receipt": "Receipt",
     "security": "Security"
   },
   "saveSuccess": "Changes saved",
@@ -29,9 +30,13 @@
     "name": "Company name",
     "sector": "Sector",
     "headquarters": "Headquarters",
+    "phone": "Phone",
+    "phonePlaceholder": "+225 07 00 00 00 00",
     "legalStatus": "Legal status",
     "bankAccount": "IBAN / bank account",
     "bankAccountPlaceholder": "CI00 0000 0000 0000 0000",
+    "taxId": "Business registration or tax ID",
+    "taxIdPlaceholder": "CI-ABJ-2024-B-12345",
     "mobileSubtitle": "Logo, legal status, bank account"
   },
   "preferences": {
@@ -50,6 +55,24 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeAuto": "Auto"
+  },
+  "receipt": {
+    "mobileSubtitle": "Width, logo, footer message, QR code",
+    "widthLabel": "Receipt width",
+    "width58": "58 mm",
+    "width80": "80 mm",
+    "showLogo": "Show logo",
+    "showAddress": "Show address",
+    "showPhone": "Show phone",
+    "showTaxId": "Show business registration / tax ID",
+    "showQr": "QR code",
+    "showWaellyMention": "\"Waelly\" mention",
+    "autoPrint": "Print automatically after each sale",
+    "footerMessageLabel": "Footer message",
+    "footerMessagePlaceholder": "Thank you for your visit!",
+    "testPrintButton": "Print a test receipt",
+    "previewLabel": "Preview",
+    "sampleArticle": "Item"
   },
   "security": {
     "changePassword": "Change password",

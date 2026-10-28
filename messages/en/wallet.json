@@ -222,12 +222,27 @@
     "copied": "Copied!",
     "newSale": "New sale",
     "newExpense": "New expense",
-    "viewTransaction": "View transaction",
-    "ticketButton": "Receipt",
-    "ticketComingSoon": "Coming soon"
+    "viewTransaction": "View transaction"
   },
   "detail": {
     "deleteOperation": "Delete operation",
     "paymentMethodUnknown": "Not specified"
+  },
+  "receipt": {
+    "ticketNumber": "Receipt no.",
+    "cashier": "Cashier",
+    "total": "TOTAL",
+    "paidBy": "Paid by",
+    "received": "Received",
+    "duplicate": "DUPLICATE",
+    "defaultFooter": "Thank you for your visit!",
+    "previewToggle": "Receipt preview",
+    "printButton": "Print",
+    "shareButton": "Share",
+    "sharing": "Sharing…",
+    "shareTitle": "Receipt",
+    "shareFailed": "Couldn't share the receipt",
+    "printerHelpLink": "Can't see your printer?",
+    "printerHelpText": "Install a print service (RawBT or your printer's own app) from the Play Store, pair your printer over Bluetooth, then try again."
   }
 }
