@@ -224,13 +224,7 @@ function SaleCart() {
 
   if (confirmedOperation) {
     return (
-      <SaleConfirmation
-        operation={confirmedOperation}
-        onNewSale={() => {
-          cart.clear()
-          setConfirmedOperation(null)
-        }}
-      />
+      <SaleConfirmation operation={confirmedOperation} onNewSale={() => setConfirmedOperation(null)} />
     )
   }
 
@@ -329,7 +323,13 @@ function SaleCart() {
             </div>
             {/* Ordinateur : encaissement inline dans le même panneau, pas de bottom sheet. */}
             <div className="hidden lg:flex lg:flex-col lg:gap-4">
-              <SaleCheckoutForm total={total} onSuccess={(operation) => setConfirmedOperation(operation)} />
+              <SaleCheckoutForm
+                total={total}
+                onSuccess={(operation) => {
+                  cart.clear()
+                  setConfirmedOperation(operation)
+                }}
+              />
             </div>
             <Button
               variant="primary"
@@ -362,6 +362,7 @@ function SaleCart() {
               total={total}
               onSuccess={(operation) => {
                 setCheckoutOpen(false)
+                cart.clear()
                 setConfirmedOperation(operation)
               }}
             />
