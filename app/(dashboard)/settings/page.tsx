@@ -30,9 +30,21 @@ import {
   type ReceiptSettings,
   type ReceiptWidth,
 } from '@/lib/services/receipt-settings'
-import { buildReceipt, type ReceiptOperationInput } from '@/lib/receipt/build-receipt'
+import { buildReceipt, type ReceiptOperationInput, type ReceiptModel } from '@/lib/receipt/build-receipt'
 import { generateReceiptQrDataUrl } from '@/lib/receipt/qr'
 import { printReceiptModel } from '@/lib/receipt/print-receipt'
+import { encodeReceiptEscPos } from '@/lib/receipt/escpos-encoder'
+import { isWebBluetoothSupported } from '@/lib/receipt/bluetooth-transport'
+import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
+import {
+  readDefaultPrintMode,
+  writeDefaultPrintMode,
+  readCompatibilityMode,
+  writeCompatibilityMode,
+  readCutPaper,
+  writeCutPaper,
+  type DefaultPrintMode,
+} from '@/lib/receipt/printer-preferences'
 import { ReceiptView } from '@/components/waelly/receipt-view'
 import { getCollaborators } from '@/lib/services/collaborators'
 import { Button } from '@/components/waelly'
@@ -580,6 +592,8 @@ function ReceiptSettingsFields({
         <Button type="button" variant="secondary" className="h-11 self-start px-5" onClick={handleTestPrint} disabled={testPrinting}>
           {t('settings.receipt.testPrintButton')}
         </Button>
+
+        <BluetoothPrinterSection idPrefix={idPrefix} t={t} charsPerLine={draft.width === '80mm' ? 48 : 32} />
       </div>
 
       <div className="flex w-full flex-col items-center gap-2 rounded-panel border border-line bg-canvas p-4 lg:w-auto">
@@ -587,6 +601,209 @@ function ReceiptSettingsFields({
         <div className="rounded-tile bg-white p-3 shadow-sm">
           <ReceiptView model={model} />
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Imprimante Bluetooth" (étape 2 du chantier ticket de caisse) — impression
+ * ESC/POS directe, sans fenêtre d'impression. Web Bluetooth n'existe QUE sur
+ * Chrome/Chromium (Android et ordinateur) — absent sur Safari/iOS : cette
+ * section entière se masque (return null) si indisponible, jamais un bouton
+ * mort. Mode par défaut, mode compatibilité et coupe papier sont des
+ * préférences PROPRES À CET APPAREIL (un appairage Bluetooth ne se
+ * synchronise pas entre appareils) — localStorage, pas receipt_settings.
+ */
+function BluetoothPrinterSection({
+  idPrefix,
+  t,
+  charsPerLine,
+}: {
+  idPrefix: string
+  t: ReturnType<typeof useTranslation>['t']
+  charsPerLine: 32 | 48
+}) {
+  const [supported, setSupported] = React.useState(false)
+  const [showAllDevices, setShowAllDevices] = React.useState(false)
+  const [defaultMode, setDefaultModeState] = React.useState<DefaultPrintMode>('classic')
+  const [compatibilityMode, setCompatibilityModeState] = React.useState(false)
+  const [cutPaper, setCutPaperState] = React.useState(false)
+  const [testPrinting, setTestPrinting] = React.useState(false)
+
+  const status = useBluetoothPrinterStore((s) => s.status)
+  const deviceName = useBluetoothPrinterStore((s) => s.deviceName)
+  const batteryLevel = useBluetoothPrinterStore((s) => s.batteryLevel)
+  const connect = useBluetoothPrinterStore((s) => s.connect)
+  const reconnect = useBluetoothPrinterStore((s) => s.reconnect)
+  const disconnect = useBluetoothPrinterStore((s) => s.disconnect)
+  const printBytes = useBluetoothPrinterStore((s) => s.print)
+  const init = useBluetoothPrinterStore((s) => s.init)
+
+  React.useEffect(() => {
+    setSupported(isWebBluetoothSupported())
+    setDefaultModeState(readDefaultPrintMode())
+    setCompatibilityModeState(readCompatibilityMode())
+    setCutPaperState(readCutPaper())
+    init()
+  }, [init])
+
+  if (!supported) return null
+
+  const handleConnect = async () => {
+    try {
+      await connect(showAllDevices)
+    } catch {
+      toast.error(t('settings.receipt.bluetoothConnectFailed'))
+    }
+  }
+
+  const handleReconnect = async () => {
+    try {
+      await reconnect()
+    } catch {
+      toast.error(t('settings.receipt.bluetoothConnectFailed'))
+    }
+  }
+
+  const handleTestPrint = async () => {
+    setTestPrinting(true)
+    try {
+      const testModel: ReceiptModel = {
+        width: charsPerLine === 48 ? '80mm' : '58mm',
+        charsPerLine,
+        rows: [
+          { kind: 'text', text: t('settings.receipt.bluetoothTestLine'), align: 'center', bold: true },
+          { kind: 'text', text: new Date().toLocaleString(), align: 'center' },
+        ],
+      }
+      const bytes = encodeReceiptEscPos(testModel, { compatibilityMode, cutPaper })
+      const result = await printBytes(bytes)
+      if (!result.ok) toast.error(t('settings.receipt.bluetoothNotConnected'))
+    } finally {
+      setTestPrinting(false)
+    }
+  }
+
+  const statusLabel =
+    status === 'connected'
+      ? t('settings.receipt.bluetoothConnected', { name: deviceName ?? '' })
+      : status === 'connecting'
+        ? t('settings.receipt.bluetoothConnecting')
+        : t('settings.receipt.bluetoothDisconnected')
+
+  const toggleRow = (id: string, label: string, value: boolean, onToggle: () => void, lastRow = false) => (
+    <div className={`flex items-center gap-3 py-2.5 ${lastRow ? '' : 'border-b border-line'}`}>
+      <span id={id} className="flex-1 text-sm font-semibold text-ink">
+        {label}
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        aria-labelledby={id}
+        onClick={onToggle}
+        className="flex p-[3px]"
+        style={{
+          width: 50,
+          height: 30,
+          borderRadius: 15,
+          justifyContent: value ? 'flex-end' : 'flex-start',
+          background: value ? '#5B3FE6' : '#C9C9D6',
+        }}
+      >
+        <span className="rounded-full bg-white" style={{ width: 24, height: 24, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-divider pt-4.5">
+      <h3 className="text-[15px] font-bold text-ink">{t('settings.receipt.bluetoothTitle')}</h3>
+
+      <div className="flex items-center gap-2 rounded-tile bg-surface-soft px-4 py-3">
+        <span className={`size-2.5 shrink-0 rounded-full ${status === 'connected' ? 'bg-success-strong' : 'bg-line-strong'}`} />
+        <span className="flex-1 text-sm font-semibold text-ink">{statusLabel}</span>
+        {status === 'connected' && batteryLevel != null && batteryLevel <= 20 ? (
+          <span className="text-xs font-semibold text-warning">{t('settings.receipt.bluetoothLowBattery')}</span>
+        ) : null}
+      </div>
+
+      <label className="flex items-center gap-2 text-[13px] text-ink-2">
+        <input
+          type="checkbox"
+          checked={showAllDevices}
+          onChange={(e) => setShowAllDevices(e.target.checked)}
+          className="size-4"
+        />
+        {t('settings.receipt.bluetoothShowAllDevices')}
+      </label>
+
+      <div className="flex flex-wrap gap-2">
+        {status === 'connected' ? (
+          <Button type="button" variant="secondary" className="h-11 px-5" onClick={disconnect}>
+            {t('settings.receipt.bluetoothDisconnectButton')}
+          </Button>
+        ) : (
+          <>
+            <Button type="button" variant="secondary" className="h-11 px-5" onClick={handleConnect} disabled={status === 'connecting'}>
+              {t('settings.receipt.bluetoothConnectButton')}
+            </Button>
+            <Button type="button" variant="secondary" className="h-11 px-5" onClick={handleReconnect} disabled={status === 'connecting'}>
+              {t('settings.receipt.bluetoothReconnectButton')}
+            </Button>
+          </>
+        )}
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-11 px-5"
+          onClick={handleTestPrint}
+          disabled={testPrinting || status !== 'connected'}
+        >
+          {t('settings.receipt.bluetoothTestPrintButton')}
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[13px] font-semibold text-ink">{t('settings.receipt.defaultModeLabel')}</span>
+        <div className="flex gap-2">
+          {(['bluetooth', 'classic'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => {
+                setDefaultModeState(mode)
+                writeDefaultPrintMode(mode)
+              }}
+              aria-pressed={defaultMode === mode}
+              className={`flex h-11 flex-1 items-center justify-center rounded-field border text-sm font-semibold ${
+                defaultMode === mode ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line-strong text-ink-2'
+              }`}
+            >
+              {mode === 'bluetooth' ? t('settings.receipt.defaultModeBluetooth') : t('settings.receipt.defaultModeClassic')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col">
+        {toggleRow(`${idPrefix}-compat`, t('settings.receipt.compatibilityModeLabel'), compatibilityMode, () => {
+          const next = !compatibilityMode
+          setCompatibilityModeState(next)
+          writeCompatibilityMode(next)
+        })}
+        {toggleRow(
+          `${idPrefix}-cut`,
+          t('settings.receipt.cutPaperLabel'),
+          cutPaper,
+          () => {
+            const next = !cutPaper
+            setCutPaperState(next)
+            writeCutPaper(next)
+          },
+          true
+        )}
       </div>
     </div>
   )
