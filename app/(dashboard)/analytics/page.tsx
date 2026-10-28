@@ -571,14 +571,8 @@ export default function AnalyticsPage() {
 
   const nextMonthLabel = now ? capitalize(formatDate(now.add(1, 'month').toDate(), language, 'MMMM YYYY')) : ''
 
-  const caDelta = kpiDeltaPct(comparisons?.sales.change, true, language, comparisonSuffix(t, periodId))
   const expensesDelta = kpiDeltaPct(comparisons?.expenses.change, false, language)
   const netDelta = kpiDeltaPct(comparisons?.net_revenue.change, true, language)
-  const avgBasketChange =
-    kpis && prevKpis && prevKpis.average_basket > 0
-      ? ((kpis.average_basket - prevKpis.average_basket) / prevKpis.average_basket) * 100
-      : undefined
-  const avgBasketDelta = kpiDeltaPct(avgBasketChange, true, language)
 
   // « Ventes » = somme des QUANTITÉS vendues sur la période (pas un montant,
   // pas un nombre d'opérations) — à partir du même jeu de transactions que
@@ -622,16 +616,18 @@ export default function AnalyticsPage() {
     },
   ]
 
+  // CA, nombre de ventes et panier moyen sont déjà couverts par la nouvelle
+  // rangée "summaryKpiCards" (section ① stats-paiements, ci-dessous) — cette
+  // rangée-ci ne garde que ce qui lui est propre (Dépenses, Bénéfice net,
+  // Articles vendus), pour ne jamais afficher deux fois la même métrique
+  // sous le même nom.
   const kpisDesktop = [
-    { label: t('analytics.page.kpiRevenue'), value: `${fmt(overview?.total_sales ?? 0, language)} F`, delta: caDelta, hero: true },
     { label: t('transactions.expenses'), value: `${fmt(overview?.total_expenses ?? 0, language)} F`, delta: expensesDelta, hero: false },
     { label: t('analytics.page.kpiNetProfit'), value: `${fmt(overview?.net_revenue ?? 0, language)} F`, delta: netDelta, hero: false },
     { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta, hero: false },
   ]
   const kpisMobile = [
-    { label: t('analytics.page.kpiRevenue'), value: fmt(overview?.total_sales ?? 0, language), delta: caDelta },
     { label: t('analytics.page.kpiNetProfit'), value: fmt(overview?.net_revenue ?? 0, language), delta: netDelta },
-    { label: t('analytics.averageBasket'), value: fmt(kpis?.average_basket ?? 0, language), delta: avgBasketDelta },
     { label: t('analytics.page.itemsSoldLabel'), value: fmt(salesQuantity, language), delta: salesQtyDelta },
   ]
 
