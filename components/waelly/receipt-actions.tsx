@@ -22,6 +22,10 @@ import {
 import { generateReceiptQrDataUrl } from '@/lib/receipt/qr'
 import { printReceiptModel } from '@/lib/receipt/print-receipt'
 import { shareReceiptImage } from '@/lib/receipt/share-receipt'
+import { encodeReceiptEscPos } from '@/lib/receipt/escpos-encoder'
+import { loadLogoAsCanvas } from '@/lib/receipt/load-logo-canvas'
+import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
+import { readDefaultPrintMode, readCompatibilityMode, readCutPaper } from '@/lib/receipt/printer-preferences'
 import { ReceiptView } from './receipt-view'
 import { Button } from './button'
 
@@ -148,15 +152,78 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     }
   }, [operation.code, settings.showQr])
 
-  const handlePrint = React.useCallback(() => {
+  const bluetoothStatus = useBluetoothPrinterStore((s) => s.status)
+  const bluetoothInit = useBluetoothPrinterStore((s) => s.init)
+  const bluetoothReconnect = useBluetoothPrinterStore((s) => s.reconnect)
+  const bluetoothPrint = useBluetoothPrinterStore((s) => s.print)
+
+  React.useEffect(() => {
+    bluetoothInit()
+  }, [bluetoothInit])
+
+  const printClassic = React.useCallback(() => {
     printReceiptModel(model, qrDataUrl)
   }, [model, qrDataUrl])
+
+  const showDisconnectedToast = React.useCallback(() => {
+    toast.error(t('wallet.receipt.bluetoothPrinterDisconnected'), {
+      action: {
+        label: t('settings.receipt.bluetoothReconnectButton'),
+        onClick: () => {
+          bluetoothReconnect().catch(() => toast.error(t('settings.receipt.bluetoothConnectFailed')))
+        },
+      },
+      cancel: {
+        label: t('wallet.receipt.printClassicAction'),
+        onClick: printClassic,
+      },
+    })
+  }, [t, bluetoothReconnect, printClassic])
+
+  const printBluetooth = React.useCallback(async (): Promise<boolean> => {
+    try {
+      let logoImage: HTMLCanvasElement | null = null
+      if (settings.showLogo && receiptCompany.logoUrl) {
+        logoImage = await loadLogoAsCanvas(receiptCompany.logoUrl)
+      }
+      const bytes = encodeReceiptEscPos(model, {
+        compatibilityMode: readCompatibilityMode(),
+        cutPaper: readCutPaper(),
+        logoImage,
+      })
+      const result = await bluetoothPrint(bytes)
+      return result.ok
+    } catch {
+      // Un échec d'impression ne doit jamais remonter plus haut — la vente
+      // reste enregistrée dans tous les cas, voir handlePrint ci-dessous.
+      return false
+    }
+  }, [model, settings.showLogo, receiptCompany.logoUrl, bluetoothPrint])
+
+  const handlePrint = React.useCallback(async () => {
+    const mode = readDefaultPrintMode()
+    if (mode === 'classic') {
+      printClassic()
+      return
+    }
+    if (bluetoothStatus !== 'connected') {
+      showDisconnectedToast()
+      return
+    }
+    const ok = await printBluetooth()
+    if (ok) {
+      toast.success(t('wallet.receipt.printed'))
+    } else {
+      showDisconnectedToast()
+    }
+  }, [bluetoothStatus, printBluetooth, printClassic, showDisconnectedToast, t])
 
   React.useEffect(() => {
     if (!autoPrintOnSuccess || !receiptSettings?.auto_print || autoPrintedRef.current) return
     autoPrintedRef.current = true
     handlePrint()
-  }, [autoPrintOnSuccess, receiptSettings, handlePrint])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrintOnSuccess, receiptSettings])
 
   const handleShare = async () => {
     if (!previewRef.current) return
