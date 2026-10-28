@@ -18,6 +18,7 @@ import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate } from '@/lib/i18n/format'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Amount } from './amount'
+import { ReceiptActions } from './receipt-actions'
 
 interface DetailRow {
   label: string
@@ -220,6 +221,8 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
               </div>
             ))}
           </div>
+
+          {isSale && operation ? <ReceiptActions operation={operation} duplicate /> : null}
 
           {canDelete ? (
             <button

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Search, X, Plus, Minus, Check, Copy, ScanLine, Receipt } from 'lucide-react'
+import { Search, X, Plus, Minus, Check, Copy, ScanLine } from 'lucide-react'
 
 import { getArticles, type Article, type Variation } from '@/lib/services/articles'
 import { getClients } from '@/lib/services/invoices'
@@ -28,6 +28,7 @@ import { useCartStore, cartTotal, cartItemCount, type CartLine } from '@/lib/sto
 import { readLastPaymentMethod, writeLastPaymentMethod } from '@/lib/wallet/last-payment-method'
 import { Amount, Button, Card, SegmentedControl } from '@/components/waelly'
 import { CheckoutFields } from '@/components/waelly/checkout-fields'
+import { ReceiptActions } from '@/components/waelly/receipt-actions'
 import { PaymentMethodChips } from '@/components/waelly/payment-method-chips'
 import { VariationPicker } from '@/components/products'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -740,28 +741,16 @@ function SaleConfirmation({ operation, onNewSale }: { operation: Operation; onNe
         </div>
       </Card>
 
+      <ReceiptActions operation={operation} autoPrintOnSuccess />
+
       <div className="flex w-full flex-col gap-2.5 lg:flex-row">
         <Button variant="secondary" className="h-14 w-full flex-1 rounded-full text-base" onClick={onNewSale}>
           {t('wallet.confirmation.newSale')}
         </Button>
-        <Link
-          href="/wallet"
-          className="flex h-14 w-full flex-1 items-center justify-center rounded-full bg-ink text-base font-bold text-white"
-        >
-          {t('wallet.confirmation.viewTransaction')}
-        </Link>
       </div>
-      {/* Réservé pour "Ticket / Partager" (étape à venir) — non actif. */}
-      <button
-        type="button"
-        disabled
-        aria-disabled
-        title={t('wallet.confirmation.ticketComingSoon')}
-        className="flex h-11 items-center gap-2 rounded-full border border-line-strong px-5 text-sm font-semibold text-subtle opacity-60"
-      >
-        <Receipt className="size-4" />
-        {t('wallet.confirmation.ticketButton')}
-      </button>
+      <Link href="/wallet" className="text-sm font-semibold text-brand-600">
+        {t('wallet.confirmation.viewTransaction')}
+      </Link>
     </div>
   )
 }

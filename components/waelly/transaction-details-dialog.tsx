@@ -17,6 +17,7 @@ import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate } from '@/lib/i18n/format'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTitle } from '@/components/ui/dialog'
 import { Amount } from './amount'
+import { ReceiptActions } from './receipt-actions'
 
 interface DetailRow {
   label: string
@@ -209,6 +210,8 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
               </div>
             ))}
           </div>
+
+          {isSale && operation ? <ReceiptActions operation={operation} duplicate /> : null}
 
           <div className="flex gap-2.5">
             <button
