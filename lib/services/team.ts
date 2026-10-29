@@ -1,5 +1,4 @@
-import api from '@/lib/api'
-import type { AxiosError } from 'axios'
+import api, { isApiError } from '@/lib/api'
 import { isSilentError } from '@/lib/utils/error-handler'
 
 /**
@@ -116,8 +115,19 @@ function handleTeamError(error: unknown, fallback: string): never {
     throw error
   }
 
-  const axiosError = error as AxiosError<{ message?: string; errors?: ValidationErrors }>
-  const status = axiosError.response?.status
+  // L'intercepteur de lib/api.ts REMPLACE déjà l'AxiosError par une
+  // véritable Error "aplatie" (error.status/.errors/.code — jamais
+  // error.response.data.*, qui n'existe plus à ce stade). Lire
+  // error.response.data ici renvoie toujours `undefined` et fait échouer
+  // CHAQUE branche ci-dessous en silence (c'était le bug : un message
+  // générique s'affichait systématiquement, jamais la raison réelle d'un
+  // 422 — ex. "cet email est déjà utilisé"). Voir lib/services/company.ts
+  // ou contexts/AuthContext.tsx pour la même convention déjà en place.
+  if (!isApiError(error)) {
+    throw new Error(fallback)
+  }
+
+  const status = error.status
 
   if (status === 401) {
     if (typeof window !== 'undefined') {
@@ -127,27 +137,28 @@ function handleTeamError(error: unknown, fallback: string): never {
   }
 
   if (status === 404) {
-    throw new Error(axiosError.response?.data?.message || 'Personne non trouvée')
+    throw new Error(error.message || 'Personne non trouvée')
   }
 
   if (status === 403) {
-    throw new Error(axiosError.response?.data?.message || 'Non autorisé')
+    throw new Error(error.message || 'Non autorisé')
   }
 
   if (status === 422) {
-    const validationErrors = axiosError.response?.data?.errors || {}
+    const validationErrors = (error.errors as ValidationErrors | undefined) || {}
     const firstFieldMessage = Object.values(validationErrors)[0]?.[0]
-    const message = axiosError.response?.data?.message || firstFieldMessage || 'Erreur de validation'
+    // Priorité au message de CHAMP (ex. "cet email est déjà utilisé") — le
+    // backend renvoie souvent un `message` générique ("Erreur de validation")
+    // à côté d'`errors` détaillé pour les validations Laravel standard,
+    // réservant un `message` spécifique aux gardes métier ad hoc (ex. "Le
+    // total des parts dépasse 100 %" sans `errors`, d'où le repli ensuite).
+    const message = firstFieldMessage || error.message || 'Erreur de validation'
     const err = new TeamApiError(message)
     err.validationErrors = validationErrors
     throw err
   }
 
-  if (axiosError.response?.data?.message) {
-    throw new Error(axiosError.response.data.message)
-  }
-
-  throw new Error(fallback)
+  throw new Error(error.message || fallback)
 }
 
 export async function getTeam(): Promise<TeamMember[]> {

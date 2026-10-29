@@ -1,5 +1,4 @@
-import api from '@/lib/api'
-import type { AxiosError } from 'axios'
+import api, { isApiError } from '@/lib/api'
 import { isSilentError } from '@/lib/utils/error-handler'
 
 /**
@@ -29,11 +28,17 @@ export async function changeMyCode(payload: {
     if (isSilentError(error)) {
       throw error
     }
-    const axiosError = error as AxiosError<{ message?: string; errors?: ValidationErrors }>
-    if (axiosError.response?.status === 422 && axiosError.response.data?.errors) {
-      throw new Error(Object.values(axiosError.response.data.errors).flat().join(', '))
+    // error.response.data n'existe plus à ce stade — lib/api.ts aplatit déjà
+    // l'erreur (error.status/.errors/.message directement), voir le même
+    // correctif dans lib/services/team.ts pour le détail.
+    if (isApiError(error)) {
+      const validationErrors = error.errors as ValidationErrors | undefined
+      if (error.status === 422 && validationErrors) {
+        throw new Error(Object.values(validationErrors).flat().join(', '))
+      }
+      throw new Error(error.message || 'Erreur lors du changement de code')
     }
-    throw new Error(axiosError.response?.data?.message || 'Erreur lors du changement de code')
+    throw new Error('Erreur lors du changement de code')
   }
 }
 

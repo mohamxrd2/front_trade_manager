@@ -292,6 +292,9 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
     </div>
   )
 
+  // SheetContent a déjà son propre bouton de fermeture (coin haut-droit,
+  // Radix) — ne pas en remettre un ici sur ordinateur (deux "X" sinon).
+  // DrawerContent (mobile), lui, n'en fournit aucun : on garde le nôtre.
   const header = (
     <div className="flex items-center gap-3">
       <button type="button" onClick={goBack} aria-label={t('common.previous')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
@@ -300,9 +303,11 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
       <span className="flex-1 text-base font-bold text-ink">
         {result ? '' : step === 1 ? t('team.step1Title') : step === 2 ? t('team.step2Title') : t('team.step3Title')}
       </span>
-      <button type="button" onClick={close} aria-label={t('common.close')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
-        <X className="size-4" strokeWidth={2} />
-      </button>
+      {isDesktop ? null : (
+        <button type="button" onClick={close} aria-label={t('common.close')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
+          <X className="size-4" strokeWidth={2} />
+        </button>
+      )}
     </div>
   )
 

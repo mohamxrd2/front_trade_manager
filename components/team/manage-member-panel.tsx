@@ -233,12 +233,17 @@ function ManageMemberPanel({ member, onOpenChange, remainingShareForEdit }: Mana
     </form>
   )
 
+  // SheetContent a déjà son propre bouton de fermeture (coin haut-droit) —
+  // ne pas en remettre un ici sur ordinateur (deux "X" sinon) ; DrawerContent
+  // (mobile) n'en fournit aucun, on garde le nôtre.
   const header = (
     <div className="flex items-center gap-3">
       <span className="flex-1 text-base font-bold text-ink">{member ? t('team.manageSheetTitle', { name: member.name }) : ''}</span>
-      <button type="button" onClick={close} aria-label={t('common.close')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
-        <X className="size-4" strokeWidth={2} />
-      </button>
+      {isDesktop ? null : (
+        <button type="button" onClick={close} aria-label={t('common.close')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
+          <X className="size-4" strokeWidth={2} />
+        </button>
+      )}
     </div>
   )
 
