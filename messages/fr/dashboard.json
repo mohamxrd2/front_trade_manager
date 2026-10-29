@@ -59,5 +59,15 @@
     "averageBasket": "Panier moyen",
     "new": "Nouveau"
   },
-  "otherCategory": "Autres"
+  "otherCategory": "Autres",
+  "cashier": {
+    "title": "Ma caisse du jour",
+    "todaySales": "Ventes d'aujourd'hui",
+    "byPaymentMethod": "Par moyen de paiement",
+    "recentSales": "Ventes récentes",
+    "noSalesYet": "Aucune vente aujourd'hui pour l'instant.",
+    "reprint": "Réimprimer le ticket",
+    "reprintAria": "Réimprimer le ticket {{code}}",
+    "reprintTitle": "Ticket"
+  }
 }

@@ -23,6 +23,8 @@ import {
 } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { usePermissions } from '@/hooks/usePermissions'
+import { CashierDashboard } from '@/components/dashboard/cashier-dashboard'
 import { useNotifications } from '@/hooks/useNotifications'
 import { useUserStats } from '@/lib/hooks/useArticles'
 import { useArticles } from '@/lib/hooks/useArticles'
@@ -191,8 +193,24 @@ function formatTransactionMeta(dateString: string, language: AppLanguage, todayL
  * Tableau de bord — reprend design/maquettes/ordinateur/Web-Tableau.dc.html
  * (≥ 1024px) et design/maquettes/mobile/Main.dc.html (< 768px), valeurs
  * exactes des styles inline, avec les composants communs waelly/*.
+ *
+ * Chantier "Équipe" §6 — un membre sans wallet.view_balance (ex. caissier)
+ * voit "Ma caisse du jour" à la place (jamais le solde/CA/bénéfice/part
+ * globaux) : ce composant ne monte alors AUCUN des hooks analytics
+ * ci-dessous (évite des appels 403 inutiles), voir CashierDashboard.
  */
 export default function DashboardPage() {
+  const { user } = useAuth()
+  const { can } = usePermissions()
+
+  if (user && !can('wallet.view_balance') && user.my_day) {
+    return <CashierDashboard myDay={user.my_day} />
+  }
+
+  return <OwnerDashboardContent />
+}
+
+function OwnerDashboardContent() {
   const { user } = useAuth()
   const { t, language } = useTranslation()
   const { currency } = useCurrency()

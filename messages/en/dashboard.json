@@ -59,5 +59,15 @@
     "averageBasket": "Average basket",
     "new": "New"
   },
-  "otherCategory": "Other"
+  "otherCategory": "Other",
+  "cashier": {
+    "title": "My till today",
+    "todaySales": "Today's sales",
+    "byPaymentMethod": "By payment method",
+    "recentSales": "Recent sales",
+    "noSalesYet": "No sales yet today.",
+    "reprint": "Reprint the receipt",
+    "reprintAria": "Reprint receipt {{code}}",
+    "reprintTitle": "Receipt"
+  }
 }
