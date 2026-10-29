@@ -114,5 +114,8 @@
   "deleteDialog": {
     "titleExpense": "Supprimer cette dépense ?",
     "titleSale": "Supprimer cette vente ?"
-  }
+  },
+  "byAuthor": "par {{name}} ({{role}})",
+  "sellerFilterLabel": "Vendeur",
+  "sellerFilterAll": "Tous les vendeurs"
 }

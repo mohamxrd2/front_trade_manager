@@ -5,10 +5,19 @@ import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
-import { AlertCircle, ArrowDownLeft, Banknote, Check, Download, PiggyBank, Plus, Search, X } from 'lucide-react'
+import { AlertCircle, ArrowDownLeft, Banknote, Check, ChevronDown, Download, PiggyBank, Plus, Search, Users, X } from 'lucide-react'
 
 import type { Transaction } from '@/lib/services/transactions'
 import { deleteOperation } from '@/lib/services/operations'
+import { getTeam } from '@/lib/services/team'
+import { usePermissions } from '@/hooks/usePermissions'
+import { authorLabel } from '@/lib/permissions/author-label'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useTransactionsQuery, useTransactionsSearchQuery } from '@/lib/hooks/useTransactions'
 import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { useInvoiceLookup } from '@/lib/hooks/useInvoiceLookup'
@@ -21,7 +30,7 @@ import { isSearchableQuery } from '@/lib/transactions/search-query'
 import { buildWalletSearchUrl, parseWalletSearchUrl, hasActiveSearchFilters as computeHasActiveSearchFilters } from '@/lib/transactions/wallet-search-url'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { keys } from '@/lib/query-keys'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { exportToExcel } from '@/lib/utils/export'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatNumber, formatDate } from '@/lib/i18n/format'
@@ -198,6 +207,17 @@ export default function WalletPage() {
   // ?payment_method=wave&from=...&to=... ; from/to sont déjà couverts par
   // dateRange ci-dessus (même paramètres).
   const [paymentMethodFilter, setPaymentMethodFilter] = React.useState<string | null>(() => initialSearchUrlState.paymentMethod)
+  // Filtre "Vendeur" (chantier "Équipe" §7) — seulement pour qui voit toute
+  // l'équipe (sales.view_all) ; un membre limité à sales.view_own ne voit de
+  // toute façon que ses propres transactions, ce filtre serait un no-op.
+  const [createdByFilter, setCreatedByFilter] = React.useState<string | null>(() => initialSearchUrlState.createdBy)
+  const { can } = usePermissions()
+  const canViewAllSales = can('sales.view_all')
+  const { data: teamMembers } = useQuery({ queryKey: keys.team.all, queryFn: getTeam, enabled: canViewAllSales })
+  const sellerOptions = React.useMemo(
+    () => (teamMembers ?? []).filter((m) => m.is_owner || m.permissions.includes('sales.create')),
+    [teamMembers]
+  )
 
   const debouncedSearchInput = useDebouncedValue(searchInput, 300)
   // "à partir de 2 caractères (ou dès qu'une date ou un montant est
@@ -210,6 +230,7 @@ export default function WalletPage() {
     type: typeFilter,
     from: dateRange.from,
     paymentMethod: paymentMethodFilter,
+    createdBy: createdByFilter,
   })
 
   const searchQueryParams = React.useMemo(
@@ -217,12 +238,13 @@ export default function WalletPage() {
       q: effectiveQuery || undefined,
       type: typeFilter === 'all' ? undefined : typeFilter,
       payment_method: paymentMethodFilter ?? undefined,
+      created_by: createdByFilter ?? undefined,
       date_from: dateRange.from ?? undefined,
       date_to: dateRange.to ?? undefined,
       page: searchPage,
       per_page: SEARCH_PAGE_SIZE,
     }),
-    [effectiveQuery, typeFilter, paymentMethodFilter, dateRange.from, dateRange.to, searchPage]
+    [effectiveQuery, typeFilter, paymentMethodFilter, createdByFilter, dateRange.from, dateRange.to, searchPage]
   )
 
   const { data: searchResult, isFetching: searchFetching } = useTransactionsSearchQuery(searchQueryParams)
@@ -231,7 +253,7 @@ export default function WalletPage() {
   const searchPageCount = searchResult?.meta.total_pages ?? 1
 
   // Revient à la page 1 dès que la recherche/le type/la plage de dates change.
-  const searchFilterKey = `${effectiveQuery}|${typeFilter}|${dateRange.from ?? ''}|${dateRange.to ?? ''}|${paymentMethodFilter ?? ''}`
+  const searchFilterKey = `${effectiveQuery}|${typeFilter}|${dateRange.from ?? ''}|${dateRange.to ?? ''}|${paymentMethodFilter ?? ''}|${createdByFilter ?? ''}`
   const prevSearchFilterKeyRef = React.useRef(searchFilterKey)
   React.useEffect(() => {
     if (prevSearchFilterKeyRef.current !== searchFilterKey) {
@@ -251,16 +273,18 @@ export default function WalletPage() {
       to: dateRange.to,
       page: searchPage,
       paymentMethod: paymentMethodFilter,
+      createdBy: createdByFilter,
     })
     router.replace(url, { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveQuery, typeFilter, dateRange.from, dateRange.to, searchPage, paymentMethodFilter])
+  }, [effectiveQuery, typeFilter, dateRange.from, dateRange.to, searchPage, paymentMethodFilter, createdByFilter])
 
   const clearSearch = () => {
     setSearchInput('')
     setDateRange({ from: null, to: null, label: null })
     setTypeFilter('all')
     setPaymentMethodFilter(null)
+    setCreatedByFilter(null)
   }
 
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
@@ -686,7 +710,31 @@ export default function WalletPage() {
             <TransactionDateFilter variant="drawer" value={dateRange} onChange={setDateRange} />
           </div>
 
-          <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
+            {canViewAllSales && sellerOptions.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-10 items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3.5 text-sm font-semibold text-ink-2"
+                  >
+                    <Users className="size-4" strokeWidth={2} />
+                    {t('transactions.sellerFilterLabel')}
+                    <ChevronDown className="size-3.5" strokeWidth={2} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={() => setCreatedByFilter(null)}>{t('transactions.sellerFilterAll')}</DropdownMenuItem>
+                  {sellerOptions.map((m) => (
+                    <DropdownMenuItem key={m.id} onSelect={() => setCreatedByFilter(m.id)}>
+                      {m.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
 
           {hasActiveSearchFilters ? (
             <div className="flex flex-wrap gap-1.5">
@@ -702,6 +750,12 @@ export default function WalletPage() {
               ) : null}
               {paymentMethodFilter ? (
                 <FilterPill label={t(paymentMethodMeta(paymentMethodFilter).labelKey)} onRemove={() => setPaymentMethodFilter(null)} />
+              ) : null}
+              {createdByFilter ? (
+                <FilterPill
+                  label={sellerOptions.find((m) => m.id === createdByFilter)?.name ?? t('transactions.sellerFilterLabel')}
+                  onRemove={() => setCreatedByFilter(null)}
+                />
               ) : null}
             </div>
           ) : null}
@@ -790,6 +844,9 @@ export default function WalletPage() {
                           {opGroup.paymentMethod ? <PaymentIcon className="size-3 shrink-0" strokeWidth={2} /> : null}
                           {opGroup.operationCode ? <span className="shrink-0 font-mono text-[11px]">{opGroup.operationCode}</span> : null}
                         </span>
+                        {canViewAllSales && authorLabel(opGroup.createdBy, t) ? (
+                          <span className="truncate text-xs text-subtle">{authorLabel(opGroup.createdBy, t)}</span>
+                        ) : null}
                       </span>
                       <span className={`shrink-0 text-sm font-bold ${visual.amountClassName}`}>
                         {visual.sign}
@@ -916,11 +973,41 @@ export default function WalletPage() {
               {paymentMethodFilter ? (
                 <FilterPill label={t(paymentMethodMeta(paymentMethodFilter).labelKey)} onRemove={() => setPaymentMethodFilter(null)} />
               ) : null}
+              {createdByFilter ? (
+                <FilterPill
+                  label={sellerOptions.find((m) => m.id === createdByFilter)?.name ?? t('transactions.sellerFilterLabel')}
+                  onRemove={() => setCreatedByFilter(null)}
+                />
+              ) : null}
             </div>
           ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterChips options={typeChips} value={typeFilter} onChange={(v) => setTypeFilter(v as TypeFilter)} />
+              {canViewAllSales && sellerOptions.length > 0 ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-10 items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3.5 text-sm font-semibold text-ink-2"
+                    >
+                      <Users className="size-4" strokeWidth={2} />
+                      {t('transactions.sellerFilterLabel')}
+                      <ChevronDown className="size-3.5" strokeWidth={2} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onSelect={() => setCreatedByFilter(null)}>{t('transactions.sellerFilterAll')}</DropdownMenuItem>
+                    {sellerOptions.map((m) => (
+                      <DropdownMenuItem key={m.id} onSelect={() => setCreatedByFilter(m.id)}>
+                        {m.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <label htmlFor="wallet-period" className="sr-only">
                 {t('wallet.list.periodSelectAria')}
@@ -1016,6 +1103,7 @@ export default function WalletPage() {
                       <th className="px-2 py-2.5">{t('wallet.list.columnOperation')}</th>
                       <th className="px-2 py-2.5">{t('transactions.type')}</th>
                       <th className="px-2 py-2.5">{t('wallet.list.columnDate')}</th>
+                      {canViewAllSales ? <th className="px-2 py-2.5">{t('transactions.sellerFilterLabel')}</th> : null}
                       <th className="px-2 py-2.5">{t('transactions.detail.invoice')}</th>
                       <th className="px-2 py-2.5 text-right">{t('transactions.amount')}</th>
                     </tr>
@@ -1078,6 +1166,9 @@ export default function WalletPage() {
                           <td className="whitespace-nowrap px-2 py-2.5 text-ink-3">
                             {formatDate(opGroup.date, language, 'D MMM · HH:mm')}
                           </td>
+                          {canViewAllSales ? (
+                            <td className="px-2 py-2.5 text-ink-3">{opGroup.createdBy?.name ?? '—'}</td>
+                          ) : null}
                           <td className="px-2 py-2.5">
                             {tx.invoice_id ? (
                               <Link

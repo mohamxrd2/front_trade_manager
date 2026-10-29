@@ -114,5 +114,8 @@
   "deleteDialog": {
     "titleExpense": "Delete this expense?",
     "titleSale": "Delete this sale?"
-  }
+  },
+  "byAuthor": "by {{name}} ({{role}})",
+  "sellerFilterLabel": "Seller",
+  "sellerFilterAll": "All sellers"
 }

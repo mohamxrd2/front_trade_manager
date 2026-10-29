@@ -11,6 +11,8 @@ import { getOperation } from '@/lib/services/operations'
 import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
 import { getTransactionVisual, fundingSourceLabelKey, paymentMethodLabelKey } from '@/lib/transactions/transaction-visual'
+import { usePermissions } from '@/hooks/usePermissions'
+import { authorLabel } from '@/lib/permissions/author-label'
 import { keys } from '@/lib/query-keys'
 import { getCollaborators } from '@/lib/services/collaborators'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
@@ -43,6 +45,7 @@ interface TransactionDetailsDialogProps {
  */
 function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, invoiceEntry, onRequestDelete }: TransactionDetailsDialogProps) {
   const { t, language } = useTranslation()
+  const { can } = usePermissions()
   const open = transaction !== null
 
   const { data: collaborators = [] } = useQuery({
@@ -121,6 +124,10 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
     label: t('transactions.date'),
     value: formatDate(transaction.date, language, language === 'en' ? 'MMMM D, YYYY [at] h:mm A' : 'D MMMM YYYY à HH:mm'),
   })
+  if (can('sales.view_all')) {
+    const author = authorLabel(operation?.createdBy ?? transaction.createdBy, t)
+    if (author) rows.push({ label: t('transactions.sellerFilterLabel'), value: author })
+  }
   if (visual.kind === 'apport' || visual.kind === 'retrait') {
     const fundingKey = fundingSourceLabelKey(transaction.funding_source)
     if (fundingKey) rows.push({ label: t('wallet.deposit.fundingSourceLabel'), value: t(fundingKey) })

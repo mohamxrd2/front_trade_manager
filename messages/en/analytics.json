@@ -156,6 +156,11 @@
       "withdrawals": "Withdrawals",
       "balance": "Balance",
       "note": "Deposits and withdrawals are not counted in revenue."
+    },
+    "memberSales": {
+      "sectionTitle": "Sales by member",
+      "salesCountIcu": "{count, plural, one {# sale} other {# sales}}",
+      "averageBasketLabel": "Average basket:"
     }
   }
 }

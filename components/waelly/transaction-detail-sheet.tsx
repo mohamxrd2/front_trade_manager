@@ -12,6 +12,8 @@ import { getOperation } from '@/lib/services/operations'
 import type { InvoiceLookupEntry } from '@/lib/hooks/useInvoiceLookup'
 import { isDeletableFromList } from '@/lib/transactions/can-delete'
 import { getTransactionVisual, fundingSourceLabelKey, paymentMethodLabelKey } from '@/lib/transactions/transaction-visual'
+import { usePermissions } from '@/hooks/usePermissions'
+import { authorLabel } from '@/lib/permissions/author-label'
 import { keys } from '@/lib/query-keys'
 import { getCollaborators } from '@/lib/services/collaborators'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
@@ -40,6 +42,7 @@ interface TransactionDetailSheetProps {
  */
 function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onRequestDelete }: TransactionDetailSheetProps) {
   const { t, language } = useTranslation()
+  const { can } = usePermissions()
   const open = transaction !== null
   const [copied, setCopied] = React.useState(false)
 
@@ -89,6 +92,10 @@ function TransactionDetailSheet({ transaction, onOpenChange, invoiceEntry, onReq
     label: t('transactions.detail.dateTime'),
     value: formatDate(transaction.date, language, language === 'en' ? 'MMMM D, YYYY [at] h:mm A' : 'D MMMM YYYY à HH:mm'),
   })
+  if (can('sales.view_all')) {
+    const author = authorLabel(operation?.createdBy ?? transaction.createdBy, t)
+    if (author) rows.push({ label: t('transactions.sellerFilterLabel'), value: author })
+  }
   if (isSale && !hasMultipleLines) {
     rows.push({ label: t('transactions.article'), value: transaction.article_name || transaction.name })
     if (transaction.variation_name) rows.push({ label: t('transactions.detail.variant'), value: transaction.variation_name })

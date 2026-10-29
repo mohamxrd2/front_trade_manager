@@ -156,6 +156,11 @@
       "withdrawals": "Retraits",
       "balance": "Solde",
       "note": "Les apports et retraits ne sont pas comptés dans le chiffre d'affaires."
+    },
+    "memberSales": {
+      "sectionTitle": "Ventes par membre",
+      "salesCountIcu": "{count, plural, one {# vente} other {# ventes}}",
+      "averageBasketLabel": "Panier moyen :"
     }
   }
 }

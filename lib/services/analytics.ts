@@ -455,6 +455,15 @@ export interface SummaryConsistency {
   payment_methods_total_matches: boolean
 }
 
+/** Chantier "Équipe" §7 — "Ventes par membre", gated par analytics.view côté backend (AnalyticsSummaryService::byMember()). */
+export interface MemberSalesRow {
+  user_id: string
+  name: string | null
+  amount: number
+  sales_count: number
+  average_basket: number
+}
+
 export interface AnalyticsSummaryData {
   period: SummaryPeriod
   start_date: string
@@ -465,6 +474,7 @@ export interface AnalyticsSummaryData {
   heatmap: SummaryHeatmap
   top_variations: TopVariationRow[]
   treasury: SummaryTreasury
+  by_member: MemberSalesRow[]
 }
 
 export async function getAnalyticsSummary(period: SummaryPeriod, from?: string, to?: string): Promise<AnalyticsSummaryData> {

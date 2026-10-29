@@ -29,6 +29,8 @@ export interface OperationGroup {
   /** Somme des montants des lignes du groupe. */
   amount: number
   lines: Transaction[]
+  /** Auteur réel de l'opération (même sur toutes les lignes d'un panier) — `null` si non chargé côté serveur. */
+  createdBy: { id: string; name: string | null; role: string | null } | null
 }
 
 export function groupTransactionsByOperation(transactions: Transaction[]): OperationGroup[] {
@@ -56,6 +58,7 @@ export function groupTransactionsByOperation(transactions: Transaction[]): Opera
         date: tx.date,
         amount: tx.amount ?? 0,
         lines: [tx],
+        createdBy: tx.createdBy ?? null,
       })
     }
   }

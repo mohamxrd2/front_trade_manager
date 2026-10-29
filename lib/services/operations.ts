@@ -45,6 +45,8 @@ export interface ApiOperation {
   transactions: ApiOperationLine[]
   /** "Caissier : {nom}" — `null` pour les très anciennes opérations sans auteur. */
   author_name?: string | null
+  /** Chantier "Équipe" étape 2/3 — { id, name, role } de l'auteur réel (Operation::getCreatedByAttribute()), présent sur index ET show/store. */
+  created_by?: { id: string; name: string | null; role: string | null } | null
 }
 
 export interface OperationLine {
@@ -75,6 +77,7 @@ export interface Operation {
   date: string
   lines: OperationLine[]
   authorName: string | null
+  createdBy: { id: string; name: string | null; role: string | null } | null
 }
 
 function mapApiOperation(api: ApiOperation): Operation {
@@ -92,6 +95,7 @@ function mapApiOperation(api: ApiOperation): Operation {
     note: api.note ?? null,
     date: api.occurred_at || api.created_at,
     authorName: api.author_name ?? null,
+    createdBy: api.created_by ?? null,
     lines: (api.transactions || []).map((line) => ({
       id: line.id,
       articleId: line.article_id ?? null,

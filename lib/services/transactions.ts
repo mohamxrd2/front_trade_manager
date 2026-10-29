@@ -39,6 +39,8 @@ export interface ApiTransaction {
   operation_id?: string | null
   /** Accessor appended côté Laravel (Transaction::getOperationCodeAttribute()). */
   operation_code?: string | null
+  /** Chantier "Équipe" étape 3 — { id, name, role } de l'auteur réel (Transaction::getCreatedByAttribute()) ; `null` si non chargé côté serveur (voir ce commentaire backend). */
+  created_by?: { id: string; name: string | null; role: string | null } | null
   created_at: string
   updated_at: string
   article?: {
@@ -77,6 +79,7 @@ export interface Transaction {
   payment_method?: string | null
   operation_id?: string | null
   operation_code?: string | null
+  createdBy?: { id: string; name: string | null; role: string | null } | null
 }
 
 /**
@@ -214,6 +217,7 @@ function mapApiTransactionToTransaction(apiTransaction: ApiTransaction): Transac
     payment_method: apiTransaction.payment_method ?? null,
     operation_id: apiTransaction.operation_id ?? null,
     operation_code: apiTransaction.operation_code ?? null,
+    createdBy: apiTransaction.created_by ?? null,
   }
 }
 
@@ -316,6 +320,8 @@ export interface TransactionSearchParams {
   payment_method?: string
   date_from?: string // AAAA-MM-JJ
   date_to?: string // AAAA-MM-JJ
+  /** Filtre "Vendeur" (chantier "Équipe" §7) — id du membre, nécessite sales.view_all côté serveur. */
+  created_by?: string
   page?: number
   per_page?: number
 }
