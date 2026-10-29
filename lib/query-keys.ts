@@ -105,6 +105,12 @@ export const keys = {
     all: ['collaborators'] as const,
   },
 
+  team: {
+    all: ['team'] as const,
+    roles: ['team', 'roles'] as const,
+    activity: (member?: string) => ['team', 'activity', member ?? 'all'] as const,
+  },
+
   settings: {
     all: ['settings'] as const,
     user: () => ['settings', 'user'] as const,

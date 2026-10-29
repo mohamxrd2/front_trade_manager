@@ -14,7 +14,8 @@ import {
 } from 'motion/react'
 
 import { cn } from '@/lib/utils'
-import { TABS, resolveActiveTabIndex, isTabBarHidden } from '@/lib/tabs'
+import { getTabs, resolveActiveTabIndex, isTabBarHidden } from '@/lib/tabs'
+import { useAuth } from '@/contexts/AuthContext'
 import { useTabLens } from '@/hooks/useTabLens'
 import { useKeyboardOpen } from '@/hooks/useKeyboardOpen'
 import { useScrollShrink } from '@/hooks/useScrollShrink'
@@ -34,11 +35,16 @@ function BottomTabBarInner() {
   const pathname = usePathname()
   const router = useRouter()
   const { t } = useTranslation()
+  const { user } = useAuth()
   const reducedMotion = useReducedMotion()
   const keyboardOpen = useKeyboardOpen()
   const navRef = React.useRef<HTMLElement>(null)
 
-  const routeIndex = resolveActiveTabIndex(pathname)
+  // Barre recalculée à chaque changement d'utilisateur/permissions (ex.
+  // changement de rôle en cours de session) — voir lib/tabs.ts.
+  const TABS = React.useMemo(() => getTabs(user), [user])
+
+  const routeIndex = resolveActiveTabIndex(pathname, TABS)
   const [optimisticIndex, setOptimisticIndex] = React.useState<number | null>(null)
 
   // La navigation réelle a rattrapé l'intention optimiste : on relâche l'override.
@@ -55,7 +61,7 @@ function BottomTabBarInner() {
     reducedMotion: !!reducedMotion,
     onDragSettle: (index) => {
       setOptimisticIndex(index)
-      if (resolveActiveTabIndex(pathname) !== index) {
+      if (resolveActiveTabIndex(pathname, TABS) !== index) {
         vibrateTabChange()
         router.push(TABS[index].href)
       }
@@ -79,7 +85,7 @@ function BottomTabBarInner() {
   }
 
   const handleTabClick = (index: number) => (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (resolveActiveTabIndex(pathname) === index) {
+    if (resolveActiveTabIndex(pathname, TABS) === index) {
       e.preventDefault()
       window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' })
     }

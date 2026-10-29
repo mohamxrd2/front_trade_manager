@@ -4,12 +4,37 @@ import type { AxiosError } from 'axios'
 /**
  * Types pour les données utilisateur
  */
+/** Infos entreprise du COMPTE — identiques pour le propriétaire et chaque membre (chantier "Équipe"). */
+export interface UserCompany {
+  id: string
+  name: string
+  code?: string | null
+  logo?: string | null
+  logo_url?: string | null
+  [key: string]: unknown
+}
+
+/** "Caisse du jour" d'un membre sans wallet.view_balance — remplace les champs financiers globaux masqués, voir GET /api/user. */
+export interface MyDay {
+  sales_count: number
+  total: number
+  by_payment_method: { payment_method: string; amount: number; count: number }[]
+  last_sales: {
+    id: string
+    code: string
+    total_amount: number
+    payment_method: string | null
+    occurred_at: string
+  }[]
+}
+
 export interface User {
   id: string
   first_name: string
   last_name: string
   username: string
   email: string
+  phone?: string | null
   company_share?: string
   profile_image?: string | null
   provider?: string
@@ -17,6 +42,17 @@ export interface User {
   email_verified_at?: string | null
   created_at?: string
   updated_at?: string
+  /** Rôle du membre (cashier/manager/stock_manager/accountant) — `null` pour le propriétaire (voir is_owner). */
+  role?: string | null
+  is_owner?: boolean
+  /** Liste effective des permissions (rôle ± ajustements par membre) — toutes pour le propriétaire. */
+  permissions?: string[]
+  must_change_password?: boolean
+  status?: 'active' | 'suspended'
+  last_login_at?: string | null
+  company?: UserCompany | null
+  /** Présent (non-null) uniquement pour un membre sans wallet.view_balance — voir MyDay. */
+  my_day?: MyDay | null
   total_articles?: number
   total_low_stock?: number
   total_stock_value?: number
@@ -28,7 +64,8 @@ export interface User {
   total_withdrawal?: number
   /** Solde réel = ventes − dépenses + apports − retraits — base de
    * répartition des parts collaborateurs depuis le 26/10/2026, voir
-   * lib/hooks/useCollaboratorShares.ts. */
+   * lib/hooks/useCollaboratorShares.ts. Absent (masqué) pour un membre sans
+   * wallet.view_balance — voir my_day. */
   balance?: number
   wallet?: number
 }

@@ -12,6 +12,7 @@ import {
   Package,
   Plus,
   Settings,
+  ShoppingCart,
   Users,
   Wallet,
 } from "lucide-react"
@@ -19,6 +20,8 @@ import type { LucideIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
+import { usePermissions } from "@/hooks/usePermissions"
+import { roleLabelKey } from "@/lib/permissions/role-labels"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,19 +43,24 @@ interface GlassSidebarNavItem {
   labelKey: string
   icon: LucideIcon
   badge?: { count: number; tone: "danger" | "brand" }
+  /** Permission requise pour voir cet item — absent = toujours visible (ex. Accueil, Notifications, Paramètres). */
+  permission?: string
 }
 
+// "Mes ventes" n'apparaît que pour un membre SANS wallet.view_balance (le
+// propriétaire/gérant ont déjà /wallet) — même logique que lib/tabs.ts.
 const ACTIVITY_ITEMS: GlassSidebarNavItem[] = [
   { href: "/dashboard", labelKey: "nav.dashboard", icon: Home },
-  { href: "/products", labelKey: "nav.stock", icon: Package },
-  { href: "/wallet", labelKey: "nav.wallet", icon: Wallet },
-  { href: "/invoices", labelKey: "nav.invoices", icon: FileText },
-  { href: "/clients", labelKey: "nav.clients", icon: Users },
-  { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3 },
+  { href: "/my-sales", labelKey: "nav.mySales", icon: ShoppingCart },
+  { href: "/products", labelKey: "nav.stock", icon: Package, permission: "stock.view" },
+  { href: "/wallet", labelKey: "nav.wallet", icon: Wallet, permission: "wallet.view_balance" },
+  { href: "/invoices", labelKey: "nav.invoices", icon: FileText, permission: "invoices.view" },
+  { href: "/clients", labelKey: "nav.clients", icon: Users, permission: "clients.view" },
+  { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3, permission: "analytics.view" },
 ]
 
 const ACCOUNT_ITEMS: GlassSidebarNavItem[] = [
-  { href: "/collaborators", labelKey: "nav.collaborators", icon: Users },
+  { href: "/team", labelKey: "nav.team", icon: Users, permission: "team.manage" },
   { href: "/notifications", labelKey: "nav.notifications", icon: Bell },
   { href: "/settings", labelKey: "nav.settings", icon: Settings },
 ]
@@ -63,6 +71,8 @@ interface GlassSidebarUser {
   company?: string
   /** Logo entreprise (Paramètres > Entreprise ou onboarding, étape 2) — affiché à la place des initiales quand présent. */
   logoUrl?: string | null
+  /** Rôle du membre connecté — `null`/absent pour le propriétaire (badge "role" masqué, voir plus bas). */
+  role?: string | null
 }
 
 interface GlassSidebarProps {
@@ -120,15 +130,24 @@ function GlassSidebar({
 }: GlassSidebarProps) {
   const pathname = usePathname()
   const { t } = useTranslation()
+  const { can } = usePermissions()
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`)
   const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false)
 
-  const activityItems = ACTIVITY_ITEMS.map((item) =>
-    item.href === "/products" && stockAlerts
-      ? { ...item, badge: { count: stockAlerts, tone: "danger" as const } }
-      : item
-  )
-  const accountItems = ACCOUNT_ITEMS.map((item) =>
+  const hasWallet = can("wallet.view_balance")
+  const canSell = can("sales.create")
+
+  const activityItems = ACTIVITY_ITEMS
+    // "Mes ventes" réservé à qui n'a PAS /wallet (même logique que lib/tabs.ts) ;
+    // les autres items suivent leur permission déclarée (absente = toujours visible).
+    .filter((item) => (item.href === "/my-sales" ? !hasWallet && (can("sales.view_own") || can("sales.view_all")) : true))
+    .filter((item) => !item.permission || can(item.permission))
+    .map((item) =>
+      item.href === "/products" && stockAlerts
+        ? { ...item, badge: { count: stockAlerts, tone: "danger" as const } }
+        : item
+    )
+  const accountItems = ACCOUNT_ITEMS.filter((item) => !item.permission || can(item.permission)).map((item) =>
     item.href === "/notifications" && unreadNotifications
       ? { ...item, badge: { count: unreadNotifications, tone: "danger" as const } }
       : item
@@ -152,13 +171,15 @@ function GlassSidebar({
         </span>
       </Link>
 
-      <Link
-        href="/wallet/new?type=sale"
-        className="flex min-h-[46px] items-center justify-center gap-2 rounded-full bg-button text-sm font-bold text-white shadow-button"
-      >
-        <Plus className="size-[18px]" strokeWidth={2.2} />
-        {t('nav.newSale')}
-      </Link>
+      {canSell ? (
+        <Link
+          href="/wallet/new?type=sale"
+          className="flex min-h-[46px] items-center justify-center gap-2 rounded-full bg-button text-sm font-bold text-white shadow-button"
+        >
+          <Plus className="size-[18px]" strokeWidth={2.2} />
+          {t('nav.newSale')}
+        </Link>
+      ) : null}
 
       <nav aria-label={t('nav.mainNav')} className="flex flex-wrap gap-0.5">
         <span className="basis-full px-3 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-subtle">
@@ -186,8 +207,12 @@ function GlassSidebar({
           )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-px">
-          <span className="truncate text-sm font-bold text-ink">
-            {user.name}
+          <span className="flex items-center gap-1.5 truncate text-sm font-bold text-ink">
+            <span className="truncate">{user.name}</span>
+            {/* "Koffi · Caissier" — badge de rôle, absent pour le propriétaire (section 6 du chantier "Équipe"). */}
+            {user.role ? (
+              <span className="shrink-0 text-xs font-semibold text-subtle">· {t(roleLabelKey(user.role))}</span>
+            ) : null}
           </span>
           {user.company ? (
             <span className="truncate text-xs text-subtle">{user.company}</span>

@@ -58,6 +58,7 @@ export default function DashboardLayout({
                   name: user ? `${user.first_name} ${user.last_name}` : "",
                   company: user?.email,
                   logoUrl: company?.logo_url,
+                  role: user?.is_owner ? null : (user?.role ?? null),
                 }}
                 unreadNotifications={unreadCount}
                 stockAlerts={stockAlerts}
