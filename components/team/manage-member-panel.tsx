@@ -36,6 +36,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { RolePicker, type RolePickerValue } from '@/components/team/role-picker'
 import { CredentialsScreen } from '@/components/team/credentials-screen'
 import type { AssignableRole } from '@/lib/permissions/catalog'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 
 function formatShare(n: number, language: AppLanguage): string {
   return `${formatNumber(n, language, { maximumFractionDigits: 2 })} %`
@@ -78,6 +79,7 @@ interface ManageMemberPanelProps {
 function ManageMemberPanel({ member, onOpenChange, remainingShareForEdit }: ManageMemberPanelProps) {
   const { t, language } = useTranslation()
   const queryClient = useQueryClient()
+  const isDesktop = useIsDesktop()
   const open = member !== null
   const hasAccess = !!member?.username
 
@@ -240,30 +242,31 @@ function ManageMemberPanel({ member, onOpenChange, remainingShareForEdit }: Mana
     </div>
   )
 
+  const panel = isDesktop ? (
+    <Sheet open={open} onOpenChange={(next) => !next && close()}>
+      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[420px]">
+        <SheetHeader className="border-b border-line pb-3.5">
+          <SheetTitle className="sr-only">{member ? t('team.manageSheetTitle', { name: member.name }) : ''}</SheetTitle>
+          {header}
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto px-4 pb-6">{body}</div>
+      </SheetContent>
+    </Sheet>
+  ) : (
+    <Drawer open={open} onOpenChange={(next) => !next && close()}>
+      <DrawerContent className="max-h-[94vh] px-5 pb-8 pt-2.5">
+        <DrawerHeader className="mt-1.5 p-0">
+          <DrawerTitle className="sr-only">{member ? t('team.manageSheetTitle', { name: member.name }) : ''}</DrawerTitle>
+          {header}
+        </DrawerHeader>
+        <div className="mt-4 overflow-y-auto">{body}</div>
+      </DrawerContent>
+    </Drawer>
+  )
+
   return (
     <>
-      <div className="lg:hidden">
-        <Drawer open={open} onOpenChange={(next) => !next && close()}>
-          <DrawerContent className="max-h-[94vh] px-5 pb-8 pt-2.5">
-            <DrawerHeader className="mt-1.5 p-0">
-              <DrawerTitle className="sr-only">{member ? t('team.manageSheetTitle', { name: member.name }) : ''}</DrawerTitle>
-              {header}
-            </DrawerHeader>
-            <div className="mt-4 overflow-y-auto">{body}</div>
-          </DrawerContent>
-        </Drawer>
-      </div>
-      <div className="hidden lg:block">
-        <Sheet open={open} onOpenChange={(next) => !next && close()}>
-          <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[420px]">
-            <SheetHeader className="border-b border-line pb-3.5">
-              <SheetTitle className="sr-only">{member ? t('team.manageSheetTitle', { name: member.name }) : ''}</SheetTitle>
-              {header}
-            </SheetHeader>
-            <div className="flex-1 overflow-y-auto px-4 pb-6">{body}</div>
-          </SheetContent>
-        </Sheet>
-      </div>
+      {panel}
 
       <AlertDialog open={!!pendingRole} onOpenChange={(next) => !next && setPendingRole(null)}>
         <AlertDialogContent>

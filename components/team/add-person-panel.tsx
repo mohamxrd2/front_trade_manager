@@ -19,6 +19,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { RolePicker, type RolePickerValue } from '@/components/team/role-picker'
 import { CredentialsScreen } from '@/components/team/credentials-screen'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 
 function formatShare(n: number, language: AppLanguage): string {
   return `${formatNumber(n, language, { maximumFractionDigits: 2 })} %`
@@ -63,6 +64,7 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
   const { t, language } = useTranslation()
   const { checkAuth } = useAuth()
   const queryClient = useQueryClient()
+  const isDesktop = useIsDesktop()
   const { data: roles } = useQuery({ queryKey: keys.team.roles, queryFn: getTeamRoles, enabled: open })
 
   const [step, setStep] = React.useState<1 | 2 | 3>(1)
@@ -304,31 +306,30 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
     </div>
   )
 
+  if (isDesktop) {
+    return (
+      <Sheet open={open} onOpenChange={(next) => !next && close()}>
+        <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[420px]">
+          <SheetHeader className="border-b border-line pb-3.5">
+            <SheetTitle className="sr-only">{t('team.addSheetTitle')}</SheetTitle>
+            {header}
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 pb-6">{body}</div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
   return (
-    <>
-      <div className="lg:hidden">
-        <Drawer open={open} onOpenChange={(next) => !next && close()}>
-          <DrawerContent className="max-h-[94vh] px-5 pb-8 pt-2.5">
-            <DrawerHeader className="mt-1.5 p-0">
-              <DrawerTitle className="sr-only">{t('team.addSheetTitle')}</DrawerTitle>
-              {header}
-            </DrawerHeader>
-            <div className="mt-4 overflow-y-auto">{body}</div>
-          </DrawerContent>
-        </Drawer>
-      </div>
-      <div className="hidden lg:block">
-        <Sheet open={open} onOpenChange={(next) => !next && close()}>
-          <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[420px]">
-            <SheetHeader className="border-b border-line pb-3.5">
-              <SheetTitle className="sr-only">{t('team.addSheetTitle')}</SheetTitle>
-              {header}
-            </SheetHeader>
-            <div className="flex-1 overflow-y-auto px-4 pb-6">{body}</div>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </>
+    <Drawer open={open} onOpenChange={(next) => !next && close()}>
+      <DrawerContent className="max-h-[94vh] px-5 pb-8 pt-2.5">
+        <DrawerHeader className="mt-1.5 p-0">
+          <DrawerTitle className="sr-only">{t('team.addSheetTitle')}</DrawerTitle>
+          {header}
+        </DrawerHeader>
+        <div className="mt-4 overflow-y-auto">{body}</div>
+      </DrawerContent>
+    </Drawer>
   )
 }
 

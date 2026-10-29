@@ -10,6 +10,7 @@ import { getTeamActivity, type TeamMember } from '@/lib/services/team'
 import { activityActionLabelKey } from '@/lib/permissions/activity-labels'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 
 interface MemberActivityPanelProps {
   member: TeamMember | null
@@ -18,6 +19,7 @@ interface MemberActivityPanelProps {
 
 function MemberActivityPanel({ member, onOpenChange }: MemberActivityPanelProps) {
   const { t, language } = useTranslation()
+  const isDesktop = useIsDesktop()
   const open = member !== null
   const close = () => onOpenChange(false)
 
@@ -56,31 +58,30 @@ function MemberActivityPanel({ member, onOpenChange }: MemberActivityPanelProps)
     </div>
   )
 
+  if (isDesktop) {
+    return (
+      <Sheet open={open} onOpenChange={(next) => !next && close()}>
+        <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[420px]">
+          <SheetHeader className="border-b border-line pb-3.5">
+            <SheetTitle className="sr-only">{member ? t('team.activityTitle', { name: member.name }) : ''}</SheetTitle>
+            {header}
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 pb-6">{body}</div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
   return (
-    <>
-      <div className="lg:hidden">
-        <Drawer open={open} onOpenChange={(next) => !next && close()}>
-          <DrawerContent className="max-h-[80vh] px-5 pb-8 pt-2.5">
-            <DrawerHeader className="mt-1.5 p-0">
-              <DrawerTitle className="sr-only">{member ? t('team.activityTitle', { name: member.name }) : ''}</DrawerTitle>
-              {header}
-            </DrawerHeader>
-            <div className="mt-4 overflow-y-auto">{body}</div>
-          </DrawerContent>
-        </Drawer>
-      </div>
-      <div className="hidden lg:block">
-        <Sheet open={open} onOpenChange={(next) => !next && close()}>
-          <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[420px]">
-            <SheetHeader className="border-b border-line pb-3.5">
-              <SheetTitle className="sr-only">{member ? t('team.activityTitle', { name: member.name }) : ''}</SheetTitle>
-              {header}
-            </SheetHeader>
-            <div className="flex-1 overflow-y-auto px-4 pb-6">{body}</div>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </>
+    <Drawer open={open} onOpenChange={(next) => !next && close()}>
+      <DrawerContent className="max-h-[80vh] px-5 pb-8 pt-2.5">
+        <DrawerHeader className="mt-1.5 p-0">
+          <DrawerTitle className="sr-only">{member ? t('team.activityTitle', { name: member.name }) : ''}</DrawerTitle>
+          {header}
+        </DrawerHeader>
+        <div className="mt-4 overflow-y-auto">{body}</div>
+      </DrawerContent>
+    </Drawer>
   )
 }
 
