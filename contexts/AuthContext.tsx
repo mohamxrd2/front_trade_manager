@@ -37,6 +37,8 @@ export interface LoginResult {
   status?: number
   /** Type ApiError (ex. "NETWORK_ERROR", "TIMEOUT_ERROR") — pour distinguer une erreur réseau d'un vrai 401/429. */
   errorType?: string
+  /** Code métier du backend (ex. "ACCOUNT_SUSPENDED") — pour afficher un message traduit plutôt que `error` (texte brut backend, non traduit). */
+  code?: string
   /** Secondes à attendre avant de réessayer, lues depuis l'en-tête Retry-After d'un 429. */
   retryAfterSeconds?: number
   emailVerificationRequired?: { email: string; expiresIn: number }
@@ -326,6 +328,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           success: false,
           status: error.status,
           errorType: error.type,
+          code: error.code,
           retryAfterSeconds: retryAfterHeader ? Number(retryAfterHeader) : undefined,
           error: error.message,
         }

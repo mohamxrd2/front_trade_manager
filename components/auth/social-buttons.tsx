@@ -11,6 +11,8 @@ import { GoogleIcon } from './google-icon'
 
 interface SocialButtonsProps {
   className?: string
+  /** Chantier "Équipe" — appelé avant la navigation OAuth ; renvoyer `false` l'empêche (ex. identifiant de membre saisi, réservé au propriétaire). */
+  onBeforeNavigate?: () => boolean
 }
 
 /**
@@ -20,15 +22,23 @@ interface SocialButtonsProps {
  * callback, voir lib/services/social-auth.ts). Au clic : spinner dans le
  * bouton cliqué, les deux boutons désactivés le temps de la redirection.
  */
-export function SocialButtons({ className }: SocialButtonsProps) {
+export function SocialButtons({ className, onBeforeNavigate }: SocialButtonsProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = React.useState<'google' | 'facebook' | null>(null)
+
+  const guard = (provider: 'google' | 'facebook') => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onBeforeNavigate && !onBeforeNavigate()) {
+      e.preventDefault()
+      return
+    }
+    setLoading(provider)
+  }
 
   return (
     <div className={cn('grid grid-cols-2 gap-3 md:gap-2.5', className)}>
       <a
         href={SOCIAL_AUTH_URLS.google}
-        onClick={() => setLoading('google')}
+        onClick={guard('google')}
         aria-disabled={loading !== null}
         aria-label={t('common.continueWithGoogle')}
         className={cn(
@@ -47,7 +57,7 @@ export function SocialButtons({ className }: SocialButtonsProps) {
       </a>
       <a
         href={SOCIAL_AUTH_URLS.facebook}
-        onClick={() => setLoading('facebook')}
+        onClick={guard('facebook')}
         aria-disabled={loading !== null}
         aria-label={t('common.continueWithFacebook')}
         className={cn(

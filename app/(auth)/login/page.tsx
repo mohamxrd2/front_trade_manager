@@ -3,13 +3,14 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { getSocialAuthErrorMessage } from '@/lib/services/social-auth'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { homeRouteForUser } from '@/lib/permissions/home-route'
 import {
   AuthLogo,
   AuthInput,
@@ -66,6 +67,19 @@ function LoginPageInner() {
     defaultValues: { login: prefillLogin, password: '', remember: true },
   })
 
+  const loginFieldValue = useWatch({ control, name: 'login' })
+  // Un identifiant de membre ({CODE}-{PRENOM}) ne contient jamais "@" — voir
+  // TeamService::createMemberAccount(). Connexion sociale réservée au
+  // propriétaire (section 5 du chantier "Équipe").
+  const blockSocialForMemberIdentifier = () => {
+    const value = loginFieldValue ?? ''
+    if (value.trim().length > 0 && !value.includes('@')) {
+      setAuthError(t('auth.login.errorSocialMembersOnly'))
+      return false
+    }
+    return true
+  }
+
   React.useEffect(() => {
     if (socialError) setAuthError(socialError)
   }, [socialError])
@@ -76,12 +90,16 @@ function LoginPageInner() {
     const result = await login({ login: values.login, password: values.password, remember: values.remember })
 
     if (result.success) {
+      if (result.user?.must_change_password) {
+        router.replace('/change-password')
+        return
+      }
       if (!result.onboardingComplete) {
         router.replace('/onboarding')
         return
       }
       const next = searchParams.get('next')
-      router.replace(isSafeNext(next) ? next : '/dashboard')
+      router.replace(isSafeNext(next) ? next : homeRouteForUser(result.user))
       return
     }
 
@@ -90,7 +108,9 @@ function LoginPageInner() {
       return
     }
 
-    if (result.status === 401) {
+    if (result.status === 403 && result.code === 'ACCOUNT_SUSPENDED') {
+      setAuthError(t('auth.login.errorSuspended'))
+    } else if (result.status === 401) {
       setAuthError(t('auth.login.errorInvalidCredentials'))
     } else if (result.status === 429) {
       const minutes = result.retryAfterSeconds ? Math.max(1, Math.ceil(result.retryAfterSeconds / 60)) : null
@@ -158,7 +178,7 @@ function LoginPageInner() {
 
             <AuthError>{authError}</AuthError>
 
-            <SocialButtons />
+            <SocialButtons onBeforeNavigate={blockSocialForMemberIdentifier} />
             <Divider>{t('auth.login.orWithEmail')}</Divider>
 
             <Controller
@@ -181,7 +201,7 @@ function LoginPageInner() {
               name="password"
               render={({ field }) => (
                 <PasswordInput
-                  label={t('auth.login.passwordLabel')}
+                  label={t('auth.login.passwordOrCodeLabel')}
                   id="login-password-desktop"
                   autoComplete="current-password"
                   labelRight={forgotPasswordDesktop}
@@ -248,7 +268,7 @@ function LoginPageInner() {
             name="password"
             render={({ field }) => (
               <PasswordInput
-                label={t('auth.login.passwordLabel')}
+                label={t('auth.login.passwordOrCodeLabel')}
                 id="login-password-mobile"
                 autoComplete="current-password"
                 labelRight={forgotPasswordMobile}
@@ -261,7 +281,7 @@ function LoginPageInner() {
           <SubmitButton isSubmitting={isSubmitting} idleLabel={t('auth.login.submitIdle')} busyLabel={t('auth.login.submitBusy')} className="mt-1" />
 
           <Divider>{t('auth.login.or')}</Divider>
-          <SocialButtons />
+          <SocialButtons onBeforeNavigate={blockSocialForMemberIdentifier} />
 
           <div className="flex-1" />
 
