@@ -1442,7 +1442,7 @@ export default function SettingsPage() {
               </span>
               <ChevronRight className="size-[18px] text-subtle" />
             </button>
-            <Link href="/collaborators" className="flex min-h-14 items-center gap-3 px-4">
+            <Link href="/team" className="flex min-h-14 items-center gap-3 px-4">
               <span className="flex flex-1 flex-col gap-0.5">
                 <span className="text-[15px] font-semibold text-ink">{t('settings.mobile.collaborators')}</span>
                 <span className="text-xs text-subtle">{t('settings.mobile.collaboratorsCount', { count: collaboratorCount })}</span>

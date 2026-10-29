@@ -1,0 +1,268 @@
+{
+  "accessDenied": "Access denied",
+  "title": "Team",
+  "subtitlePeople": "{count, plural, one {# person} other {# people}}",
+  "subtitleAccess": "{count, plural, one {# with access} other {# with access}}",
+  "add": "Add",
+  "addAria": "Add a person",
+  "addPhoto": "Add a photo",
+  "backToSettingsAria": "Back to settings",
+  "filter": {
+    "all": "All",
+    "partners": "Partners",
+    "access": "With access",
+    "suspended": "Suspended"
+  },
+  "badgeOwner": "Owner",
+  "badgePartner": "Partner · {{share}}",
+  "badgeSuspended": "Suspended",
+  "copy": "Copy",
+  "copied": "Copied",
+  "copyIdentifierAria": "Copy identifier",
+  "identifier": "Identifier",
+  "lastLogin": "Last login: {{time}}",
+  "salesCount": "{count, plural, one {# sale} other {# sales}}",
+  "salesPeriodLabel": "(30 d)",
+  "actionsMenuAria": "Actions for {{name}}",
+  "actions": {
+    "modify": "Edit",
+    "credentials": "Credentials",
+    "suspend": "Suspend",
+    "reactivate": "Reactivate",
+    "remove": "Remove",
+    "activity": "Activity"
+  },
+  "suspendConfirmTitle": "Suspend {{name}}?",
+  "suspendConfirmDescription": "{{name}} won't be able to sign in until reactivated.",
+  "reactivateConfirmTitle": "Reactivate {{name}}?",
+  "reactivateConfirmDescription": "{{name}} will be able to sign in again with their current identifier.",
+  "removeConfirmTitle": "Remove {{name}} from the team?",
+  "removeConfirmDescription": "Their access will be removed. Their sales stay in the history. If they're a partner, their share will be withdrawn.",
+  "toastSuspended": "{{name}} suspended",
+  "toastReactivated": "{{name}} reactivated",
+  "toastRemoved": "{{name}} removed from the team",
+  "errorSuspend": "Failed to suspend",
+  "errorReactivate": "Failed to reactivate",
+  "errorRemove": "Failed to remove",
+  "errorLoad": "Error loading the team",
+  "emptyTitle": "No one yet",
+  "emptyDescription": "Add your first person to share management.",
+  "noResultsForFilter": "No one matches this filter",
+  "role": {
+    "owner": "Owner",
+    "none": "",
+    "manager": "Manager",
+    "cashier": "Cashier",
+    "stockManager": "Stock",
+    "accountant": "Accountant"
+  },
+  "rolePhrase": {
+    "manager": "Full access, like you — except managing the team and settings",
+    "cashier": "Sells, logs expenses, sees stock",
+    "stockManager": "Manages stock and restocking",
+    "accountant": "Sees finances, invoices and analytics"
+  },
+  "permissionGroup": {
+    "sales": "Sales",
+    "stock": "Stock",
+    "finance": "Finance",
+    "team": "Team and settings"
+  },
+  "permission": {
+    "sales": {
+      "create": {
+        "label": "Record sales",
+        "description": "Can create a new sale from the till"
+      },
+      "view_own": {
+        "label": "View own sales",
+        "description": "Sees the list of their own sales"
+      },
+      "view_all": {
+        "label": "View all sales",
+        "description": "Sees sales from the whole team"
+      },
+      "delete_own_recent": {
+        "label": "Cancel recent own sales",
+        "description": "Can cancel their sales within 10 minutes"
+      },
+      "delete_any": {
+        "label": "Cancel any sale",
+        "description": "Can cancel a sale from any member"
+      }
+    },
+    "clients": {
+      "view": {
+        "label": "View clients",
+        "description": "Sees the client list"
+      },
+      "manage": {
+        "label": "Manage clients",
+        "description": "Can add and edit clients"
+      }
+    },
+    "invoices": {
+      "view": {
+        "label": "View invoices",
+        "description": "Sees the company's invoices"
+      },
+      "manage": {
+        "label": "Manage invoices",
+        "description": "Can create and edit invoices"
+      }
+    },
+    "stock": {
+      "view": {
+        "label": "View stock",
+        "description": "Sees items and stock quantities"
+      },
+      "edit": {
+        "label": "Edit stock",
+        "description": "Can change item prices and information"
+      },
+      "restock": {
+        "label": "Restock",
+        "description": "Can add stock to items"
+      }
+    },
+    "expenses": {
+      "create": {
+        "label": "Record expenses",
+        "description": "Can record expenses"
+      },
+      "view": {
+        "label": "View expenses",
+        "description": "Sees the list of expenses"
+      }
+    },
+    "deposits": {
+      "manage": {
+        "label": "Deposits and withdrawals",
+        "description": "Can make deposits and withdrawals"
+      }
+    },
+    "wallet": {
+      "view_balance": {
+        "label": "View balance",
+        "description": "Sees the wallet balance"
+      }
+    },
+    "analytics": {
+      "view": {
+        "label": "View analytics",
+        "description": "Sees analytics and statistics"
+      }
+    },
+    "dashboard": {
+      "full": {
+        "label": "Full dashboard",
+        "description": "Sees the full dashboard, not just their own sales"
+      }
+    },
+    "exports": {
+      "download": {
+        "label": "Download exports",
+        "description": "Can download data exports"
+      }
+    },
+    "partners": {
+      "view": {
+        "label": "View share split",
+        "description": "Sees how shares are split between partners"
+      }
+    },
+    "team": {
+      "manage": {
+        "label": "Manage team",
+        "description": "Can add, edit, suspend or remove members"
+      }
+    },
+    "settings": {
+      "manage": {
+        "label": "Manage settings",
+        "description": "Can change the company's settings"
+      }
+    }
+  },
+  "addSheetTitle": "Add a person",
+  "stepOf": "Step {{current}} of {{total}}",
+  "step1Title": "Who?",
+  "step2Title": "What's their link to the company?",
+  "step3Title": "Confirm",
+  "form": {
+    "name": "Name",
+    "namePlaceholder": "E.g. Koffi Yao",
+    "phone": "Phone",
+    "phonePlaceholder": "+225 …",
+    "email": "Email",
+    "emailPlaceholder": "name@example.com"
+  },
+  "isPartnerToggle": "Partner",
+  "isPartnerHint": "Has a share of the company's profits",
+  "shareLabel": "Share (%)",
+  "shareRemaining": "Remaining available: {{share}}",
+  "hasAccessToggle": "App access",
+  "hasAccessHint": "Can sign in with an identifier and a code",
+  "chooseRole": "Choose a role",
+  "customizePermissions": "Customize permissions",
+  "summary": {
+    "title": "Summary",
+    "name": "Name",
+    "phone": "Phone",
+    "email": "Email",
+    "partner": "Partner",
+    "share": "Share",
+    "access": "App access",
+    "role": "Role",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "submitAdd": "Add to the team",
+  "validation": {
+    "nameRequired": "Name is required",
+    "shareRequired": "Share is required",
+    "shareMin": "Share must be greater than 0%",
+    "shareExceeds": "Share can't exceed {{share}}",
+    "emailInvalid": "Invalid email address",
+    "phoneInvalid": "Expected format: +225 followed by 10 digits"
+  },
+  "credentialsTitle": "Login credentials",
+  "credentialsIntro": "Share these with {{name}} — this code will never be shown again.",
+  "loginLink": "Login link",
+  "username": "Identifier",
+  "code": "Code",
+  "sendWhatsApp": "Send via WhatsApp",
+  "copyAll": "Copy all",
+  "credentialsWarning": "This code won't be shown again. You can generate a new one at any time.",
+  "done": "Done",
+  "whatsappMessage": "Hi {{firstName}}, here is your access to Waelly for {{companyName}}: {{link}} — Identifier: {{username}} — Code: {{code}}. You'll need to choose your own code on first login.",
+  "toastAdded": "{{name}} added to the team",
+  "errorAdd": "Failed to add",
+  "manageSheetTitle": "Edit {{name}}",
+  "roleChangeConfirmTitle": "Change {{name}}'s role?",
+  "roleChangeConfirmDescription": "{{name}} will be signed out and will need to sign in again.",
+  "resetCodeConfirmTitle": "Generate a new code?",
+  "resetCodeConfirmDescription": "The old code will stop working. {{name}} will need the new one to sign in.",
+  "toastUpdated": "Changes saved",
+  "errorUpdate": "Failed to update",
+  "toastCodeReset": "New code generated",
+  "errorCodeReset": "Failed to generate the code",
+  "activityTitle": "{{name}}'s activity",
+  "activityEmpty": "No activity yet",
+  "activityAction": {
+    "operation.deleted": "Operation cancelled",
+    "operation.restored": "Operation restored",
+    "team.member_login": "Signed in",
+    "variation.price_changed": "Variation price changed",
+    "transaction.deleted": "Transaction cancelled",
+    "transaction.restored": "Transaction restored",
+    "article.price_changed": "Item price changed",
+    "team.person_added": "Added to the team",
+    "team.person_updated": "Information updated",
+    "team.access_granted": "App access created",
+    "team.member_suspended": "Suspended",
+    "team.member_reactivated": "Reactivated",
+    "team.member_code_reset": "Code regenerated",
+    "team.person_removed": "Removed from the team"
+  }
+}

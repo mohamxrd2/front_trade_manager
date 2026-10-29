@@ -76,7 +76,7 @@ function buildPrefDefs(t: ReturnType<typeof useTranslation>['t']): { key: PrefKe
 function inferKind(n: Notification): Kind {
   if (n.article_id || n.action_url?.startsWith('/products')) return 'stock'
   if (n.action_url?.startsWith('/invoices')) return 'invoice'
-  if (n.action_url?.startsWith('/collaborators')) return 'team'
+  if (n.action_url?.startsWith('/collaborators') || n.action_url?.startsWith('/team')) return 'team'
   return 'stock'
 }
 

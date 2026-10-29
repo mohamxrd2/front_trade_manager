@@ -1,0 +1,268 @@
+{
+  "accessDenied": "Accès non autorisé",
+  "title": "Équipe",
+  "subtitlePeople": "{count, plural, one {# personne} other {# personnes}}",
+  "subtitleAccess": "{count, plural, one {# avec accès} other {# avec accès}}",
+  "add": "Ajouter",
+  "addAria": "Ajouter une personne",
+  "addPhoto": "Ajouter une photo",
+  "backToSettingsAria": "Retour aux paramètres",
+  "filter": {
+    "all": "Tous",
+    "partners": "Associés",
+    "access": "Avec accès",
+    "suspended": "Suspendus"
+  },
+  "badgeOwner": "Propriétaire",
+  "badgePartner": "Associé · {{share}}",
+  "badgeSuspended": "Suspendu",
+  "copy": "Copier",
+  "copied": "Copié",
+  "copyIdentifierAria": "Copier l'identifiant",
+  "identifier": "Identifiant",
+  "lastLogin": "Dernière connexion : {{time}}",
+  "salesCount": "{count, plural, one {# vente} other {# ventes}}",
+  "salesPeriodLabel": "(30 j)",
+  "actionsMenuAria": "Actions pour {{name}}",
+  "actions": {
+    "modify": "Modifier",
+    "credentials": "Identifiants",
+    "suspend": "Suspendre",
+    "reactivate": "Réactiver",
+    "remove": "Retirer",
+    "activity": "Activité"
+  },
+  "suspendConfirmTitle": "Suspendre {{name}} ?",
+  "suspendConfirmDescription": "{{name}} ne pourra plus se connecter jusqu'à réactivation.",
+  "reactivateConfirmTitle": "Réactiver {{name}} ?",
+  "reactivateConfirmDescription": "{{name}} pourra à nouveau se connecter avec son identifiant actuel.",
+  "removeConfirmTitle": "Retirer {{name}} de l'équipe ?",
+  "removeConfirmDescription": "Son accès sera supprimé. Ses ventes restent dans l'historique. S'il est associé, sa part sera retirée.",
+  "toastSuspended": "{{name}} suspendu",
+  "toastReactivated": "{{name}} réactivé",
+  "toastRemoved": "{{name}} retiré de l'équipe",
+  "errorSuspend": "Échec de la suspension",
+  "errorReactivate": "Échec de la réactivation",
+  "errorRemove": "Échec du retrait",
+  "errorLoad": "Erreur lors du chargement de l'équipe",
+  "emptyTitle": "Personne pour l'instant",
+  "emptyDescription": "Ajoutez votre première personne pour partager la gestion.",
+  "noResultsForFilter": "Aucune personne dans ce filtre",
+  "role": {
+    "owner": "Propriétaire",
+    "none": "",
+    "manager": "Gérant",
+    "cashier": "Caissier",
+    "stockManager": "Stock",
+    "accountant": "Comptable"
+  },
+  "rolePhrase": {
+    "manager": "Accès complet, comme vous — sauf gestion de l'équipe et des paramètres",
+    "cashier": "Vend, enregistre les dépenses, voit le stock",
+    "stockManager": "Gère le stock et les réapprovisionnements",
+    "accountant": "Voit les finances, les factures et les analyses"
+  },
+  "permissionGroup": {
+    "sales": "Ventes",
+    "stock": "Stock",
+    "finance": "Finances",
+    "team": "Équipe et paramètres"
+  },
+  "permission": {
+    "sales": {
+      "create": {
+        "label": "Enregistrer des ventes",
+        "description": "Peut créer une nouvelle vente depuis la caisse"
+      },
+      "view_own": {
+        "label": "Voir ses propres ventes",
+        "description": "Voit la liste de ses propres ventes"
+      },
+      "view_all": {
+        "label": "Voir toutes les ventes",
+        "description": "Voit les ventes de toute l'équipe"
+      },
+      "delete_own_recent": {
+        "label": "Annuler ses ventes récentes",
+        "description": "Peut annuler ses ventes dans les 10 minutes"
+      },
+      "delete_any": {
+        "label": "Annuler n'importe quelle vente",
+        "description": "Peut annuler une vente de n'importe quel membre"
+      }
+    },
+    "clients": {
+      "view": {
+        "label": "Voir les clients",
+        "description": "Voit la liste des clients"
+      },
+      "manage": {
+        "label": "Gérer les clients",
+        "description": "Peut ajouter et modifier des clients"
+      }
+    },
+    "invoices": {
+      "view": {
+        "label": "Voir les factures",
+        "description": "Voit les factures de l'entreprise"
+      },
+      "manage": {
+        "label": "Gérer les factures",
+        "description": "Peut créer et modifier des factures"
+      }
+    },
+    "stock": {
+      "view": {
+        "label": "Voir le stock",
+        "description": "Voit les articles et les quantités en stock"
+      },
+      "edit": {
+        "label": "Modifier le stock",
+        "description": "Peut modifier les prix et informations des articles"
+      },
+      "restock": {
+        "label": "Réapprovisionner",
+        "description": "Peut ajouter du stock aux articles"
+      }
+    },
+    "expenses": {
+      "create": {
+        "label": "Enregistrer des dépenses",
+        "description": "Peut enregistrer des dépenses"
+      },
+      "view": {
+        "label": "Voir les dépenses",
+        "description": "Voit la liste des dépenses"
+      }
+    },
+    "deposits": {
+      "manage": {
+        "label": "Apports et retraits",
+        "description": "Peut faire des apports et des retraits"
+      }
+    },
+    "wallet": {
+      "view_balance": {
+        "label": "Voir le solde",
+        "description": "Voit le solde du portefeuille"
+      }
+    },
+    "analytics": {
+      "view": {
+        "label": "Voir les analyses",
+        "description": "Voit les analyses et statistiques"
+      }
+    },
+    "dashboard": {
+      "full": {
+        "label": "Tableau de bord complet",
+        "description": "Voit le tableau de bord complet, pas seulement ses ventes"
+      }
+    },
+    "exports": {
+      "download": {
+        "label": "Télécharger les exports",
+        "description": "Peut télécharger les exports de données"
+      }
+    },
+    "partners": {
+      "view": {
+        "label": "Voir la répartition des parts",
+        "description": "Voit la répartition des parts entre associés"
+      }
+    },
+    "team": {
+      "manage": {
+        "label": "Gérer l'équipe",
+        "description": "Peut ajouter, modifier, suspendre ou retirer des membres"
+      }
+    },
+    "settings": {
+      "manage": {
+        "label": "Gérer les paramètres",
+        "description": "Peut modifier les paramètres de l'entreprise"
+      }
+    }
+  },
+  "addSheetTitle": "Ajouter une personne",
+  "stepOf": "Étape {{current}} sur {{total}}",
+  "step1Title": "Qui ?",
+  "step2Title": "Quel lien avec l'entreprise ?",
+  "step3Title": "Confirmer",
+  "form": {
+    "name": "Nom",
+    "namePlaceholder": "Ex. Koffi Yao",
+    "phone": "Téléphone",
+    "phonePlaceholder": "+225 …",
+    "email": "Email",
+    "emailPlaceholder": "nom@exemple.com"
+  },
+  "isPartnerToggle": "Associé",
+  "isPartnerHint": "A une part des bénéfices de l'entreprise",
+  "shareLabel": "Part (%)",
+  "shareRemaining": "Reste disponible : {{share}}",
+  "hasAccessToggle": "Accès à l'application",
+  "hasAccessHint": "Peut se connecter avec un identifiant et un code",
+  "chooseRole": "Choisir un rôle",
+  "customizePermissions": "Personnaliser les permissions",
+  "summary": {
+    "title": "Résumé",
+    "name": "Nom",
+    "phone": "Téléphone",
+    "email": "Email",
+    "partner": "Associé",
+    "share": "Part",
+    "access": "Accès à l'application",
+    "role": "Rôle",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "submitAdd": "Ajouter à l'équipe",
+  "validation": {
+    "nameRequired": "Le nom est requis",
+    "shareRequired": "La part est requise",
+    "shareMin": "La part doit être supérieure à 0 %",
+    "shareExceeds": "La part ne peut pas dépasser {{share}}",
+    "emailInvalid": "Adresse email invalide",
+    "phoneInvalid": "Format attendu : +225 suivi de 10 chiffres"
+  },
+  "credentialsTitle": "Identifiants de connexion",
+  "credentialsIntro": "À transmettre à {{name}} — ce code ne sera plus jamais affiché.",
+  "loginLink": "Lien de connexion",
+  "username": "Identifiant",
+  "code": "Code",
+  "sendWhatsApp": "Envoyer par WhatsApp",
+  "copyAll": "Copier tout",
+  "credentialsWarning": "Ce code ne sera plus affiché. Vous pourrez en générer un nouveau à tout moment.",
+  "done": "Terminé",
+  "whatsappMessage": "Bonjour {{firstName}}, voici tes accès à Waelly pour {{companyName}} : {{link}} — Identifiant : {{username}} — Code : {{code}}. Tu devras choisir ton propre code à la première connexion.",
+  "toastAdded": "{{name}} ajouté à l'équipe",
+  "errorAdd": "Échec de l'ajout",
+  "manageSheetTitle": "Modifier {{name}}",
+  "roleChangeConfirmTitle": "Changer le rôle de {{name}} ?",
+  "roleChangeConfirmDescription": "{{name}} sera déconnecté et devra se reconnecter.",
+  "resetCodeConfirmTitle": "Générer un nouveau code ?",
+  "resetCodeConfirmDescription": "L'ancien code ne fonctionnera plus. {{name}} devra utiliser le nouveau pour se reconnecter.",
+  "toastUpdated": "Modifications enregistrées",
+  "errorUpdate": "Échec de la mise à jour",
+  "toastCodeReset": "Nouveau code généré",
+  "errorCodeReset": "Échec de la génération du code",
+  "activityTitle": "Activité de {{name}}",
+  "activityEmpty": "Aucune activité pour l'instant",
+  "activityAction": {
+    "operation.deleted": "Opération annulée",
+    "operation.restored": "Opération restaurée",
+    "team.member_login": "Connexion",
+    "variation.price_changed": "Prix d'une variation modifié",
+    "transaction.deleted": "Transaction annulée",
+    "transaction.restored": "Transaction restaurée",
+    "article.price_changed": "Prix d'un article modifié",
+    "team.person_added": "Ajouté à l'équipe",
+    "team.person_updated": "Informations modifiées",
+    "team.access_granted": "Accès à l'application créé",
+    "team.member_suspended": "Suspendu",
+    "team.member_reactivated": "Réactivé",
+    "team.member_code_reset": "Code régénéré",
+    "team.person_removed": "Retiré de l'équipe"
+  }
+}

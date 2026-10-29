@@ -117,7 +117,7 @@
     "backAria": "Back",
     "edit": "Edit",
     "companySection": "Company",
-    "collaborators": "Collaborators",
+    "collaborators": "Team",
     "collaboratorsCount": "{count, plural, one {# member · shares and roles} other {# members · shares and roles}}",
     "preferencesSection": "Preferences",
     "accountSection": "Account"

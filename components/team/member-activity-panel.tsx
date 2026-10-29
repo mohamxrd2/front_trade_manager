@@ -1,0 +1,88 @@
+'use client'
+
+import { useQuery } from '@tanstack/react-query'
+import { X } from 'lucide-react'
+
+import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { formatDateTime } from '@/lib/i18n/format'
+import { keys } from '@/lib/query-keys'
+import { getTeamActivity, type TeamMember } from '@/lib/services/team'
+import { activityActionLabelKey } from '@/lib/permissions/activity-labels'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+
+interface MemberActivityPanelProps {
+  member: TeamMember | null
+  onOpenChange: (open: boolean) => void
+}
+
+function MemberActivityPanel({ member, onOpenChange }: MemberActivityPanelProps) {
+  const { t, language } = useTranslation()
+  const open = member !== null
+  const close = () => onOpenChange(false)
+
+  const { data, isLoading } = useQuery({
+    queryKey: keys.team.activity(member?.id),
+    queryFn: () => getTeamActivity({ member: member!.id }),
+    enabled: open,
+  })
+
+  const body = (
+    <div className="flex flex-col gap-2.5">
+      {isLoading
+        ? [1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-surface-soft" />)
+        : (data?.data ?? []).length === 0
+          ? <p className="py-6 text-center text-sm text-subtle">{t('team.activityEmpty')}</p>
+          : (data?.data ?? []).map((entry) => {
+              const labelKey = activityActionLabelKey(entry.action)
+              // i18n:allow — repli sur l'identifiant technique brut si l'action n'est pas dans le catalogue (lib/permissions/activity-labels.ts), jamais un texte rédigé en dur.
+              const label = labelKey ? t(labelKey) : entry.action
+              return (
+                <div key={entry.id} className="flex items-center justify-between gap-3 rounded-2xl border border-line-strong bg-surface px-3.5 py-3">
+                  <span className="text-sm font-semibold text-ink">{label}</span>
+                  <span className="text-xs text-subtle">{formatDateTime(entry.created_at, language)}</span>
+                </div>
+              )
+            })}
+    </div>
+  )
+
+  const header = (
+    <div className="flex items-center gap-3">
+      <span className="flex-1 text-base font-bold text-ink">{member ? t('team.activityTitle', { name: member.name }) : ''}</span>
+      <button type="button" onClick={close} aria-label={t('common.close')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
+        <X className="size-4" strokeWidth={2} />
+      </button>
+    </div>
+  )
+
+  return (
+    <>
+      <div className="lg:hidden">
+        <Drawer open={open} onOpenChange={(next) => !next && close()}>
+          <DrawerContent className="max-h-[80vh] px-5 pb-8 pt-2.5">
+            <DrawerHeader className="mt-1.5 p-0">
+              <DrawerTitle className="sr-only">{member ? t('team.activityTitle', { name: member.name }) : ''}</DrawerTitle>
+              {header}
+            </DrawerHeader>
+            <div className="mt-4 overflow-y-auto">{body}</div>
+          </DrawerContent>
+        </Drawer>
+      </div>
+      <div className="hidden lg:block">
+        <Sheet open={open} onOpenChange={(next) => !next && close()}>
+          <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[420px]">
+            <SheetHeader className="border-b border-line pb-3.5">
+              <SheetTitle className="sr-only">{member ? t('team.activityTitle', { name: member.name }) : ''}</SheetTitle>
+              {header}
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto px-4 pb-6">{body}</div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </>
+  )
+}
+
+export { MemberActivityPanel }
+export type { MemberActivityPanelProps }

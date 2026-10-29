@@ -10,6 +10,7 @@ import frWallet from '@/messages/fr/wallet.json'
 import frAnalytics from '@/messages/fr/analytics.json'
 import frChart from '@/messages/fr/chart.json'
 import frCollaborators from '@/messages/fr/collaborators.json'
+import frTeam from '@/messages/fr/team.json'
 import frNotifications from '@/messages/fr/notifications.json'
 import frSettings from '@/messages/fr/settings.json'
 import frErrors from '@/messages/fr/errors.json'
@@ -31,6 +32,7 @@ import enWallet from '@/messages/en/wallet.json'
 import enAnalytics from '@/messages/en/analytics.json'
 import enChart from '@/messages/en/chart.json'
 import enCollaborators from '@/messages/en/collaborators.json'
+import enTeam from '@/messages/en/team.json'
 import enNotifications from '@/messages/en/notifications.json'
 import enSettings from '@/messages/en/settings.json'
 import enErrors from '@/messages/en/errors.json'
@@ -64,6 +66,7 @@ export const translations: Record<AppLanguage, TranslationObject> = {
     analytics: frAnalytics,
     chart: frChart,
     collaborators: frCollaborators,
+    team: frTeam,
     notifications: frNotifications,
     settings: frSettings,
     errors: frErrors,
@@ -86,6 +89,7 @@ export const translations: Record<AppLanguage, TranslationObject> = {
     analytics: enAnalytics,
     chart: enChart,
     collaborators: enCollaborators,
+    team: enTeam,
     notifications: enNotifications,
     settings: enSettings,
     errors: enErrors,
