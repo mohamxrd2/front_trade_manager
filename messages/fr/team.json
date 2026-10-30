@@ -284,5 +284,6 @@
     "leadershipHint": "Propriétaire, gérants et associés",
     "members": "Membres de l'équipe",
     "membersHint": "Caissiers, gestion du stock, comptabilité"
-  }
+  },
+  "partnerRole": "Associé"
 }

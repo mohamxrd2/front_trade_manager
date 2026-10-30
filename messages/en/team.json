@@ -284,5 +284,6 @@
     "leadershipHint": "Owner, managers and partners",
     "members": "Team members",
     "membersHint": "Cashiers, stock, accounting"
-  }
+  },
+  "partnerRole": "Partner"
 }

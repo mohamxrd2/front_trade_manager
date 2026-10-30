@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ChevronLeft, Check, Copy, Loader2, MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronLeft, Check, Copy, Loader2, MoreHorizontal, Phone, Plus, X } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
 import { PermissionGuard } from '@/components/PermissionGuard'
@@ -329,50 +329,129 @@ function TeamPageContent() {
       </div>
     ) : null
 
-  /** Direction et associés : grande carte, part en % avec barre et montant en vert. */
-  const LeaderCard = ({ member, index }: { member: TeamMember; index: number }) => {
+  /**
+   * Direction et associés : MÊME carte que l'ancienne page Collaborateurs
+   * (branche main) — part en indigo, montant en vert (rouge si négatif),
+   * boutons Modifier / Retirer ; sur mobile, part en pastille à droite. Le
+   * menu ⋯ n'apparaît en plus que pour un associé qui a aussi un accès
+   * (identifiants, suspension, activité…).
+   */
+  const LeaderCard = ({ member, index, mobile }: { member: TeamMember; index: number; mobile: boolean }) => {
+    const cycle = AVATAR_CYCLE[index % AVATAR_CYCLE.length]
     const share = Number(member.part ?? 0)
-    const hasShare = member.part !== null && share > 0
-    return (
-      <div
-        className={`flex h-full min-w-0 flex-col gap-4 rounded-[22px] border border-line bg-surface p-4 shadow-card lg:p-5 ${
-          member.access === 'suspended' ? 'opacity-70' : ''
-        }`}
+    const amount = Number(member.part_amount ?? 0)
+    const subtitle = member.is_owner
+      ? t('collaborators.ownerRole')
+      : member.role
+        ? t(roleLabelKey(member.role))
+        : t('team.partnerRole')
+    const amountClass = amount < 0 ? '' : 'text-success'
+    const amountStyle = amount < 0 ? { color: '#A3213A' } : undefined
+    const avatar = member.photo ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={member.photo} alt="" className={`${mobile ? 'size-12' : 'size-[52px]'} shrink-0 rounded-full object-cover`} />
+    ) : (
+      <span
+        className={`flex ${mobile ? 'size-12 text-[15px]' : 'size-[52px] text-base'} shrink-0 items-center justify-center rounded-full font-extrabold ${cycle.bg} ${cycle.text}`}
       >
-        <div className="flex items-start gap-3">
-          <Avatar member={member} index={index} large />
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <span className="truncate text-[16px] font-bold text-ink lg:text-[17px]">{member.name}</span>
-            <Badges member={member} />
-          </div>
-          <ActionsMenu member={member} />
-        </div>
+        {getInitials(member.name)}
+      </span>
+    )
+    const extraMenu = !member.is_owner && member.access !== 'none' ? <ActionsMenu member={member} /> : null
 
-        {hasShare ? (
-          <div className="flex flex-col gap-2 rounded-2xl bg-success-bg p-3.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-success-strong">{t('team.stats.shareAmount')}</span>
-              <span className="text-[22px] font-extrabold text-success-strong">{formatShare(share, language)}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-surface">
-              <span className="block h-full rounded-full bg-success" style={{ width: `${Math.min(100, Math.max(2, share))}%` }} />
-            </div>
-            {member.part_amount !== null ? (
-              <span className="text-[18px] font-extrabold text-success">
-                <Amount value={member.part_amount ?? 0} currency />
+    if (mobile) {
+      return (
+        <div className={`flex flex-col gap-3 rounded-[20px] border border-line bg-surface p-3.5 ${member.access === 'suspended' ? 'opacity-70' : ''}`}>
+          <div className="flex items-center gap-3">
+            {avatar}
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate text-[15px] font-bold text-ink">{member.name}</span>
+              <span className="text-[13px] text-subtle">{subtitle}</span>
+            </span>
+            <span className="flex shrink-0 flex-col items-end gap-1">
+              <span className="rounded-full bg-brand-100 px-2.5 py-1.5 text-[13px] font-extrabold text-brand-700">{formatShare(share, language)}</span>
+              <span className={`text-xs font-bold ${amountClass}`} style={amountStyle}>
+                <Amount value={amount} currency />
               </span>
-            ) : null}
+            </span>
           </div>
-        ) : null}
+          {member.phone || !member.is_owner ? (
+            <div className="flex items-center gap-2">
+              {member.phone ? (
+                <a
+                  href={`tel:${member.phone.replace(/\s/g, '')}`}
+                  className="flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-full bg-canvas text-[13px] font-semibold text-ink"
+                >
+                  <Phone className="size-4" strokeWidth={2} />
+                  {member.phone}
+                </a>
+              ) : null}
+              {!member.is_owner ? (
+                <>
+                  <Link
+                    href={editHref(member)}
+                    className={`flex min-h-[42px] items-center justify-center rounded-full border border-line-strong bg-surface px-3.5 text-[13px] font-semibold text-ink ${member.phone ? '' : 'flex-1'}`}
+                  >
+                    {t('products.detail.modify')}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setRemoveTarget(member)}
+                    aria-label={t('collaborators.removeNamedAria', { name: member.name })}
+                    className="flex size-[42px] shrink-0 items-center justify-center rounded-full border border-danger-border bg-surface text-danger-strong"
+                  >
+                    <X className="size-4" strokeWidth={2} />
+                  </button>
+                  {extraMenu}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      )
+    }
 
-        <SalesStat member={member} large />
-
-        {member.username ? (
-          <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-divider pt-3">
-            <IdentifierRow username={member.username} />
-            {member.last_login_at ? (
-              <span className="text-[12px] text-subtle">{formatRelative(member.last_login_at, language)}</span>
-            ) : null}
+    return (
+      <div className={`flex flex-col gap-3.5 rounded-[24px] bg-surface p-5 shadow-card ${member.access === 'suspended' ? 'opacity-70' : ''}`}>
+        <div className="flex items-center gap-3">
+          {avatar}
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-base font-bold text-ink">{member.name}</span>
+            <span className="text-[13px] text-subtle">{subtitle}</span>
+          </span>
+          {extraMenu}
+        </div>
+        <dl className="m-0 grid gap-x-3 gap-y-1.5 text-[13px]" style={{ gridTemplateColumns: 'auto 1fr' }}>
+          {member.phone ? (
+            <>
+              <dt className="text-subtle">{t('collaborators.phone')}</dt>
+              <dd className="m-0 font-semibold text-ink">{member.phone}</dd>
+            </>
+          ) : null}
+          <dt className="text-subtle">{t('collaborators.share')}</dt>
+          <dd className="m-0 font-bold" style={{ color: '#3A20B8' }}>
+            {formatShare(share, language)}
+          </dd>
+          <dt className="text-subtle">{t('transactions.amount')}</dt>
+          <dd className={`m-0 font-bold ${amountClass}`} style={amountStyle}>
+            <Amount value={amount} currency />
+          </dd>
+        </dl>
+        {!member.is_owner ? (
+          <div className="flex gap-2">
+            <Link
+              href={editHref(member)}
+              className="flex min-h-10 flex-1 items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-semibold text-ink"
+            >
+              {t('products.detail.modify')}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setRemoveTarget(member)}
+              className="flex min-h-10 items-center justify-center rounded-full border border-danger-border bg-surface px-3.5 text-[13px] font-semibold text-danger-strong"
+            >
+              {t('collaborators.remove')}
+            </button>
           </div>
         ) : null}
       </div>
@@ -449,9 +528,9 @@ function TeamPageContent() {
             <SectionTitle title={t('team.section.leadership')} hint={t('team.section.leadershipHint')} count={leaders.length} />
             <div
               className={mobile ? 'flex flex-col gap-3' : 'grid gap-3.5'}
-              style={mobile ? undefined : { gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))' }}
+              style={mobile ? undefined : { gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}
             >
-              {leaders.map((m, i) => <LeaderCard key={m.id} member={m} index={i} />)}
+              {leaders.map((m, i) => <LeaderCard key={m.id} member={m} index={i} mobile={mobile} />)}
             </div>
           </section>
         ) : null}
