@@ -51,11 +51,11 @@ interface GlassSidebarNavItem {
 // propriétaire/gérant ont déjà /wallet) — même logique que lib/tabs.ts.
 export const ACTIVITY_ITEMS: GlassSidebarNavItem[] = [
   { href: "/dashboard", labelKey: "nav.dashboard", icon: Home },
-  { href: "/my-sales", labelKey: "nav.mySales", icon: ShoppingCart },
+  { href: "/wallet", labelKey: "nav.mySales", icon: ShoppingCart },
   { href: "/products", labelKey: "nav.stock", icon: Package, permission: "stock.view" },
   { href: "/wallet", labelKey: "nav.wallet", icon: Wallet, permission: "wallet.view_balance" },
   { href: "/invoices", labelKey: "nav.invoices", icon: FileText, permission: "invoices.view" },
-  { href: "/clients", labelKey: "nav.clients", icon: Users, permission: "clients.view" },
+  { href: "/clients", labelKey: "nav.clients", icon: Users, permission: "invoices.view" },
   { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3, permission: "analytics.view" },
 ]
 
@@ -140,7 +140,7 @@ function GlassSidebar({
   const activityItems = ACTIVITY_ITEMS
     // "Mes ventes" réservé à qui n'a PAS /wallet (même logique que lib/tabs.ts) ;
     // les autres items suivent leur permission déclarée (absente = toujours visible).
-    .filter((item) => (item.href === "/my-sales" ? !hasWallet && (can("sales.view_own") || can("sales.view_all")) : true))
+    .filter((item) => (item.labelKey === "nav.mySales" ? !hasWallet && (can("sales.view_own") || can("sales.view_all")) : true))
     .filter((item) => !item.permission || can(item.permission))
     .map((item) =>
       item.href === "/products" && stockAlerts

@@ -26,7 +26,8 @@ export interface TabDefinition {
 
 const HOME_TAB = (href: string): TabDefinition => ({ id: 'home', labelKey: 'nav.home', href, icon: Home })
 const SALE_TAB: TabDefinition = { id: 'sale', labelKey: 'nav.newSaleTab', href: '/wallet/new?type=sale', icon: ShoppingCart }
-const MY_SALES_TAB: TabDefinition = { id: 'my-sales', labelKey: 'nav.mySales', href: '/my-sales', icon: FileText }
+// Même page que le Portefeuille du gérant : le serveur n'y renvoie que SES opérations.
+const MY_SALES_TAB: TabDefinition = { id: 'my-sales', labelKey: 'nav.mySales', href: '/wallet', icon: FileText }
 const STOCK_TAB: TabDefinition = { id: 'stock', labelKey: 'nav.stock', href: '/products', icon: Package }
 const WALLET_TAB: TabDefinition = { id: 'wallet', labelKey: 'nav.wallet', href: '/wallet', icon: Wallet }
 const INVOICES_TAB: TabDefinition = {

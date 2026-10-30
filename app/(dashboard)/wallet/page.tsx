@@ -213,6 +213,16 @@ export default function WalletPage() {
   const [createdByFilter, setCreatedByFilter] = React.useState<string | null>(() => initialSearchUrlState.createdBy)
   const { can } = usePermissions()
   const canViewAllSales = can('sales.view_all')
+  // Un caissier (sales.view_own, sans wallet.view_balance) arrive aussi ici
+  // via « Mes ventes » : le serveur ne lui renvoie que SES opérations ; on
+  // masque ce qu'il n'a pas le droit de faire.
+  const isOwnSalesView = !can('wallet.view_balance')
+  const canCreateSale = can('sales.create')
+  const canCreateExpense = can('expenses.create')
+  const canManageDeposits = can('deposits.manage')
+  const canExport = can('exports.download')
+  const canDeleteOperations = can('sales.delete_any') || can('sales.delete_own_recent')
+  const pageTitle = isOwnSalesView ? t('nav.mySales') : t('wallet.title')
   const { data: teamMembers } = useQuery({ queryKey: keys.team.all, queryFn: getTeam, enabled: canViewAllSales })
   const sellerOptions = React.useMemo(
     () => (teamMembers ?? []).filter((m) => m.is_owner || m.permissions.includes('sales.create')),
@@ -444,7 +454,7 @@ export default function WalletPage() {
   // ces lignes afin d'éviter l'erreur plutôt que de la laisser se produire
   // puis l'afficher après coup.
   const canSelectForDeletion = (t: Transaction) =>
-    isDeletableFromList(t, t.invoice_id ? invoiceLookup[t.invoice_id]?.status : undefined)
+    canDeleteOperations && isDeletableFromList(t, t.invoice_id ? invoiceLookup[t.invoice_id]?.status : undefined)
 
   const selectablePaginatedRows = searchRows.filter(canSelectForDeletion)
   const allOnPageSelected =
@@ -601,17 +611,19 @@ export default function WalletPage() {
       {/* --- Mobile (< 1024px) --- */}
       <div className="flex flex-col gap-4 pb-28 lg:hidden">
         <div className="flex items-center justify-between">
-          <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('wallet.title')}</h1>
-          <button
-            type="button"
-            onClick={() => {
-              setMobileSelecting((v) => !v)
-              setSelectedIds(new Set())
-            }}
-            className="flex min-h-11 items-center rounded-xl border border-line-strong bg-surface px-3.5 text-sm font-semibold text-ink"
-          >
-            {mobileSelecting ? t('common.cancel') : t('wallet.list.selectBulk')}
-          </button>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">{pageTitle}</h1>
+          {canDeleteOperations ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMobileSelecting((v) => !v)
+                setSelectedIds(new Set())
+              }}
+              className="flex min-h-11 items-center rounded-xl border border-line-strong bg-surface px-3.5 text-sm font-semibold text-ink"
+            >
+              {mobileSelecting ? t('common.cancel') : t('wallet.list.selectBulk')}
+            </button>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1.5 rounded-tile bg-[radial-gradient(120%_120%_at_100%_100%,#3A3AF0_0%,#1717A0_40%,#0A0A4A_85%)] p-3.5 text-white">
@@ -629,38 +641,46 @@ export default function WalletPage() {
              de l'Accueil (Main.dc.html) : grille 56×56, label en dessous,
              toujours visibles (jamais dans un menu). --- */}
         <div className="grid grid-cols-4 gap-2.5">
-          <Link href="/wallet/new?type=sale" className="flex flex-col items-center gap-2 text-xs font-semibold text-ink">
-            <span className="flex size-14 items-center justify-center rounded-tile bg-orb text-white">
-              <Plus className="size-6" strokeWidth={1.9} />
-            </span>
-            {t('common.sale')}
-          </Link>
-          <Link href="/wallet/new?type=expense" className="flex flex-col items-center gap-2 text-xs font-semibold text-ink">
-            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
-              <ArrowDownLeft className="size-6" strokeWidth={1.9} />
-            </span>
-            {t('common.expense')}
-          </Link>
-          <button
-            type="button"
-            onClick={() => setMobileDepositMode('apport')}
-            className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
-          >
-            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
-              <PiggyBank className="size-6" strokeWidth={1.8} />
-            </span>
-            {t('wallet.list.quickActionDeposit')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileDepositMode('retrait')}
-            className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
-          >
-            <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
-              <Banknote className="size-6" strokeWidth={1.8} />
-            </span>
-            {t('wallet.list.quickActionWithdrawal')}
-          </button>
+          {canCreateSale ? (
+            <Link href="/wallet/new?type=sale" className="flex flex-col items-center gap-2 text-xs font-semibold text-ink">
+              <span className="flex size-14 items-center justify-center rounded-tile bg-orb text-white">
+                <Plus className="size-6" strokeWidth={1.9} />
+              </span>
+              {t('common.sale')}
+            </Link>
+          ) : null}
+          {canCreateExpense ? (
+            <Link href="/wallet/new?type=expense" className="flex flex-col items-center gap-2 text-xs font-semibold text-ink">
+              <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+                <ArrowDownLeft className="size-6" strokeWidth={1.9} />
+              </span>
+              {t('common.expense')}
+            </Link>
+          ) : null}
+          {canManageDeposits ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setMobileDepositMode('apport')}
+                className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
+              >
+                <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+                  <PiggyBank className="size-6" strokeWidth={1.8} />
+                </span>
+                {t('wallet.list.quickActionDeposit')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileDepositMode('retrait')}
+                className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
+              >
+                <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+                  <Banknote className="size-6" strokeWidth={1.8} />
+                </span>
+                {t('wallet.list.quickActionWithdrawal')}
+              </button>
+            </>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">
@@ -811,7 +831,7 @@ export default function WalletPage() {
                     key={opGroup.operationId}
                     className="rounded-tile border border-line"
                     exiting={exitingRowId === tx.id}
-                    disabled={mobileSelecting || !isDeletableFromList(tx, tx.invoice_id ? invoiceLookup[tx.invoice_id]?.status : undefined)}
+                    disabled={mobileSelecting || !canSelectForDeletion(tx)}
                     onRequestDelete={() => setSingleDeleteTarget(tx)}
                   >
                     <label
@@ -884,24 +904,32 @@ export default function WalletPage() {
       <div className="hidden flex-col gap-5 lg:flex">
         <div className="flex flex-wrap items-center justify-between gap-3.5">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('wallet.title')}</h1>
-            <span className="text-sm text-subtle">{t('wallet.list.subtitleDesktop')}</span>
+            <h1 className="text-[28px] font-bold tracking-tight text-ink">{pageTitle}</h1>
+            {isOwnSalesView ? null : <span className="text-sm text-subtle">{t('wallet.list.subtitleDesktop')}</span>}
           </div>
           <div className="flex flex-wrap gap-2.5">
-            <Button variant="primary" asChild>
-              <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
-            </Button>
-            <Button variant="glass" asChild>
-              <Link href="/wallet/new?type=expense">{t('wallet.list.addExpense')}</Link>
-            </Button>
-            <Button variant="glass" onClick={() => setDesktopDepositMode('apport')}>
-              <PiggyBank className="size-[17px]" />
-              {t('wallet.list.quickActionDeposit')}
-            </Button>
-            <Button variant="glass" onClick={() => setDesktopDepositMode('retrait')}>
-              <Banknote className="size-[17px]" />
-              {t('wallet.list.quickActionWithdrawal')}
-            </Button>
+            {canCreateSale ? (
+              <Button variant="primary" asChild>
+                <Link href="/wallet/new?type=sale">{t('wallet.list.addSale')}</Link>
+              </Button>
+            ) : null}
+            {canCreateExpense ? (
+              <Button variant="glass" asChild>
+                <Link href="/wallet/new?type=expense">{t('wallet.list.addExpense')}</Link>
+              </Button>
+            ) : null}
+            {canManageDeposits ? (
+              <>
+                <Button variant="glass" onClick={() => setDesktopDepositMode('apport')}>
+                  <PiggyBank className="size-[17px]" />
+                  {t('wallet.list.quickActionDeposit')}
+                </Button>
+                <Button variant="glass" onClick={() => setDesktopDepositMode('retrait')}>
+                  <Banknote className="size-[17px]" />
+                  {t('wallet.list.quickActionWithdrawal')}
+                </Button>
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -1040,14 +1068,16 @@ export default function WalletPage() {
                   />
                 </>
               ) : null}
-              <button
-                type="button"
-                onClick={handleExport}
-                className="flex h-[42px] items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3.5 text-[13px] font-semibold text-ink"
-              >
-                <Download className="size-4" />
-                {t('wallet.list.export')}
-              </button>
+              {canExport ? (
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  className="flex h-[42px] items-center gap-1.5 rounded-full border border-line-strong bg-surface px-3.5 text-[13px] font-semibold text-ink"
+                >
+                  <Download className="size-4" />
+                  {t('wallet.list.export')}
+                </button>
+              ) : null}
             </div>
           </div>
 

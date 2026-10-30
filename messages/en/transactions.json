@@ -117,8 +117,5 @@
   },
   "byAuthor": "by {{name}} ({{role}})",
   "sellerFilterLabel": "Seller",
-  "sellerFilterAll": "All sellers",
-  "mySales": {
-    "empty": "You haven't recorded any sales yet."
-  }
+  "sellerFilterAll": "All sellers"
 }

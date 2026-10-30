@@ -7,14 +7,16 @@
  */
 const ROUTE_PERMISSIONS: Array<{ prefix: string; anyOf: string[] }> = [
   { prefix: '/wallet/new', anyOf: ['sales.create', 'expenses.create', 'deposits.manage'] },
-  { prefix: '/wallet', anyOf: ['wallet.view_balance'] },
-  { prefix: '/my-sales', anyOf: ['sales.view_own', 'sales.view_all'] },
+  // Gérant : tout le portefeuille. Caissier : « Mes ventes », ses seules opérations (filtrées côté serveur).
+  { prefix: '/wallet', anyOf: ['wallet.view_balance', 'sales.view_own', 'sales.view_all'] },
   { prefix: '/analytics', anyOf: ['analytics.view'] },
   { prefix: '/products/new', anyOf: ['stock.edit'] },
   { prefix: '/products', anyOf: ['stock.view'] },
   { prefix: '/invoices/new', anyOf: ['invoices.manage'] },
   { prefix: '/invoices', anyOf: ['invoices.view'] },
-  { prefix: '/clients', anyOf: ['clients.view'] },
+  // Les pages Clients affichent leurs factures : réservées à qui voit la facturation
+  // (clients.view seul sert à choisir un client pendant une vente).
+  { prefix: '/clients', anyOf: ['invoices.view'] },
   { prefix: '/team', anyOf: ['team.manage'] },
   { prefix: '/company', anyOf: ['settings.manage'] },
 ]

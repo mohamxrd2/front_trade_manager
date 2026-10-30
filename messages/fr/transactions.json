@@ -117,8 +117,5 @@
   },
   "byAuthor": "par {{name}} ({{role}})",
   "sellerFilterLabel": "Vendeur",
-  "sellerFilterAll": "Tous les vendeurs",
-  "mySales": {
-    "empty": "Vous n'avez encore enregistré aucune vente."
-  }
+  "sellerFilterAll": "Tous les vendeurs"
 }
