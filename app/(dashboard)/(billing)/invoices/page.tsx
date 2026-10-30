@@ -22,6 +22,7 @@ import {
 } from '@/lib/services/invoices'
 import { invalidateInvoices } from '@/lib/invalidate'
 import { usePermissions } from '@/hooks/usePermissions'
+import { isRouteAllowed } from '@/lib/permissions/route-permissions'
 import { exportToExcel } from '@/lib/utils/export'
 import { getInvoiceStatusDisplay } from '@/components/invoices/invoice-status'
 import { InvoicePreviewCard } from '@/components/invoices/invoice-preview-card'
@@ -501,12 +502,14 @@ export default function InvoicesPage() {
       <div className="flex flex-col gap-4 pb-28 lg:hidden">
         <div className="flex items-center justify-between">
           <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('invoices.title')}</h1>
-          <Button variant="secondary" asChild>
-            <Link href="/clients">
-              <Users className="size-[18px]" strokeWidth={1.9} />
-              {t('invoices.list.clientsButton')}
-            </Link>
-          </Button>
+          {isRouteAllowed('/clients', can) ? (
+            <Button variant="secondary" asChild>
+              <Link href="/clients">
+                <Users className="size-[18px]" strokeWidth={1.9} />
+                {t('invoices.list.clientsButton')}
+              </Link>
+            </Button>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-2 gap-2.5">

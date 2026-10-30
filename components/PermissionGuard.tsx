@@ -7,12 +7,15 @@ import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePermissions } from '@/hooks/usePermissions'
 import { homeRouteForUser } from '@/lib/permissions/home-route'
+import { isRuleSatisfied } from '@/lib/permissions/route-permissions'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { FullPageSpinner } from '@/components/ui/full-page-spinner'
 
 interface PermissionGuardProps {
   /** Permission requise pour voir cette page — une liste = au moins l'une d'elles. */
-  permission: string | string[]
+  permission?: string | string[]
+  /** Permissions TOUTES requises (en plus de `permission`). */
+  allOf?: string[]
   children: React.ReactNode
 }
 
@@ -24,15 +27,15 @@ interface PermissionGuardProps {
  * au lieu de renvoyer /login (l'utilisateur EST connecté, juste pas
  * autorisé ici).
  */
-export function PermissionGuard({ permission, children }: PermissionGuardProps) {
+export function PermissionGuard({ permission, allOf, children }: PermissionGuardProps) {
   const { user, loading } = useAuth()
   const { can } = usePermissions()
   const router = useRouter()
   const { t } = useTranslation()
   const deniedRef = React.useRef(false)
 
-  const permissions = Array.isArray(permission) ? permission : [permission]
-  const allowed = !!user && permissions.some((p) => can(p))
+  const anyOf = permission === undefined ? undefined : Array.isArray(permission) ? permission : [permission]
+  const allowed = !!user && isRuleSatisfied({ anyOf, allOf }, can)
 
   React.useEffect(() => {
     if (loading || !user || allowed || deniedRef.current) return

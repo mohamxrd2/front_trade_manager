@@ -1,6 +1,7 @@
 import { BarChart3, FileText, Home, Package, ShoppingCart, Wallet, type LucideIcon } from 'lucide-react'
 import type { User } from '@/lib/auth'
 import { homeRouteForUser } from '@/lib/permissions/home-route'
+import { isRouteAllowed } from '@/lib/permissions/route-permissions'
 
 /**
  * Source de vérité unique pour la barre d'onglets mobile
@@ -71,9 +72,11 @@ export function getTabs(user: User | null | undefined): TabDefinition[] {
   // Dédoublonne par href (ex. gestionnaire de stock : l'accueil ET l'onglet
   // Stock pointeraient tous deux vers /products) — garde la première
   // occurrence (toujours l'accueil).
+  // Jamais un onglet vers une page que la garde des routes refuserait.
   const seenHrefs = new Set<string>()
   return tabs.filter((tab) => {
     const href = tab.href.split('?')[0]
+    if (!isRouteAllowed(href, can)) return false
     if (seenHrefs.has(href)) return false
     seenHrefs.add(href)
     return true

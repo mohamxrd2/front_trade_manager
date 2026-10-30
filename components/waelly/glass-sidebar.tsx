@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils"
 import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
 import { usePermissions } from "@/hooks/usePermissions"
 import { roleLabelKey } from "@/lib/permissions/role-labels"
+import { isRouteAllowed } from "@/lib/permissions/route-permissions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -141,13 +142,14 @@ function GlassSidebar({
     // "Mes ventes" réservé à qui n'a PAS /wallet (même logique que lib/tabs.ts) ;
     // les autres items suivent leur permission déclarée (absente = toujours visible).
     .filter((item) => (item.labelKey === "nav.mySales" ? !hasWallet && (can("sales.view_own") || can("sales.view_all")) : true))
-    .filter((item) => !item.permission || can(item.permission))
+    // Même règle que la garde des routes : jamais un lien vers une page refusée.
+    .filter((item) => isRouteAllowed(item.href, can))
     .map((item) =>
       item.href === "/products" && stockAlerts
         ? { ...item, badge: { count: stockAlerts, tone: "danger" as const } }
         : item
     )
-  const accountItems = ACCOUNT_ITEMS.filter((item) => !item.permission || can(item.permission)).map((item) =>
+  const accountItems = ACCOUNT_ITEMS.filter((item) => isRouteAllowed(item.href, can)).map((item) =>
     item.href === "/notifications" && unreadNotifications
       ? { ...item, badge: { count: unreadNotifications, tone: "danger" as const } }
       : item

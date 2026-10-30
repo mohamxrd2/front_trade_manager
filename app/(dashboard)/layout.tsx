@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { PermissionGuard } from "@/components/PermissionGuard"
-import { requiredPermissionsFor } from "@/lib/permissions/route-permissions"
+import { routeRuleFor } from "@/lib/permissions/route-permissions"
 import { OnboardingGuard } from "@/components/onboarding/onboarding-guard"
 import { ConnectionIndicator } from "@/components/connection-indicator"
 import { GlassSidebar } from "@/components/waelly"
@@ -47,7 +47,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const { can } = usePermissions()
   const { articles } = useArticles({ enabled: can("stock.view") })
   const isBusy = useIsAppBusy()
-  const requiredPermissions = requiredPermissionsFor(usePathname())
+  const routeRule = routeRuleFor(usePathname())
   const stockAlerts = articles.filter((article) => article.low_stock).length
 
   // Même clé que Settings > Entreprise (keys.settings.company()) : cache déjà
@@ -88,8 +88,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           <main className="min-w-0 flex-[999_1_560px] pb-nav-safe md:pb-6" aria-busy={isBusy}>
             <AmountVisibilityProvider>
               <TabPageTransition>
-                {requiredPermissions ? (
-                  <PermissionGuard permission={requiredPermissions}>{children}</PermissionGuard>
+                {routeRule ? (
+                  <PermissionGuard permission={routeRule.anyOf} allOf={routeRule.allOf}>
+                    {children}
+                  </PermissionGuard>
                 ) : (
                   children
                 )}
