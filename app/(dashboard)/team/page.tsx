@@ -229,14 +229,11 @@ function TeamPageContent() {
           ))}
         </div>
       )}
-      {/* Ordinateur : colonne étroite à droite de la grille → une ligne par associé. */}
-      <div className={compact ? 'flex flex-wrap gap-2 text-xs' : 'flex flex-col gap-2.5 text-[13px]'} style={{ color: '#DCDCF7' }}>
+      <div className={`flex flex-wrap ${compact ? 'gap-2 text-xs' : 'gap-4 text-[13px]'}`} style={{ color: '#DCDCF7' }}>
         {shareMembers.map((m, i) => (
           <span key={m.id} className="flex items-center gap-1.5">
-            <span className={`shrink-0 rounded-full ${SHARE_COLORS[i % 5]}`} style={{ width: compact ? 8 : 10, height: compact ? 8 : 10 }} />
-            <span className={compact ? '' : 'min-w-0 flex-1 truncate'}>{compact ? m.name.split(' ')[0] : m.name}</span>
-            {compact ? ' · ' : null}
-            <span className={compact ? '' : 'font-bold text-white'}>{formatShare(m.share, language)}</span>
+            <span className={`rounded-full ${SHARE_COLORS[i % 5]}`} style={{ width: compact ? 8 : 10, height: compact ? 8 : 10 }} />
+            {m.name.split(' ')[0]} · {formatShare(m.share, language)}
           </span>
         ))}
       </div>
@@ -383,6 +380,13 @@ function TeamPageContent() {
           </Link>
         </div>
 
+        {sharesLoading ? <div className="h-[140px] animate-pulse rounded-panel bg-surface-soft" /> : <ShareBar compact={false} />}
+        {!sharesLoading && isNegativeBase ? (
+          <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
+            {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
+          </p>
+        ) : null}
+
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button
@@ -399,36 +403,22 @@ function TeamPageContent() {
           ))}
         </div>
 
-        <div className="flex items-start gap-5">
-          <div className="min-w-0 flex-1">
-            {teamLoading ? (
-              <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
-                {[1, 2, 3].map((i) => <div key={i} className="h-[220px] animate-pulse rounded-[20px] bg-surface-soft" />)}
-              </div>
-            ) : isEmpty ? (
-              <div className="flex flex-col items-center gap-1 rounded-panel border border-dashed border-line-strong py-12 text-center">
-                <span className="text-base font-bold text-ink">{t('team.emptyTitle')}</span>
-                <span className="text-sm text-subtle">{t('team.emptyDescription')}</span>
-              </div>
-            ) : filteredMembers.length === 0 ? (
-              <p className="py-8 text-center text-sm text-subtle">{t('team.noResultsForFilter')}</p>
-            ) : (
-              <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
-                {filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)}
-              </div>
-            )}
+        {teamLoading ? (
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
+            {[1, 2, 3].map((i) => <div key={i} className="h-[220px] animate-pulse rounded-[20px] bg-surface-soft" />)}
           </div>
-
-          {/* Répartition des parts : colonne à droite de la grille. */}
-          <aside className="sticky top-5 flex w-[300px] shrink-0 flex-col gap-3">
-            {sharesLoading ? <div className="h-[220px] animate-pulse rounded-panel bg-surface-soft" /> : <ShareBar compact={false} />}
-            {!sharesLoading && isNegativeBase ? (
-              <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
-                {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
-              </p>
-            ) : null}
-          </aside>
-        </div>
+        ) : isEmpty ? (
+          <div className="flex flex-col items-center gap-1 rounded-panel border border-dashed border-line-strong py-12 text-center">
+            <span className="text-base font-bold text-ink">{t('team.emptyTitle')}</span>
+            <span className="text-sm text-subtle">{t('team.emptyDescription')}</span>
+          </div>
+        ) : filteredMembers.length === 0 ? (
+          <p className="py-8 text-center text-sm text-subtle">{t('team.noResultsForFilter')}</p>
+        ) : (
+          <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
+            {filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)}
+          </div>
+        )}
       </div>
 
       {/* ============================= MOBILE (< 1024px / lg) ============================= */}
@@ -452,6 +442,13 @@ function TeamPageContent() {
             <Plus className="size-[22px]" strokeWidth={2.2} />
           </Link>
         </div>
+
+        {sharesLoading ? <div className="h-[120px] animate-pulse rounded-[24px] bg-surface-soft" /> : <ShareBar compact />}
+        {!sharesLoading && isNegativeBase ? (
+          <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
+            {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
+          </p>
+        ) : null}
 
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
           {FILTERS.map((f) => (
@@ -485,13 +482,6 @@ function TeamPageContent() {
             {filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)}
           </div>
         )}
-
-        {sharesLoading ? <div className="h-[120px] animate-pulse rounded-[24px] bg-surface-soft" /> : <ShareBar compact />}
-        {!sharesLoading && isNegativeBase ? (
-          <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
-            {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
-          </p>
-        ) : null}
       </div>
 
       <ManageMemberPanel member={manageTarget} onOpenChange={(open) => !open && setManageTarget(null)} remainingShareForEdit={remainingShareForEdit} />
