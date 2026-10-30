@@ -15,6 +15,7 @@ const DEVICE_KEY = 'waelly-bluetooth-printer'
 const MODE_KEY = 'waelly-print-mode'
 const COMPAT_KEY = 'waelly-printer-compat-mode'
 const CUT_KEY = 'waelly-printer-cut-paper'
+const AUTO_PRINT_KEY = 'waelly-auto-print'
 
 function readLocalStorage(key: string): string | null {
   if (typeof localStorage === 'undefined') return null
@@ -86,3 +87,26 @@ export function readCutPaper(): boolean {
 export function writeCutPaper(value: boolean): void {
   writeLocalStorage(CUT_KEY, value ? '1' : '0')
 }
+
+/**
+ * Impression automatique après chaque vente, réglée SUR CET APPAREIL (le
+ * caissier ne peut pas modifier les réglages du ticket de l'entreprise).
+ * `null` : pas de choix sur cet appareil → le réglage de l'entreprise
+ * (receipt_settings.auto_print) s'applique.
+ */
+export function readAutoPrintPreference(): boolean | null {
+  const raw = readLocalStorage(AUTO_PRINT_KEY)
+  if (raw === '1') return true
+  if (raw === '0') return false
+  return null
+}
+
+export function writeAutoPrintPreference(value: boolean): void {
+  writeLocalStorage(AUTO_PRINT_KEY, value ? '1' : '0')
+}
+
+/** Choix de l'appareil s'il existe, sinon réglage de l'entreprise. */
+export function resolveAutoPrint(devicePreference: boolean | null, accountSetting: boolean | null | undefined): boolean {
+  return devicePreference ?? accountSetting ?? false
+}
+

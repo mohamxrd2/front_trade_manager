@@ -92,7 +92,9 @@
     "defaultModeClassic": "Impression classique",
     "compatibilityModeLabel": "Mode compatibilité (accents simplifiés)",
     "cutPaperLabel": "Couper le papier automatiquement",
-    "readOnlyHint": "Ces réglages sont définis par le responsable. Vous pouvez voir l’aperçu, faire une impression de test et connecter votre imprimante."
+    "readOnlyHint": "Ces réglages sont définis par le responsable. Vous pouvez voir l’aperçu, faire une impression de test et connecter votre imprimante.",
+    "deviceAutoPrintLabel": "Imprimer automatiquement après chaque vente",
+    "deviceAutoPrintHint": "Sur cet appareil uniquement."
   },
   "security": {
     "changePassword": "Changer le mot de passe",

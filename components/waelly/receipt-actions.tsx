@@ -25,7 +25,7 @@ import { shareReceiptImage } from '@/lib/receipt/share-receipt'
 import { encodeReceiptEscPos } from '@/lib/receipt/escpos-encoder'
 import { loadLogoAsCanvas } from '@/lib/receipt/load-logo-canvas'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
-import { readDefaultPrintMode, readCompatibilityMode, readCutPaper } from '@/lib/receipt/printer-preferences'
+import { readDefaultPrintMode, readCompatibilityMode, readCutPaper, readAutoPrintPreference, resolveAutoPrint } from '@/lib/receipt/printer-preferences'
 import { ReceiptView } from './receipt-view'
 import { Button } from './button'
 
@@ -222,7 +222,12 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
   }, [bluetoothStatus, printBluetooth, printClassic, showDisconnectedToast, t])
 
   React.useEffect(() => {
-    if (!autoPrintOnSuccess || !receiptSettings?.auto_print || autoPrintedRef.current) return
+    if (!autoPrintOnSuccess || autoPrintedRef.current) return
+    // Choix de cet appareil (réglable par le caissier) sinon réglage de
+    // l'entreprise — on attend ce dernier seulement s'il est nécessaire.
+    const devicePreference = readAutoPrintPreference()
+    if (devicePreference === null && receiptSettings === undefined) return
+    if (!resolveAutoPrint(devicePreference, receiptSettings?.auto_print)) return
     autoPrintedRef.current = true
     handlePrint()
     // eslint-disable-next-line react-hooks/exhaustive-deps

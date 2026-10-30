@@ -92,7 +92,9 @@
     "defaultModeClassic": "Standard printing",
     "compatibilityModeLabel": "Compatibility mode (simplified accents)",
     "cutPaperLabel": "Cut paper automatically",
-    "readOnlyHint": "These settings are set by the manager. You can see the preview, print a test ticket and connect your printer."
+    "readOnlyHint": "These settings are set by the manager. You can see the preview, print a test ticket and connect your printer.",
+    "deviceAutoPrintLabel": "Print automatically after each sale",
+    "deviceAutoPrintHint": "On this device only."
   },
   "security": {
     "changePassword": "Change password",

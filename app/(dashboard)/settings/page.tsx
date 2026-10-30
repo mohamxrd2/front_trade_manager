@@ -41,6 +41,9 @@ import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import {
   readDefaultPrintMode,
   writeDefaultPrintMode,
+  readAutoPrintPreference,
+  writeAutoPrintPreference,
+  resolveAutoPrint,
   readCompatibilityMode,
   writeCompatibilityMode,
   readCutPaper,
@@ -532,7 +535,10 @@ function ReceiptSettingsFields({
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-4.5">
         {readOnly ? (
-          <p className="rounded-tile bg-surface-soft px-3.5 py-3 text-[13px] text-subtle">{t('settings.receipt.readOnlyHint')}</p>
+          <>
+            <p className="rounded-tile bg-surface-soft px-3.5 py-3 text-[13px] text-subtle">{t('settings.receipt.readOnlyHint')}</p>
+            <DeviceAutoPrintToggle idPrefix={idPrefix} accountAutoPrint={draft.auto_print} t={t} />
+          </>
         ) : (
           <>
             <div className="flex flex-col gap-2">
@@ -619,6 +625,49 @@ function ReceiptSettingsFields({
 }
 
 /**
+ * « Imprimer automatiquement après chaque vente » SUR CET APPAREIL — pour le
+ * caissier, qui ne modifie pas les réglages du ticket de l'entreprise. Par
+ * défaut, suit le réglage de l'entreprise (receipt_settings.auto_print).
+ */
+function DeviceAutoPrintToggle({
+  idPrefix,
+  accountAutoPrint,
+  t,
+}: {
+  idPrefix: string
+  accountAutoPrint: boolean
+  t: ReturnType<typeof useTranslation>['t']
+}) {
+  const [devicePreference, setDevicePreference] = React.useState<boolean | null>(null)
+  React.useEffect(() => setDevicePreference(readAutoPrintPreference()), [])
+  const on = resolveAutoPrint(devicePreference, accountAutoPrint)
+  const id = `${idPrefix}-device-auto-print`
+
+  return (
+    <div className="flex items-center gap-3 border-b border-line py-2.5">
+      <span id={id} className="flex flex-1 flex-col gap-0.5">
+        <span className="text-sm font-semibold text-ink">{t('settings.receipt.deviceAutoPrintLabel')}</span>
+        <span className="text-xs text-subtle">{t('settings.receipt.deviceAutoPrintHint')}</span>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-labelledby={id}
+        onClick={() => {
+          writeAutoPrintPreference(!on)
+          setDevicePreference(!on)
+        }}
+        className="flex shrink-0 p-[3px]"
+        style={{ width: 50, height: 30, borderRadius: 15, justifyContent: on ? 'flex-end' : 'flex-start', background: on ? '#5B3FE6' : '#C9C9D6' }}
+      >
+        <span className="rounded-full bg-white" style={{ width: 24, height: 24, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+      </button>
+    </div>
+  )
+}
+
+/**
  * "Imprimante Bluetooth" (étape 2 du chantier ticket de caisse) — impression
  * ESC/POS directe, sans fenêtre d'impression. Web Bluetooth n'existe QUE sur
  * Chrome/Chromium (Android et ordinateur) — absent sur Safari/iOS : cette
@@ -669,9 +718,18 @@ function BluetoothPrinterSection({
     )
   }
 
+  // Une imprimante qu'on vient de connecter devient l'imprimante par défaut
+  // de cet appareil (sinon l'impression automatique passait encore par la
+  // fenêtre d'impression du navigateur).
+  const makeBluetoothDefault = () => {
+    setDefaultModeState('bluetooth')
+    writeDefaultPrintMode('bluetooth')
+  }
+
   const handleConnect = async () => {
     try {
       await connect(showAllDevices)
+      makeBluetoothDefault()
     } catch {
       toast.error(t('settings.receipt.bluetoothConnectFailed'))
     }
@@ -680,6 +738,7 @@ function BluetoothPrinterSection({
   const handleReconnect = async () => {
     try {
       await reconnect()
+      makeBluetoothDefault()
     } catch {
       toast.error(t('settings.receipt.bluetoothConnectFailed'))
     }

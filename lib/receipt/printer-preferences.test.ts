@@ -101,3 +101,18 @@ describe('coupe papier', () => {
     expect(readCutPaper()).toBe(true)
   })
 })
+
+describe('resolveAutoPrint — impression automatique après une vente', () => {
+  test('le choix fait sur cet appareil l’emporte sur le réglage de l’entreprise', async () => {
+    const { resolveAutoPrint } = await import('./printer-preferences')
+    expect(resolveAutoPrint(true, false)).toBe(true)
+    expect(resolveAutoPrint(false, true)).toBe(false)
+  })
+
+  test('aucun choix sur l’appareil : réglage de l’entreprise, sinon désactivé', async () => {
+    const { resolveAutoPrint } = await import('./printer-preferences')
+    expect(resolveAutoPrint(null, true)).toBe(true)
+    expect(resolveAutoPrint(null, undefined)).toBe(false)
+  })
+})
+
