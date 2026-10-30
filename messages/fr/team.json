@@ -270,5 +270,11 @@
   "deleteConfirmDescription": "Le compte et son identifiant sont supprimés : {{name}} ne pourra plus se connecter. Ses ventes restent dans l'historique, avec son nom. S'il est associé, sa part est retirée. Cette action est irréversible.",
   "deleteConfirmTypeLabel": "Pour confirmer, tapez « {{name}} »",
   "toastDeleted": "Le compte de {{name}} a été supprimé",
-  "errorDelete": "Impossible de supprimer ce compte"
+  "errorDelete": "Impossible de supprimer ce compte",
+  "stats": {
+    "sales30d": "Ventes · 30 j",
+    "shareAmount": "Sa part",
+    "lastLogin": "Dernière connexion",
+    "neverLoggedIn": "Jamais connecté"
+  }
 }

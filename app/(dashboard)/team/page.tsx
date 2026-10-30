@@ -77,9 +77,10 @@ function IdentifierRow({ username }: { username: string }) {
   }
 
   return (
-    <span className="flex items-center gap-1.5 text-[13px] text-subtle">
-      {t('team.identifier')} · <span className="font-semibold text-ink">{username}</span>
-      <button type="button" onClick={copy} aria-label={t('team.copyIdentifierAria')} className="flex size-6 items-center justify-center rounded-full text-ink-3">
+    <span className="flex min-w-0 items-center gap-1 text-[12px] text-subtle">
+      <span className="sr-only">{t('team.identifier')}</span>
+      <span className="truncate font-mono font-semibold text-ink-2" title={username}>{username}</span>
+      <button type="button" onClick={copy} aria-label={t('team.copyIdentifierAria')} className="flex size-6 shrink-0 items-center justify-center rounded-full text-ink-3">
         {copied ? <Check className="size-3.5" strokeWidth={2.2} /> : <Copy className="size-3.5" strokeWidth={2} />}
       </button>
     </span>
@@ -228,11 +229,14 @@ function TeamPageContent() {
           ))}
         </div>
       )}
-      <div className={`flex flex-wrap ${compact ? 'gap-2 text-xs' : 'gap-4 text-[13px]'}`} style={{ color: '#DCDCF7' }}>
+      {/* Ordinateur : colonne étroite à droite de la grille → une ligne par associé. */}
+      <div className={compact ? 'flex flex-wrap gap-2 text-xs' : 'flex flex-col gap-2.5 text-[13px]'} style={{ color: '#DCDCF7' }}>
         {shareMembers.map((m, i) => (
           <span key={m.id} className="flex items-center gap-1.5">
-            <span className={`rounded-full ${SHARE_COLORS[i % 5]}`} style={{ width: compact ? 8 : 10, height: compact ? 8 : 10 }} />
-            {m.name.split(' ')[0]} · {formatShare(m.share, language)}
+            <span className={`shrink-0 rounded-full ${SHARE_COLORS[i % 5]}`} style={{ width: compact ? 8 : 10, height: compact ? 8 : 10 }} />
+            <span className={compact ? '' : 'min-w-0 flex-1 truncate'}>{compact ? m.name.split(' ')[0] : m.name}</span>
+            {compact ? ' · ' : null}
+            <span className={compact ? '' : 'font-bold text-white'}>{formatShare(m.share, language)}</span>
           </span>
         ))}
       </div>
@@ -243,59 +247,42 @@ function TeamPageContent() {
     const cycle = AVATAR_CYCLE[index % AVATAR_CYCLE.length]
     const tone = roleTone(member.role)
 
+    // Bande de chiffres en bas de carte : ventes (30 j) pour un membre qui
+    // vend, sinon le montant de sa part pour un associé, sinon sa dernière
+    // connexion.
+    const stat = member.last_30_days
+      ? {
+          label: t('team.stats.sales30d'),
+          value: (
+            <>
+              <Amount value={member.last_30_days.total} currency />
+              <span className="text-xs font-semibold text-subtle"> · {t('team.salesCount', { count: member.last_30_days.sales_count })}</span>
+            </>
+          ),
+        }
+      : member.is_partner && member.part_amount !== null
+        ? { label: t('team.stats.shareAmount'), value: <Amount value={member.part_amount ?? 0} currency /> }
+        : member.username
+          ? {
+              label: t('team.stats.lastLogin'),
+              value: member.last_login_at ? formatRelative(member.last_login_at, language) : t('team.stats.neverLoggedIn'),
+            }
+          : null
+
     return (
-      <div className="flex flex-col gap-3 rounded-[20px] border border-line bg-surface p-3.5">
-        <div className="flex items-start gap-3">
+      <div className="flex h-full min-w-0 flex-col gap-3 rounded-[20px] border border-line bg-surface p-3 lg:p-4">
+        <div className="flex items-start justify-between gap-2">
           {member.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={member.photo} alt="" className="size-12 shrink-0 rounded-full object-cover" />
+            <img src={member.photo} alt="" className="size-10 shrink-0 rounded-full object-cover lg:size-14" />
           ) : (
-            <span className={`flex size-12 shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold ${cycle.bg} ${cycle.text}`}>
+            <span className={`flex size-10 shrink-0 items-center justify-center rounded-full text-[14px] font-extrabold lg:size-14 lg:text-[17px] ${cycle.bg} ${cycle.text}`}>
               {getInitials(member.name)}
             </span>
           )}
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <span className="truncate text-[15px] font-bold text-ink">{member.name}</span>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {member.is_owner ? (
-                <span className="rounded-full bg-brand-100 px-2.5 py-1 text-[11px] font-bold text-brand-700">{t('team.badgeOwner')}</span>
-              ) : null}
-              {member.role ? (
-                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${tone.bg} ${tone.text}`}>{t(roleLabelKey(member.role))}</span>
-              ) : null}
-              {member.is_partner ? (
-                <span className="rounded-full bg-surface-soft px-2.5 py-1 text-[11px] font-bold text-ink-2">
-                  {t('team.badgePartner', { share: formatShare(Number(member.part ?? 0), language) })}
-                </span>
-              ) : null}
-              {member.access === 'suspended' ? (
-                <span className="rounded-full bg-danger-bg px-2.5 py-1 text-[11px] font-bold text-danger-strong">{t('team.badgeSuspended')}</span>
-              ) : null}
-            </div>
-            {member.username ? (
-              <div className="flex flex-wrap items-center gap-2.5">
-                <IdentifierRow username={member.username} />
-                {member.last_login_at ? (
-                  <span className="text-[13px] text-subtle">{t('team.lastLogin', { time: formatRelative(member.last_login_at, language) })}</span>
-                ) : null}
-              </div>
-            ) : null}
-            {member.last_30_days ? (
-              <span className="flex flex-wrap items-center gap-1 text-[13px] text-subtle">
-                <span>{t('team.salesCount', { count: member.last_30_days.sales_count })} ·</span>
-                <Amount value={member.last_30_days.total} currency />
-                <span>{t('team.salesPeriodLabel')}</span>
-              </span>
-            ) : null}
-            {member.is_partner && member.part_amount !== null ? (
-              <span className="text-[13px] font-semibold text-success">
-                <Amount value={member.part_amount ?? 0} currency />
-              </span>
-            ) : null}
-          </div>
 
           {member.is_owner ? (
-            <Link href="/settings" className="flex h-9 shrink-0 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink">
+            <Link href="/settings" className="flex h-8 shrink-0 items-center rounded-full border border-line-strong px-3 text-[12px] font-semibold text-ink">
               {t('team.actions.modify')}
             </Link>
           ) : (
@@ -304,7 +291,7 @@ function TeamPageContent() {
                 <button
                   type="button"
                   aria-label={t('team.actionsMenuAria', { name: member.name })}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink-2"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink-2"
                 >
                   <MoreHorizontal className="size-4" strokeWidth={2} />
                 </button>
@@ -332,6 +319,36 @@ function TeamPageContent() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="truncate text-[14px] font-bold text-ink lg:text-[16px]">{member.name}</span>
+          <div className="flex flex-wrap items-center gap-1">
+            {member.is_owner ? (
+              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] font-bold text-brand-700">{t('team.badgeOwner')}</span>
+            ) : null}
+            {member.role ? (
+              <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${tone.bg} ${tone.text}`}>{t(roleLabelKey(member.role))}</span>
+            ) : null}
+            {member.is_partner ? (
+              <span className="rounded-full bg-surface-soft px-2 py-0.5 text-[11px] font-bold text-ink-2">
+                {t('team.badgePartner', { share: formatShare(Number(member.part ?? 0), language) })}
+              </span>
+            ) : null}
+            {member.access === 'suspended' ? (
+              <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[11px] font-bold text-danger-strong">{t('team.badgeSuspended')}</span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-auto flex flex-col gap-1.5 border-t border-divider pt-3">
+          {stat ? (
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">{stat.label}</span>
+              <span className="truncate text-[14px] font-bold text-ink lg:text-[15px]">{stat.value}</span>
+            </div>
+          ) : null}
+          {member.username ? <IdentifierRow username={member.username} /> : null}
         </div>
       </div>
     )
@@ -366,13 +383,6 @@ function TeamPageContent() {
           </Link>
         </div>
 
-        {sharesLoading ? <div className="h-[140px] animate-pulse rounded-panel bg-surface-soft" /> : <ShareBar compact={false} />}
-        {!sharesLoading && isNegativeBase ? (
-          <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
-            {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
-          </p>
-        ) : null}
-
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button
@@ -389,22 +399,36 @@ function TeamPageContent() {
           ))}
         </div>
 
-        {teamLoading ? (
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))' }}>
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-[150px] animate-pulse rounded-[20px] bg-surface-soft" />)}
+        <div className="flex items-start gap-5">
+          <div className="min-w-0 flex-1">
+            {teamLoading ? (
+              <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
+                {[1, 2, 3].map((i) => <div key={i} className="h-[220px] animate-pulse rounded-[20px] bg-surface-soft" />)}
+              </div>
+            ) : isEmpty ? (
+              <div className="flex flex-col items-center gap-1 rounded-panel border border-dashed border-line-strong py-12 text-center">
+                <span className="text-base font-bold text-ink">{t('team.emptyTitle')}</span>
+                <span className="text-sm text-subtle">{t('team.emptyDescription')}</span>
+              </div>
+            ) : filteredMembers.length === 0 ? (
+              <p className="py-8 text-center text-sm text-subtle">{t('team.noResultsForFilter')}</p>
+            ) : (
+              <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
+                {filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)}
+              </div>
+            )}
           </div>
-        ) : isEmpty ? (
-          <div className="flex flex-col items-center gap-1 rounded-panel border border-dashed border-line-strong py-12 text-center">
-            <span className="text-base font-bold text-ink">{t('team.emptyTitle')}</span>
-            <span className="text-sm text-subtle">{t('team.emptyDescription')}</span>
-          </div>
-        ) : filteredMembers.length === 0 ? (
-          <p className="py-8 text-center text-sm text-subtle">{t('team.noResultsForFilter')}</p>
-        ) : (
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))' }}>
-            {filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)}
-          </div>
-        )}
+
+          {/* Répartition des parts : colonne à droite de la grille. */}
+          <aside className="sticky top-5 flex w-[300px] shrink-0 flex-col gap-3">
+            {sharesLoading ? <div className="h-[220px] animate-pulse rounded-panel bg-surface-soft" /> : <ShareBar compact={false} />}
+            {!sharesLoading && isNegativeBase ? (
+              <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
+                {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
+              </p>
+            ) : null}
+          </aside>
+        </div>
       </div>
 
       {/* ============================= MOBILE (< 1024px / lg) ============================= */}
@@ -429,13 +453,6 @@ function TeamPageContent() {
           </Link>
         </div>
 
-        {sharesLoading ? <div className="h-[120px] animate-pulse rounded-[24px] bg-surface-soft" /> : <ShareBar compact />}
-        {!sharesLoading && isNegativeBase ? (
-          <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
-            {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
-          </p>
-        ) : null}
-
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4">
           {FILTERS.map((f) => (
             <button
@@ -453,7 +470,9 @@ function TeamPageContent() {
         </div>
 
         {teamLoading ? (
-          [1, 2, 3].map((i) => <div key={i} className="h-[150px] animate-pulse rounded-[20px] bg-surface-soft" />)
+          <div className="grid grid-cols-2 gap-2.5">
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-[190px] animate-pulse rounded-[20px] bg-surface-soft" />)}
+          </div>
         ) : isEmpty ? (
           <div className="flex flex-col items-center gap-1 rounded-[20px] border border-dashed border-line-strong py-10 text-center">
             <span className="text-base font-bold text-ink">{t('team.emptyTitle')}</span>
@@ -462,8 +481,17 @@ function TeamPageContent() {
         ) : filteredMembers.length === 0 ? (
           <p className="py-8 text-center text-sm text-subtle">{t('team.noResultsForFilter')}</p>
         ) : (
-          filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)
+          <div className="grid grid-cols-2 gap-2.5">
+            {filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)}
+          </div>
         )}
+
+        {sharesLoading ? <div className="h-[120px] animate-pulse rounded-[24px] bg-surface-soft" /> : <ShareBar compact />}
+        {!sharesLoading && isNegativeBase ? (
+          <p className="text-sm font-semibold" style={{ color: '#A3213A' }}>
+            {t('collaborators.negativeResultPeriod', { amount: formatAmount(base, language) })}
+          </p>
+        ) : null}
       </div>
 
       <ManageMemberPanel member={manageTarget} onOpenChange={(open) => !open && setManageTarget(null)} remainingShareForEdit={remainingShareForEdit} />
