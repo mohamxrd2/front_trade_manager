@@ -68,5 +68,10 @@
   "toggleTheme": "Toggle theme",
   "hideAmounts": "Hide amounts",
   "showAmounts": "Show amounts",
-  "amountHidden": "Amount hidden"
+  "amountHidden": "Amount hidden",
+  "session": {
+    "accountMismatch": "Your session has changed, please reload the page.",
+    "accountSwitched": "You are now signed in as {{email}}.",
+    "reload": "Reload"
+  }
 }

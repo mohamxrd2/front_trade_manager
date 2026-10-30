@@ -6,6 +6,7 @@ import axios, {
   type AxiosResponse,
 } from 'axios'
 import { getCurrentLanguage } from '@/lib/i18n/current-language'
+import { getDisplayedAccountId } from '@/lib/session-sync'
 
 // ============================================================================
 // TYPES ET INTERFACES
@@ -408,6 +409,17 @@ api.interceptors.request.use(
       return config
     }
 
+    // Synchro session entre onglets (voir lib/session-sync.ts) : le compte
+    // AFFICHÉ par cet onglet sur toute écriture — le backend compare à
+    // celui de la session (cookie partagé entre onglets) et refuse (409)
+    // s'ils divergent, avant d'enregistrer quoi que ce soit.
+    if (needsCsrf && config.headers) {
+      const displayedAccountId = getDisplayedAccountId()
+      if (displayedAccountId) {
+        config.headers['X-Account-Id'] = displayedAccountId
+      }
+    }
+
     // Handle CSRF token for mutating requests
     if (needsCsrf) {
       try {
@@ -623,6 +635,31 @@ api.interceptors.response.use(
         createApiError('Déconnexion en cours', ApiErrorType.UNAUTHORIZED, {
           status: 401,
           url,
+          silent: true,
+        })
+      )
+    }
+
+    // ========================================================================
+    // SYNCHRO SESSION ENTRE ONGLETS (409 : X-Account-Id ≠ compte de la session)
+    // ========================================================================
+    // Un AUTRE onglet a changé de compte sur le cookie partagé : le backend
+    // a refusé AVANT d'enregistrer quoi que ce soit (voir
+    // EnsureAccountHeaderMatchesSession côté backend). Notification globale
+    // (indépendante de la page/action en cours), même pattern que
+    // `stale-client-detected` ci-dessous — mais ici `silent: true` : aucun
+    // formulaire n'a de gestion dédiée pour ce cas, le message générique de
+    // repli serait trompeur à côté du vrai message ci-dessous.
+    if (status === 409 && errorCode === 'ACCOUNT_MISMATCH') {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('account-mismatch-detected', { detail: { message: errorMessage } }))
+      }
+      return Promise.reject(
+        createApiError(errorMessage, ApiErrorType.UNKNOWN, {
+          status: 409,
+          url,
+          originalError: error,
+          code: errorCode,
           silent: true,
         })
       )

@@ -68,5 +68,10 @@
   "toggleTheme": "Changer de thème",
   "hideAmounts": "Masquer les montants",
   "showAmounts": "Afficher les montants",
-  "amountHidden": "Montant masqué"
+  "amountHidden": "Montant masqué",
+  "session": {
+    "accountMismatch": "Votre session a changé, rechargez la page.",
+    "accountSwitched": "Vous êtes maintenant connecté en tant que {{email}}.",
+    "reload": "Recharger"
+  }
 }

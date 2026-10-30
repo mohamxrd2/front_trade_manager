@@ -10,6 +10,8 @@ import { resolveInitialLanguage } from "@/lib/i18n/resolve-initial-language";
 import { Toaster } from "sonner";
 import { Providers } from "@/app/providers";
 import { StaleClientListener } from "@/components/stale-client-listener";
+import { AccountMismatchListener } from "@/components/account-mismatch-listener";
+import { SessionSwitchListener } from "@/components/session-switch-listener";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -105,6 +107,8 @@ export default async function RootLayout({
                   {children}
                   <Toaster position="bottom-right" richColors />
                   <StaleClientListener />
+                  <AccountMismatchListener />
+                  <SessionSwitchListener />
                 </Providers>
               </LanguageProvider>
             </SettingsProvider>

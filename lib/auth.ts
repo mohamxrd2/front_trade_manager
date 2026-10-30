@@ -45,6 +45,8 @@ export interface User {
   /** Rôle du membre (cashier/manager/stock_manager/accountant) — `null` pour le propriétaire (voir is_owner). */
   role?: string | null
   is_owner?: boolean
+  /** `null` pour le propriétaire, id du propriétaire pour un membre — voir accountId() côté backend (User::accountId()) et lib/session-sync.ts (displayedAccountId()). */
+  account_id?: string | null
   /** Liste effective des permissions (rôle ± ajustements par membre) — toutes pour le propriétaire. */
   permissions?: string[]
   must_change_password?: boolean

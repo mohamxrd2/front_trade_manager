@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   login as loginApi,
@@ -17,6 +17,7 @@ import {
 import { isApiError, ApiErrorType } from '@/lib/api'
 import { checkOnboarding as checkOnboardingService } from '@/lib/services/onboarding'
 import { ensureQueryCacheForUser } from '@/lib/query-client'
+import { displayedAccountIdOf, setDisplayedAccountId, announceSessionChange, onSessionChange } from '@/lib/session-sync'
 
 /**
  * Types pour le contexte d'authentification
@@ -132,6 +133,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState<boolean>(true)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
 
+  // Dernier compte AFFICHÉ par CET onglet (voir lib/session-sync.ts) — lu
+  // dans des gestionnaires d'évènements (cross-onglets, focus) qui ne
+  // doivent jamais agir sur une valeur de `user` périmée capturée à leur
+  // propre montage (closure).
+  const displayedAccountIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    displayedAccountIdRef.current = user ? displayedAccountIdOf(user) : null
+  }, [user])
+
   /**
    * Vérifie l'état d'authentification en appelant getUser()
    * 
@@ -152,6 +162,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (userData) {
         // ✅ Utilisateur authentifié
         ensureQueryCacheForUser(userData.id)
+        setDisplayedAccountId(displayedAccountIdOf(userData))
         setUser(userData)
         setIsAuthenticated(true)
 
@@ -181,6 +192,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // ✅ Non authentifié (getUser a retourné null)
         // C'est un état NORMAL après déconnexion ou première visite
         // Pas de log d'erreur ici
+        setDisplayedAccountId(null)
         setUser(null)
         setIsAuthenticated(false)
         return false
@@ -240,6 +252,86 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }, [])
 
+  // Synchro session entre onglets (voir lib/session-sync.ts) : un AUTRE
+  // onglet vient de se connecter/déconnecter/changer de compte (cookie
+  // Sanctum PARTAGÉ par tous les onglets). On ne fait jamais confiance au
+  // signal lui-même — on revérifie toujours sa propre session (GET
+  // /api/user) avant d'agir.
+  useEffect(() => {
+    const unsubscribe = onSessionChange(() => {
+      void (async () => {
+        try {
+          const freshUser = await getUser()
+          const freshAccountId = freshUser ? displayedAccountIdOf(freshUser) : null
+          const previousAccountId = displayedAccountIdRef.current
+
+          setDisplayedAccountId(freshAccountId)
+          setUser(freshUser)
+          setIsAuthenticated(!!freshUser)
+
+          // "Le compte a changé" = toujours authentifié, mais un AUTRE
+          // compte qu'avant — pas une simple déconnexion détectée ici.
+          if (freshUser && freshAccountId !== previousAccountId) {
+            ensureQueryCacheForUser(freshUser.id)
+
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('session:account-switched', { detail: { email: freshUser.email } })
+              )
+            }
+          }
+        } catch {
+          // getUser() a échoué (réseau, 500) : on garde l'état actuel plutôt
+          // que de déconnecter cet onglet sur une simple erreur passagère.
+        }
+      })()
+    })
+
+    return unsubscribe
+  }, [])
+
+  // Au retour sur cet onglet (changement d'onglet, ou de fenêtre/appli) :
+  // revérifie que l'utilisateur affiché est toujours celui de la session
+  // réelle — filet de sécurité pour le cas où le signal cross-onglets
+  // ci-dessus aurait été manqué (onglet suspendu par le navigateur). Un
+  // écart déclenche un rechargement complet plutôt qu'une simple mise à
+  // jour d'état : plus sûr qu'une resynchronisation partielle du cache.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const revalidating = { current: false }
+
+    const revalidate = async () => {
+      if (revalidating.current) return
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+
+      revalidating.current = true
+      try {
+        const freshUser = await getUser()
+        const freshAccountId = freshUser ? displayedAccountIdOf(freshUser) : null
+
+        if (freshAccountId !== displayedAccountIdRef.current) {
+          window.location.reload()
+        }
+      } catch {
+        // Erreur réseau passagère au retour sur l'onglet : ne pas recharger pour autant.
+      } finally {
+        revalidating.current = false
+      }
+    }
+
+    const handleVisibility = () => { void revalidate() }
+    const handleFocus = () => { void revalidate() }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
   /**
    * Fonction de connexion
    */
@@ -271,6 +363,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // AVANT que le moindre composant ne monte et ne lise une valeur
       // périmée appartenant à l'autre compte.
       ensureQueryCacheForUser(userData.id)
+      setDisplayedAccountId(displayedAccountIdOf(userData))
+      // Prévient les AUTRES onglets : si l'un d'eux était resté affiché sur
+      // un compte différent, il le détectera (voir l'effet onSessionChange
+      // ci-dessous) et rechargera son utilisateur.
+      announceSessionChange()
 
       // Mettre à jour l'état avec l'utilisateur retourné
       setUser(userData)
@@ -401,6 +498,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const userData = await verifyRegistrationCodeApi(payload)
 
       ensureQueryCacheForUser(userData.id)
+      setDisplayedAccountId(displayedAccountIdOf(userData))
+      announceSessionChange()
       setUser(userData)
       setIsAuthenticated(true)
 
@@ -476,6 +575,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // dans localStorage) et se présenterait, instantanément et sans
       // requête, au prochain compte qui se connecte sur ce navigateur.
       ensureQueryCacheForUser(null)
+      setDisplayedAccountId(null)
+      // Prévient les AUTRES onglets, qui rechargeront leur utilisateur
+      // (voir l'effet onSessionChange ci-dessous) et se retrouveront aussi
+      // déconnectés.
+      announceSessionChange()
 
       // Réinitialiser les Analytics avant la déconnexion
       if (typeof window !== 'undefined') {
