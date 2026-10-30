@@ -1,4 +1,5 @@
 import { useArticles } from '@/lib/hooks/useArticles'
+import { usePermissions } from '@/hooks/usePermissions'
 import type { Transaction } from '@/lib/services/transactions'
 import { describeDeletionConsequence } from '@/lib/transactions/transaction-summary'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
@@ -13,7 +14,10 @@ import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
  * formulation générique plutôt que d'afficher un chiffre inventé.
  */
 export function useDeletionConsequence(transaction: Transaction | null): string {
-  const { articles } = useArticles()
+  // Sans stock.view (ex. comptable) : pas de requête articles (403) — la
+  // conséquence retombe sur la formulation générique.
+  const { can } = usePermissions()
+  const { articles } = useArticles({ enabled: can('stock.view') })
   const { language } = useTranslation()
 
   if (!transaction) return ''

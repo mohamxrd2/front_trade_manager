@@ -285,7 +285,15 @@ function OwnerDashboardContent() {
   // jamais coupée en deux par la limite (voir lib/transactions/group-by-operation.ts).
   const transactions = React.useMemo(() => groupTransactionsByOperation(allTransactions).slice(0, 5), [allTransactions])
 
-  const { articles } = useArticles()
+  // Comptable (wallet.view_balance sans stock.view) : ce tableau de bord,
+  // sans requête articles (403) ni raccourcis vers des actions interdites.
+  const { can } = usePermissions()
+  const canViewStock = can('stock.view')
+  const canSell = can('sales.create')
+  const canExpense = can('expenses.create')
+  const canInvoice = can('invoices.manage')
+  const canRestock = can('stock.restock')
+  const { articles } = useArticles({ enabled: canViewStock })
   const lowStockArticles = React.useMemo(
     () => articles.filter((article) => article.low_stock),
     [articles]
@@ -392,25 +400,31 @@ function OwnerDashboardContent() {
 
   const heroActions = (
     <>
-      <Button variant="secondary" className="flex-1" asChild>
-        <Link href="/wallet/new?type=sale">
-          <ArrowUpRight className="size-[17px]" />
-          {t('common.sale')}
-        </Link>
-      </Button>
-      <Button variant="secondary" className="flex-1" asChild>
-        <Link href="/wallet/new?type=expense">
-          <ArrowDownLeft className="size-[17px]" />
-          {t('common.expense')}
-        </Link>
-      </Button>
-      <Button
-        variant="secondary"
-        className="flex-1 border border-white/30 bg-white/14 font-semibold text-white hover:bg-white/20"
-        asChild
-      >
-        <Link href="/invoices/new">{t('common.invoice')}</Link>
-      </Button>
+      {canSell ? (
+        <Button variant="secondary" className="flex-1" asChild>
+          <Link href="/wallet/new?type=sale">
+            <ArrowUpRight className="size-[17px]" />
+            {t('common.sale')}
+          </Link>
+        </Button>
+      ) : null}
+      {canExpense ? (
+        <Button variant="secondary" className="flex-1" asChild>
+          <Link href="/wallet/new?type=expense">
+            <ArrowDownLeft className="size-[17px]" />
+            {t('common.expense')}
+          </Link>
+        </Button>
+      ) : null}
+      {canInvoice ? (
+        <Button
+          variant="secondary"
+          className="flex-1 border border-white/30 bg-white/14 font-semibold text-white hover:bg-white/20"
+          asChild
+        >
+          <Link href="/invoices/new">{t('common.invoice')}</Link>
+        </Button>
+      ) : null}
     </>
   )
 
@@ -485,12 +499,14 @@ function OwnerDashboardContent() {
               <span className="absolute right-3.5 top-3 size-2 rounded-full bg-danger-dot" />
             ) : null}
           </Link>
-          <Button variant="primary" asChild>
-            <Link href="/wallet/new?type=sale">
-              <Plus className="size-[18px]" strokeWidth={2.2} />
-              {t('nav.newSale')}
-            </Link>
-          </Button>
+          {canSell ? (
+            <Button variant="primary" asChild>
+              <Link href="/wallet/new?type=sale">
+                <Plus className="size-[18px]" strokeWidth={2.2} />
+                {t('nav.newSale')}
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -510,7 +526,7 @@ function OwnerDashboardContent() {
                 { label: t('common.sales'), value: <>+<Amount value={overview?.total_sales ?? 0} /></> },
                 { label: t('common.expenses'), value: <>−<Amount value={overview?.total_expenses ?? 0} /></> },
               ]}
-              actions={heroActions}
+              actions={canSell || canExpense || canInvoice ? heroActions : undefined}
             />
           )}
         </div>
@@ -534,44 +550,54 @@ function OwnerDashboardContent() {
       </div>
 
       {/* --- Actions rapides (mobile uniquement — grille à 4 icônes de Main.dc.html) --- */}
-      <div className="grid grid-cols-4 gap-2.5 lg:hidden">
-        <Link
-          href="/wallet/new?type=sale"
-          className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
-        >
-          <span className="flex size-14 items-center justify-center rounded-tile bg-orb text-white">
-            <Plus className="size-6" strokeWidth={1.9} />
-          </span>
-          {t('common.sale')}
-        </Link>
-        <Link
-          href="/wallet/new?type=expense"
-          className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
-        >
-          <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
-            <ArrowDownLeft className="size-6" strokeWidth={1.9} />
-          </span>
-          {t('common.expense')}
-        </Link>
-        <Link
-          href="/invoices/new"
-          className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
-        >
-          <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
-            <FileText className="size-6" strokeWidth={1.8} />
-          </span>
-          {t('common.invoice')}
-        </Link>
-        <Link
-          href="/products"
-          className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
-        >
-          <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
-            <PackagePlus className="size-6" strokeWidth={1.8} />
-          </span>
-          {t('dashboard.quickRestock')}
-        </Link>
-      </div>
+      {canSell || canExpense || canInvoice || canRestock ? (
+        <div className="grid grid-cols-4 gap-2.5 lg:hidden">
+          {canSell ? (
+            <Link
+              href="/wallet/new?type=sale"
+              className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
+            >
+              <span className="flex size-14 items-center justify-center rounded-tile bg-orb text-white">
+                <Plus className="size-6" strokeWidth={1.9} />
+              </span>
+              {t('common.sale')}
+            </Link>
+          ) : null}
+          {canExpense ? (
+            <Link
+              href="/wallet/new?type=expense"
+              className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
+            >
+              <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+                <ArrowDownLeft className="size-6" strokeWidth={1.9} />
+              </span>
+              {t('common.expense')}
+            </Link>
+          ) : null}
+          {canInvoice ? (
+            <Link
+              href="/invoices/new"
+              className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
+            >
+              <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+                <FileText className="size-6" strokeWidth={1.8} />
+              </span>
+              {t('common.invoice')}
+            </Link>
+          ) : null}
+          {canRestock ? (
+            <Link
+              href="/products"
+              className="flex flex-col items-center gap-2 text-xs font-semibold text-ink"
+            >
+              <span className="flex size-14 items-center justify-center rounded-tile border border-line bg-surface">
+                <PackagePlus className="size-6" strokeWidth={1.8} />
+              </span>
+              {t('dashboard.quickRestock')}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* --- Stock faible : bandeau mobile (Main.dc.html l'affiche ici, avant
            le graphique de tendance ; sur ordinateur il rejoint Dernières

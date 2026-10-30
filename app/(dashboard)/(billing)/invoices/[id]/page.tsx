@@ -17,6 +17,7 @@ import {
   type InvoiceStatus,
 } from '@/lib/services/invoices'
 import { invalidateInvoices } from '@/lib/invalidate'
+import { usePermissions } from '@/hooks/usePermissions'
 import { getInvoiceStatusDisplay } from '@/components/invoices/invoice-status'
 import { InvoicePreviewCard } from '@/components/invoices/invoice-preview-card'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
@@ -43,6 +44,9 @@ export default function InvoiceDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { t } = useTranslation()
+  // Comptable (invoices.view seul) : consultation uniquement.
+  const { can } = usePermissions()
+  const canManageInvoices = can('invoices.manage')
   const invoiceId = params.id as string
 
   const [invoice, setInvoice] = React.useState<Invoice | null>(null)
@@ -230,15 +234,17 @@ export default function InvoiceDetailPage() {
         >
           {sharing ? <Loader2 className="size-4 animate-spin" /> : t('invoices.detail.shareButton')}
         </button>
-        <button
-          type="button"
-          onClick={handleDuplicate}
-          disabled={duplicating}
-          className="flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-bold text-ink disabled:opacity-60"
-        >
-          {duplicating ? '…' : t('invoices.detail.duplicateButton')}
-        </button>
-        {invoice.status === 'draft' ? (
+        {canManageInvoices ? (
+          <button
+            type="button"
+            onClick={handleDuplicate}
+            disabled={duplicating}
+            className="flex min-h-[48px] items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-bold text-ink disabled:opacity-60"
+          >
+            {duplicating ? '…' : t('invoices.detail.duplicateButton')}
+          </button>
+        ) : null}
+        {!canManageInvoices ? null : invoice.status === 'draft' ? (
           <button
             type="button"
             onClick={() => handleStatusChange('unpaid')}
@@ -259,7 +265,7 @@ export default function InvoiceDetailPage() {
         )}
       </div>
 
-      {invoice.status !== 'paid' ? (
+      {canManageInvoices && invoice.status !== 'paid' ? (
         <button
           type="button"
           onClick={() => setDeleteDialogOpen(true)}

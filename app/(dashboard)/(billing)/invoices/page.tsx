@@ -21,6 +21,7 @@ import {
   type InvoiceStatus,
 } from '@/lib/services/invoices'
 import { invalidateInvoices } from '@/lib/invalidate'
+import { usePermissions } from '@/hooks/usePermissions'
 import { exportToExcel } from '@/lib/utils/export'
 import { getInvoiceStatusDisplay } from '@/components/invoices/invoice-status'
 import { InvoicePreviewCard } from '@/components/invoices/invoice-preview-card'
@@ -89,6 +90,10 @@ export default function InvoicesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t, language } = useTranslation()
+  // Comptable (invoices.view seul) : consultation uniquement.
+  const { can } = usePermissions()
+  const canManageInvoices = can('invoices.manage')
+  const canExport = can('exports.download')
   const FILTERS = React.useMemo(() => buildFilters(t), [t])
   const selectedId = searchParams.get('id')
   const clientFilter = searchParams.get('client')
@@ -439,15 +444,17 @@ export default function InvoicesPage() {
       >
         {sharing ? <Loader2 className="size-4 animate-spin" /> : t('invoices.detail.shareButton')}
       </button>
-      <button
-        type="button"
-        onClick={handleDuplicate}
-        disabled={duplicating}
-        className="flex min-h-[46px] items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-bold text-ink disabled:opacity-60"
-      >
-        {duplicating ? '…' : t('invoices.detail.duplicateButton')}
-      </button>
-      {selectedInvoice.status === 'draft' ? (
+      {canManageInvoices ? (
+        <button
+          type="button"
+          onClick={handleDuplicate}
+          disabled={duplicating}
+          className="flex min-h-[46px] items-center justify-center rounded-full border border-line-strong bg-surface text-[13px] font-bold text-ink disabled:opacity-60"
+        >
+          {duplicating ? '…' : t('invoices.detail.duplicateButton')}
+        </button>
+      ) : null}
+      {!canManageInvoices ? null : selectedInvoice.status === 'draft' ? (
         <button
           type="button"
           onClick={() => handleStatusChange('unpaid')}
@@ -534,9 +541,11 @@ export default function InvoicesPage() {
         ) : mobileInvoices.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-12 text-center">
             <p className="text-sm text-subtle">{t('invoices.list.noInvoicesYet')}</p>
-            <Button variant="primary" asChild>
-              <Link href="/invoices/new">{t('invoices.newInvoice')}</Link>
-            </Button>
+            {canManageInvoices ? (
+              <Button variant="primary" asChild>
+                <Link href="/invoices/new">{t('invoices.newInvoice')}</Link>
+              </Button>
+            ) : null}
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -581,14 +590,16 @@ export default function InvoicesPage() {
           </div>
         )}
 
-        <Link
-          href="/invoices/new"
-          aria-label={t('invoices.list.newInvoiceAria')}
-          className="fixed bottom-[100px] right-5 z-30 flex h-14 items-center gap-2 rounded-full bg-brand-500 px-5 text-[15px] font-bold text-white shadow-button"
-        >
-          <Plus className="size-5" strokeWidth={2.2} />
-          {t('invoices.newInvoice')}
-        </Link>
+        {canManageInvoices ? (
+          <Link
+            href="/invoices/new"
+            aria-label={t('invoices.list.newInvoiceAria')}
+            className="fixed bottom-[100px] right-5 z-30 flex h-14 items-center gap-2 rounded-full bg-brand-500 px-5 text-[15px] font-bold text-white shadow-button"
+          >
+            <Plus className="size-5" strokeWidth={2.2} />
+            {t('invoices.newInvoice')}
+          </Link>
+        ) : null}
       </div>
 
       {/* --- Ordinateur (≥ 1024px) --- */}
@@ -599,16 +610,20 @@ export default function InvoicesPage() {
             <span className="text-sm text-subtle">{t('invoices.list.subtitleDesktop')}</span>
           </div>
           <div className="flex flex-wrap gap-2.5">
-            <Button variant="glass" onClick={handleExport}>
-              <Download className="size-[18px]" />
-              {t('products.list.exportExcel')}
-            </Button>
-            <Button variant="primary" asChild>
-              <Link href="/invoices/new">
-                <Plus className="size-[18px]" strokeWidth={2.2} />
-                {t('invoices.newInvoice')}
-              </Link>
-            </Button>
+            {canExport ? (
+              <Button variant="glass" onClick={handleExport}>
+                <Download className="size-[18px]" />
+                {t('products.list.exportExcel')}
+              </Button>
+            ) : null}
+            {canManageInvoices ? (
+              <Button variant="primary" asChild>
+                <Link href="/invoices/new">
+                  <Plus className="size-[18px]" strokeWidth={2.2} />
+                  {t('invoices.newInvoice')}
+                </Link>
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -658,9 +673,11 @@ export default function InvoicesPage() {
             ) : invoices.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <p className="text-sm text-subtle">{t('invoices.list.noInvoicesYet')}</p>
-                <Button variant="primary" asChild>
-                  <Link href="/invoices/new">{t('invoices.newInvoice')}</Link>
-                </Button>
+                {canManageInvoices ? (
+                  <Button variant="primary" asChild>
+                    <Link href="/invoices/new">{t('invoices.newInvoice')}</Link>
+                  </Button>
+                ) : null}
               </div>
             ) : (
               <>
@@ -763,7 +780,7 @@ export default function InvoicesPage() {
 
             {previewActions}
 
-            {selectedInvoice && selectedInvoice.status !== 'paid' ? (
+            {canManageInvoices && selectedInvoice && selectedInvoice.status !== 'paid' ? (
               <button
                 type="button"
                 onClick={() => setDeleteDialogOpen(true)}
