@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 
 import type { User } from '@/lib/auth'
 import { getTabs } from '@/lib/tabs'
-import { ACCOUNT_ITEMS, ACTIVITY_ITEMS } from '@/components/waelly/glass-sidebar'
+import { ACCOUNT_ITEMS, ACTIVITY_ITEMS, visibleNavItems } from '@/components/waelly/glass-sidebar'
 import { isRouteAllowed, routeRuleFor } from './route-permissions'
 
 const ROLES: Record<string, string[]> = {
@@ -67,9 +67,41 @@ describe('navigation : aucune page affichée n’est refusée, pour chaque rôle
     for (const tab of getTabs(user)) {
       expect(isRouteAllowed(tab.href, can), `onglet ${tab.href}`).toBe(true)
     }
-    // Même filtre que GlassSidebar (lib/permissions/route-permissions.ts).
-    for (const item of [...ACTIVITY_ITEMS, ...ACCOUNT_ITEMS].filter((i) => isRouteAllowed(i.href, can))) {
-      expect(isRouteAllowed(item.href, can)).toBe(true)
+    for (const item of [...visibleNavItems(ACTIVITY_ITEMS, can), ...visibleNavItems(ACCOUNT_ITEMS, can)]) {
+      expect(isRouteAllowed(item.href, can), `menu ${item.href}`).toBe(true)
     }
+  })
+})
+
+describe('menu latéral (ordinateur) : entrées exactes par rôle, jamais deux fois la même page', () => {
+  const labels = (perms: string[]) => {
+    const can = canFor(perms)
+    return [...visibleNavItems(ACTIVITY_ITEMS, can), ...visibleNavItems(ACCOUNT_ITEMS, can)].map((i) => i.labelKey)
+  }
+
+  test('caissier : « Mes opérations », pas « Portefeuille » (les deux mènent à /wallet)', () => {
+    expect(labels(ROLES.cashier)).toEqual(['nav.dashboard', 'nav.mySales', 'nav.stock', 'nav.notifications', 'nav.settings'])
+  })
+
+  test('gestionnaire de stock : Stock · Notifications · Paramètres', () => {
+    expect(labels(ROLES.stock_manager)).toEqual(['nav.stock', 'nav.notifications', 'nav.settings'])
+  })
+
+  test('comptable : pas de Clients ni de Stock', () => {
+    expect(labels(ROLES.accountant)).toEqual([
+      'nav.dashboard', 'nav.wallet', 'nav.invoices', 'nav.analytics', 'nav.notifications', 'nav.settings',
+    ])
+  })
+
+  test('gérant : tout sauf Équipe', () => {
+    expect(labels(ROLES.manager)).toEqual([
+      'nav.dashboard', 'nav.stock', 'nav.wallet', 'nav.invoices', 'nav.clients', 'nav.analytics', 'nav.notifications', 'nav.settings',
+    ])
+  })
+
+  test.each(Object.entries(ROLES))('%s : aucune adresse en double', (_role, perms) => {
+    const can = canFor(perms)
+    const hrefs = [...visibleNavItems(ACTIVITY_ITEMS, can), ...visibleNavItems(ACCOUNT_ITEMS, can)].map((i) => i.href)
+    expect(new Set(hrefs).size).toBe(hrefs.length)
   })
 })

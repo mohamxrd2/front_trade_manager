@@ -67,6 +67,27 @@ export const ACCOUNT_ITEMS: GlassSidebarNavItem[] = [
   { href: "/settings", labelKey: "nav.settings", icon: Settings },
 ]
 
+/**
+ * Entrées du menu réellement affichées :
+ * - « Mes opérations » seulement pour qui n'a PAS le Portefeuille complet
+ *   (même logique que lib/tabs.ts) — les deux pointent vers /wallet ;
+ * - la permission propre à l'entrée (ex. « Portefeuille » : wallet.view_balance) ;
+ * - ET la garde des routes : jamais un lien vers une page refusée ;
+ * - jamais deux entrées vers la même page.
+ */
+export function visibleNavItems(items: GlassSidebarNavItem[], can: (permission: string) => boolean): GlassSidebarNavItem[] {
+  const hasWallet = can("wallet.view_balance")
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    if (item.labelKey === "nav.mySales" && (hasWallet || !(can("sales.view_own") || can("sales.view_all")))) return false
+    if (item.permission && !can(item.permission)) return false
+    if (!isRouteAllowed(item.href, can)) return false
+    if (seen.has(item.href)) return false
+    seen.add(item.href)
+    return true
+  })
+}
+
 interface GlassSidebarUser {
   initials: string
   name: string
@@ -138,21 +159,15 @@ function GlassSidebar({
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`)
   const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false)
 
-  const hasWallet = can("wallet.view_balance")
   const canSell = can("sales.create")
 
-  const activityItems = ACTIVITY_ITEMS
-    // "Mes ventes" réservé à qui n'a PAS /wallet (même logique que lib/tabs.ts) ;
-    // les autres items suivent leur permission déclarée (absente = toujours visible).
-    .filter((item) => (item.labelKey === "nav.mySales" ? !hasWallet && (can("sales.view_own") || can("sales.view_all")) : true))
-    // Même règle que la garde des routes : jamais un lien vers une page refusée.
-    .filter((item) => isRouteAllowed(item.href, can))
+  const activityItems = visibleNavItems(ACTIVITY_ITEMS, can)
     .map((item) =>
       item.href === "/products" && stockAlerts
         ? { ...item, badge: { count: stockAlerts, tone: "danger" as const } }
         : item
     )
-  const accountItems = ACCOUNT_ITEMS.filter((item) => isRouteAllowed(item.href, can)).map((item) =>
+  const accountItems = visibleNavItems(ACCOUNT_ITEMS, can).map((item) =>
     item.href === "/notifications" && unreadNotifications
       ? { ...item, badge: { count: unreadNotifications, tone: "danger" as const } }
       : item
