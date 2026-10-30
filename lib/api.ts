@@ -7,6 +7,10 @@ import axios, {
 } from 'axios'
 import { getCurrentLanguage } from '@/lib/i18n/current-language'
 import { getDisplayedAccountId } from '@/lib/session-sync'
+import {
+  MUST_CHANGE_PASSWORD_ERROR_CODE,
+  MUST_CHANGE_PASSWORD_EVENT,
+} from '@/lib/permissions/must-change-password'
 
 // ============================================================================
 // TYPES ET INTERFACES
@@ -675,6 +679,26 @@ api.interceptors.response.use(
     // `auth:unauthorized` ci-dessous.
     if (status === 422 && errorCode === 'STALE_CLIENT_MISSING_VARIATION' && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('stale-client-detected', { detail: { message: errorMessage } }))
+    }
+
+    // ========================================================================
+    // CODE TEMPORAIRE À CHANGER (403 MUST_CHANGE_PASSWORD)
+    // ========================================================================
+    // Membre d'équipe qui n'a pas encore remplacé son code : ce n'est pas une
+    // erreur à afficher, ProtectedRoute redirige vers /change-password.
+    if (status === 403 && errorCode === MUST_CHANGE_PASSWORD_ERROR_CODE) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(MUST_CHANGE_PASSWORD_EVENT))
+      }
+      return Promise.reject(
+        createApiError(errorMessage, ApiErrorType.FORBIDDEN, {
+          status: 403,
+          url,
+          originalError: error,
+          code: errorCode,
+          silent: true,
+        })
+      )
     }
 
     // ========================================================================

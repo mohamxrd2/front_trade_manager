@@ -29,10 +29,11 @@ export function useUserStats() {
  * invalidations (invalidateArticles, invalidateAll) déclenchées après une
  * mutation (ajout/modif/suppression d'article, vente, dépense…).
  */
-export function useArticles() {
+export function useArticles(options: { enabled?: boolean } = {}) {
   const { data, error, isLoading, isFetching, refetch } = useQuery<Article[], Error>({
     queryKey: keys.products.list(),
     queryFn: getArticles,
+    enabled: options.enabled ?? true,
   })
 
   // Garantir qu'on retourne toujours un tableau

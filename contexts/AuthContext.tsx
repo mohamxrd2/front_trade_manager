@@ -18,6 +18,7 @@ import { isApiError, ApiErrorType } from '@/lib/api'
 import { checkOnboarding as checkOnboardingService } from '@/lib/services/onboarding'
 import { ensureQueryCacheForUser } from '@/lib/query-client'
 import { displayedAccountIdOf, setDisplayedAccountId, announceSessionChange, onSessionChange } from '@/lib/session-sync'
+import { mustChangePassword } from '@/lib/permissions/must-change-password'
 
 /**
  * Types pour le contexte d'authentification
@@ -168,7 +169,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         // Vérifier l'onboarding si l'utilisateur est connecté
         const currentPath = window.location.pathname
-        const skipOnboardingCheck = ['/onboarding', '/login', '/register', '/'].includes(currentPath)
+        // Code temporaire à changer : le backend refuserait (403) — la
+        // garde de ProtectedRoute envoie de toute façon vers /change-password.
+        const skipOnboardingCheck =
+          ['/onboarding', '/login', '/register', '/'].includes(currentPath) || mustChangePassword(userData)
 
         if (!skipOnboardingCheck) {
           try {

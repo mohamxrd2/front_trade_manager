@@ -11,8 +11,8 @@ import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { FullPageSpinner } from '@/components/ui/full-page-spinner'
 
 interface PermissionGuardProps {
-  /** Permission requise pour voir cette page. */
-  permission: string
+  /** Permission requise pour voir cette page — une liste = au moins l'une d'elles. */
+  permission: string | string[]
   children: React.ReactNode
 }
 
@@ -31,7 +31,8 @@ export function PermissionGuard({ permission, children }: PermissionGuardProps) 
   const { t } = useTranslation()
   const deniedRef = React.useRef(false)
 
-  const allowed = !!user && can(permission)
+  const permissions = Array.isArray(permission) ? permission : [permission]
+  const allowed = !!user && permissions.some((p) => can(p))
 
   React.useEffect(() => {
     if (loading || !user || allowed || deniedRef.current) return

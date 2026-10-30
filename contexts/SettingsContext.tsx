@@ -8,6 +8,7 @@ import { isSilentError } from '@/lib/utils/error-handler'
 import { queryClient } from '@/lib/query-client'
 import { keys } from '@/lib/query-keys'
 import { getCurrentLanguage } from '@/lib/i18n/current-language'
+import { mustChangePassword } from '@/lib/permissions/must-change-password'
 
 // SettingsProvider est un ANCÊTRE de LanguageProvider (celui-ci lit
 // settings.language) — il ne peut donc pas appeler useTranslation() sans
@@ -57,6 +58,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const refreshSettings = useCallback(async () => {
     if (!user) {
       setSettings(null)
+      setLoading(false)
+      return
+    }
+
+    // Membre qui doit encore changer son code : le backend refuse tout sauf
+    // /api/me/change-code (403) — valeurs par défaut, sans requête.
+    if (mustChangePassword(user)) {
+      setSettings(DEFAULT_SETTINGS)
       setLoading(false)
       return
     }

@@ -4,6 +4,7 @@ import { useEffect, ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { FullPageSpinner } from '@/components/ui/full-page-spinner'
+import { MUST_CHANGE_PASSWORD_EVENT, mustChangePasswordRedirect } from '@/lib/permissions/must-change-password'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -15,7 +16,7 @@ interface ProtectedRouteProps {
  * Vérifie également l'authentification en cas d'erreur 401 depuis l'API
  */
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, loading, checkAuth } = useAuth()
+  const { user, isAuthenticated, loading, checkAuth } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -63,8 +64,29 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [checkAuth, isAuthenticated, pathname])
 
+  // Code temporaire jamais remplacé (membre d'équipe) : seule
+  // /change-password est accessible — Retour, rechargement ou URL tapée à la
+  // main ramènent ici. `replace` pour que Retour ne revienne pas dessus.
+  const changePasswordRedirect = mustChangePasswordRedirect(user, pathname)
+  useEffect(() => {
+    if (!loading && changePasswordRedirect) {
+      router.replace(changePasswordRedirect)
+    }
+  }, [loading, changePasswordRedirect, router])
+
+  // Le backend a répondu 403 MUST_CHANGE_PASSWORD (code réinitialisé par le
+  // responsable pendant que le membre naviguait) : on recharge l'utilisateur
+  // pour que la garde ci-dessus prenne le relais.
+  useEffect(() => {
+    const handleMustChangePassword = () => {
+      void checkAuth()
+    }
+    window.addEventListener(MUST_CHANGE_PASSWORD_EVENT, handleMustChangePassword)
+    return () => window.removeEventListener(MUST_CHANGE_PASSWORD_EVENT, handleMustChangePassword)
+  }, [checkAuth])
+
   // Afficher un loader pendant la vérification de l'authentification
-  if (loading) {
+  if (loading || changePasswordRedirect) {
     return <FullPageSpinner />
   }
 

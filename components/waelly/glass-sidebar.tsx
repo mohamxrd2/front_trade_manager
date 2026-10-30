@@ -49,7 +49,7 @@ interface GlassSidebarNavItem {
 
 // "Mes ventes" n'apparaît que pour un membre SANS wallet.view_balance (le
 // propriétaire/gérant ont déjà /wallet) — même logique que lib/tabs.ts.
-const ACTIVITY_ITEMS: GlassSidebarNavItem[] = [
+export const ACTIVITY_ITEMS: GlassSidebarNavItem[] = [
   { href: "/dashboard", labelKey: "nav.dashboard", icon: Home },
   { href: "/my-sales", labelKey: "nav.mySales", icon: ShoppingCart },
   { href: "/products", labelKey: "nav.stock", icon: Package, permission: "stock.view" },
@@ -59,7 +59,7 @@ const ACTIVITY_ITEMS: GlassSidebarNavItem[] = [
   { href: "/analytics", labelKey: "nav.analytics", icon: BarChart3, permission: "analytics.view" },
 ]
 
-const ACCOUNT_ITEMS: GlassSidebarNavItem[] = [
+export const ACCOUNT_ITEMS: GlassSidebarNavItem[] = [
   { href: "/team", labelKey: "nav.team", icon: Users, permission: "team.manage" },
   { href: "/notifications", labelKey: "nav.notifications", icon: Bell },
   { href: "/settings", labelKey: "nav.settings", icon: Settings },
