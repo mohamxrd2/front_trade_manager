@@ -172,7 +172,7 @@ export default function WalletPage() {
   const router = useRouter()
   const pathname = usePathname()
   const urlParams = useSearchParams()
-  const typeChips = React.useMemo(() => buildTypeChips(t), [t])
+
   const { data: transactions = [], isLoading: loadingTx, error: txErrorObj, refetch: refetchTransactions } = useTransactionsQuery()
   const txError = txErrorObj ? (txErrorObj as Error).message || t('wallet.list.loadError') : null
   const invoiceLookup = useInvoiceLookup()
@@ -223,6 +223,12 @@ export default function WalletPage() {
   const canExport = can('exports.download')
   const canDeleteOperations = can('sales.delete_any') || can('sales.delete_own_recent')
   const pageTitle = isOwnSalesView ? t('nav.mySales') : t('wallet.title')
+  // Apports/retraits : seulement pour qui peut en faire (le caissier n'a que
+  // ventes et dépenses dans « Mes opérations »).
+  const typeChips = React.useMemo(
+    () => buildTypeChips(t).filter((chip) => canManageDeposits || (chip.value !== 'apport' && chip.value !== 'retrait')),
+    [t, canManageDeposits]
+  )
   const { data: teamMembers } = useQuery({ queryKey: keys.team.all, queryFn: getTeam, enabled: canViewAllSales })
   const sellerOptions = React.useMemo(
     () => (teamMembers ?? []).filter((m) => m.is_owner || m.permissions.includes('sales.create')),

@@ -75,7 +75,7 @@
     "kpiExpenses": "Dépenses du jour",
     "kpiTopPayment": "Moyen le plus utilisé",
     "none": "—",
-    "mySales": "Mes ventes",
+    "mySales": "Mes opérations",
     "summary": "{{date}} · votre caisse du jour"
   }
 }

@@ -43,6 +43,7 @@ import { useTransactionsQuery } from '@/lib/hooks/useTransactions'
 import { getTransactionVisual, paymentMethodIcon } from '@/lib/transactions/transaction-visual'
 import { groupTransactionsByOperation, operationGroupTitle } from '@/lib/transactions/group-by-operation'
 import { keys } from '@/lib/query-keys'
+import type { MyDay } from '@/lib/auth'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { OnboardingSkippedBanner } from '@/components/onboarding'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -199,12 +200,17 @@ function formatTransactionMeta(dateString: string, language: AppLanguage, todayL
  * globaux) : ce composant ne monte alors AUCUN des hooks analytics
  * ci-dessous (évite des appels 403 inutiles), voir CashierDashboard.
  */
+const EMPTY_MY_DAY: MyDay = { sales_count: 0, total: 0, by_payment_method: [], last_sales: [] }
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const { can } = usePermissions()
 
-  if (user && !can('wallet.view_balance') && user.my_day) {
-    return <CashierDashboard myDay={user.my_day} />
+  // D'après les permissions (pas la seule présence de my_day) : un membre
+  // sans wallet.view_balance ne doit JAMAIS monter le tableau de bord du
+  // gérant (ses requêtes d'analyses répondent 403).
+  if (user && !user.is_owner && !can('wallet.view_balance')) {
+    return <CashierDashboard myDay={user.my_day ?? EMPTY_MY_DAY} />
   }
 
   return <OwnerDashboardContent />
