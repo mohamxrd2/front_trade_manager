@@ -73,6 +73,8 @@ interface EditMemberFormProps {
   member: TeamMember
   /** Part disponible pour CE membre : 100 % − les parts des AUTRES associés. */
   remainingShareForEdit: number
+  /** Montant de sa part, même calcul que la répartition des parts (useCollaboratorShares). */
+  shareAmount?: number | null
 }
 
 /**
@@ -81,7 +83,7 @@ interface EditMemberFormProps {
  * récapitulatif avec « Générer un nouveau code ». Un changement de rôle
  * demande confirmation (le membre est déconnecté).
  */
-function EditMemberForm({ member, remainingShareForEdit }: EditMemberFormProps) {
+function EditMemberForm({ member, remainingShareForEdit, shareAmount }: EditMemberFormProps) {
   const { t, language } = useTranslation()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -275,11 +277,11 @@ function EditMemberForm({ member, remainingShareForEdit }: EditMemberFormProps) 
               <span className="text-xs text-subtle">{t('team.salesCount', { count: member.last_30_days.sales_count })}</span>
             </div>
           ) : null}
-          {member.is_partner && member.part_amount !== null ? (
+          {member.is_partner && shareAmount !== null && shareAmount !== undefined ? (
             <div className="flex flex-col gap-0.5">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">{t('team.stats.shareAmount')}</span>
               <span className="text-[22px] font-extrabold text-success">
-                <Amount value={member.part_amount ?? 0} currency />
+                <Amount value={shareAmount} currency />
               </span>
             </div>
           ) : null}

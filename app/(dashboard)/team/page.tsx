@@ -102,7 +102,7 @@ function TeamPageContent() {
   const queryClient = useQueryClient()
   const router = useRouter()
 
-  const { base, isNegativeBase, isLoading: sharesLoading, collaborators, ownerShare } = useCollaboratorShares()
+  const { base, isNegativeBase, isLoading: sharesLoading, collaborators, ownerShare, getShare } = useCollaboratorShares()
 
   const { data: team, isLoading: teamLoading, error: teamError } = useQuery({ queryKey: keys.team.all, queryFn: getTeam })
 
@@ -338,8 +338,12 @@ function TeamPageContent() {
    */
   const LeaderCard = ({ member, index, mobile }: { member: TeamMember; index: number; mobile: boolean }) => {
     const cycle = AVATAR_CYCLE[index % AVATAR_CYCLE.length]
-    const share = Number(member.part ?? 0)
-    const amount = Number(member.part_amount ?? 0)
+    // Part et montant : même source que la répartition des parts (hook
+    // useCollaboratorShares) — le propriétaire n'a pas de fiche associé, sa
+    // part est le reste (100 % − associés), recalculée comme sur main.
+    const computed = member.is_owner ? ownerShare : getShare(member.collaborator_id ?? member.id)
+    const share = computed?.share ?? Number(member.part ?? 0)
+    const amount = computed?.amount ?? Number(member.part_amount ?? 0)
     const subtitle = member.is_owner
       ? t('collaborators.ownerRole')
       : member.role

@@ -23,6 +23,8 @@ export interface TeamMember {
   email: string | null
   is_owner: boolean
   is_partner: boolean
+  /** Id de la fiche associé (≠ id si l'associé a aussi un accès) — null pour le propriétaire et un membre non associé. */
+  collaborator_id?: string | null
   part: number | null
   part_amount: number | null
   access: 'none' | 'active' | 'suspended'
