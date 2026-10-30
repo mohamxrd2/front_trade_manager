@@ -88,6 +88,8 @@ export function getTabs(user: User | null | undefined): TabDefinition[] {
 export const TAB_BAR_HIDDEN_ON: RegExp[] = [
   /^\/products\/[^/]+$/,
   /^\/wallet\/new$/,
+  // Formulaire « Ajouter une personne » en pleine page : comme la nouvelle vente.
+  /^\/team\/new$/,
   /^\/clients\/[^/]+$/,
   // /invoices/new ET /invoices/<id> : la barre flottante couvrait les
   // boutons d'action (PDF, Dupliquer, Marquer payée) en bas de page, qui ne

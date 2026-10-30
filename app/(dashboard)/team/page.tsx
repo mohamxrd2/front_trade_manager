@@ -32,7 +32,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { AddPersonPanel } from '@/components/team/add-person-panel'
 import { ManageMemberPanel } from '@/components/team/manage-member-panel'
 import { MemberActivityPanel } from '@/components/team/member-activity-panel'
 
@@ -104,7 +103,6 @@ function TeamPageContent() {
   const { data: team, isLoading: teamLoading, error: teamError } = useQuery({ queryKey: keys.team.all, queryFn: getTeam })
 
   const [filter, setFilter] = React.useState<FilterValue>('all')
-  const [addOpen, setAddOpen] = React.useState(false)
   const [manageTarget, setManageTarget] = React.useState<TeamMember | null>(null)
   const [activityTarget, setActivityTarget] = React.useState<TeamMember | null>(null)
   const [suspendTarget, setSuspendTarget] = React.useState<TeamMember | null>(null)
@@ -337,14 +335,13 @@ function TeamPageContent() {
               {t('team.subtitlePeople', { count: members.length })} · {t('team.subtitleAccess', { count: withAccessCount })}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
+          <Link
+            href="/team/new"
             className="flex h-11 items-center gap-2 rounded-full bg-button px-4.5 text-sm font-bold text-white shadow-button"
           >
             <Plus className="size-[18px]" strokeWidth={2.2} />
             {t('team.add')}
-          </button>
+          </Link>
         </div>
 
         {sharesLoading ? <div className="h-[140px] animate-pulse rounded-panel bg-surface-soft" /> : <ShareBar compact={false} />}
@@ -400,15 +397,14 @@ function TeamPageContent() {
               {t('team.subtitlePeople', { count: members.length })} · {t('team.subtitleAccess', { count: withAccessCount })}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
+          <Link
+            href="/team/new"
             aria-label={t('team.addAria')}
             className="flex size-12 shrink-0 items-center justify-center rounded-full text-white shadow-[0_8px_18px_rgba(75,47,214,0.35)]"
             style={{ background: 'radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8)' }}
           >
             <Plus className="size-[22px]" strokeWidth={2.2} />
-          </button>
+          </Link>
         </div>
 
         {sharesLoading ? <div className="h-[120px] animate-pulse rounded-[24px] bg-surface-soft" /> : <ShareBar compact />}
@@ -448,7 +444,6 @@ function TeamPageContent() {
         )}
       </div>
 
-      <AddPersonPanel open={addOpen} onOpenChange={setAddOpen} remainingShare={remainingShare} />
       <ManageMemberPanel member={manageTarget} onOpenChange={(open) => !open && setManageTarget(null)} remainingShareForEdit={remainingShareForEdit} />
       <MemberActivityPanel member={activityTarget} onOpenChange={(open) => !open && setActivityTarget(null)} />
 

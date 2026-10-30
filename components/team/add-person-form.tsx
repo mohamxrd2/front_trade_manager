@@ -1,12 +1,14 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ChevronLeft, Loader2, X } from 'lucide-react'
+import { Check, ChevronLeft, Loader2, X } from 'lucide-react'
 
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -14,12 +16,11 @@ import { keys } from '@/lib/query-keys'
 import { formatNumber } from '@/lib/i18n/format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
 import { addTeamMember, getTeamRoles, type TeamCredentials } from '@/lib/services/team'
-import { Button } from '@/components/waelly'
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { buildAddTeamMemberPayload } from '@/lib/team/add-member-payload'
+import { Button, Card } from '@/components/waelly'
 import { RolePicker, type RolePickerValue } from '@/components/team/role-picker'
 import { CredentialsScreen } from '@/components/team/credentials-screen'
-import { useIsDesktop } from '@/hooks/useIsDesktop'
+import { cn } from '@/lib/utils'
 
 function formatShare(n: number, language: AppLanguage): string {
   return `${formatNumber(n, language, { maximumFractionDigits: 2 })} %`
@@ -28,12 +29,8 @@ function formatShare(n: number, language: AppLanguage): string {
 function buildSchema(t: ReturnType<typeof useTranslation>['t'], language: AppLanguage, maxShare: number) {
   return z
     .object({
-      name: z.string().min(1, t('team.validation.nameRequired')).max(255),
+      name: z.string().trim().min(1, t('team.validation.nameRequired')).max(255),
       phone: z.string().optional(),
-      email: z
-        .string()
-        .optional()
-        .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), t('team.validation.emailInvalid')),
       isPartner: z.boolean(),
       share: z.coerce.number().optional(),
       hasAccess: z.boolean(),
@@ -54,18 +51,25 @@ function buildSchema(t: ReturnType<typeof useTranslation>['t'], language: AppLan
 type FormInput = z.input<ReturnType<typeof buildSchema>>
 type FormOutput = z.output<ReturnType<typeof buildSchema>>
 
-interface AddPersonPanelProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+const STEP_TITLE_KEYS = ['team.step1Title', 'team.step2Title', 'team.step3Title'] as const
+
+interface AddPersonFormProps {
+  /** Part encore disponible pour un nouvel associé (100 % − parts existantes). */
   remainingShare: number
 }
 
-function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelProps) {
+/**
+ * « Ajouter une personne » en PLEINE PAGE (/team/new), comme la nouvelle
+ * vente : en-tête avec fil d'Ariane sur ordinateur, bouton fermer sur
+ * mobile. Sur ordinateur, l'étape en cours à gauche et le récapitulatif
+ * (étapes + résumé) à droite ; sur mobile, une seule colonne.
+ */
+function AddPersonForm({ remainingShare }: AddPersonFormProps) {
   const { t, language } = useTranslation()
   const { checkAuth } = useAuth()
+  const router = useRouter()
   const queryClient = useQueryClient()
-  const isDesktop = useIsDesktop()
-  const { data: roles } = useQuery({ queryKey: keys.team.roles, queryFn: getTeamRoles, enabled: open })
+  const { data: roles } = useQuery({ queryKey: keys.team.roles, queryFn: getTeamRoles })
 
   const [step, setStep] = React.useState<1 | 2 | 3>(1)
   const [rolePicker, setRolePicker] = React.useState<RolePickerValue>({ role: 'cashier', overrides: [] })
@@ -76,33 +80,24 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
     mode: 'onChange',
-    defaultValues: { name: '', phone: '', email: '', isPartner: false, share: 10, hasAccess: true },
+    defaultValues: { name: '', phone: '', isPartner: false, share: 10, hasAccess: true },
   })
-
-  const reset = React.useCallback(() => {
-    setStep(1)
-    setResult(null)
-    setRolePicker({ role: 'cashier', overrides: [] })
-    form.reset({ name: '', phone: '', email: '', isPartner: false, share: 10, hasAccess: true })
-  }, [form])
-
-  const close = () => {
-    onOpenChange(false)
-    reset()
-  }
 
   const isPartner = form.watch('isPartner')
   const hasAccess = form.watch('hasAccess')
+  const name = form.watch('name')
+  const phone = form.watch('phone')
+  const share = form.watch('share')
+
+  const backToTeam = () => router.push('/team')
 
   const goNext = async () => {
     if (step === 1) {
-      const valid = await form.trigger(['name', 'phone', 'email'])
-      if (valid) setStep(2)
+      if (await form.trigger(['name', 'phone'])) setStep(2)
       return
     }
     if (step === 2) {
-      const valid = await form.trigger(['share'])
-      if (!valid) return
+      if (!(await form.trigger(['share']))) return
       if (hasAccess && !rolePicker.role) return
       setStep(3)
     }
@@ -110,26 +105,16 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
 
   const goBack = () => {
     if (step === 1) {
-      close()
+      backToTeam()
       return
     }
-    setStep((s) => (s === 3 ? 2 : 1) as 1 | 2)
+    setStep((s) => (s === 3 ? 2 : 1))
   }
 
   const onSubmit = form.handleSubmit(async (data) => {
     setSubmitting(true)
     try {
-      const { team_member, credentials } = await addTeamMember({
-        name: data.name,
-        phone: data.phone || null,
-        email: data.email || null,
-        photo: null,
-        is_partner: data.isPartner,
-        share: data.isPartner ? Number(data.share) : undefined,
-        has_access: data.hasAccess,
-        role: data.hasAccess ? rolePicker.role : undefined,
-        permissions_overrides: data.hasAccess && rolePicker.overrides.length > 0 ? rolePicker.overrides : undefined,
-      })
+      const { team_member, credentials } = await addTeamMember(buildAddTeamMemberPayload(data, rolePicker))
       void queryClient.invalidateQueries({ queryKey: keys.team.all })
       void queryClient.invalidateQueries({ queryKey: keys.collaborators.all })
       void checkAuth()
@@ -138,7 +123,7 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
       if (credentials) {
         setResult({ name: team_member.name, credentials })
       } else {
-        close()
+        backToTeam()
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('team.errorAdd'))
@@ -148,21 +133,52 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
   })
 
   const summaryRows: { label: string; value: string }[] = [
-    { label: t('team.summary.name'), value: form.watch('name') },
-    ...(form.watch('phone') ? [{ label: t('team.summary.phone'), value: form.watch('phone') as string }] : []),
-    ...(form.watch('email') ? [{ label: t('team.summary.email'), value: form.watch('email') as string }] : []),
+    { label: t('team.summary.name'), value: name || '—' },
+    ...(phone ? [{ label: t('team.summary.phone'), value: phone }] : []),
     { label: t('team.summary.partner'), value: isPartner ? t('team.summary.yes') : t('team.summary.no') },
-    ...(isPartner ? [{ label: t('team.summary.share'), value: formatShare(Number(form.watch('share')) || 0, language) }] : []),
+    ...(isPartner ? [{ label: t('team.summary.share'), value: formatShare(Number(share) || 0, language) }] : []),
     { label: t('team.summary.access'), value: hasAccess ? t('team.summary.yes') : t('team.summary.no') },
     ...(hasAccess ? [{ label: t('team.summary.role'), value: t(`team.role.${rolePicker.role === 'stock_manager' ? 'stockManager' : rolePicker.role}`) }] : []),
   ]
 
-  const body = result ? (
-    <CredentialsScreen name={result.name} credentials={result.credentials} onDone={close} />
-  ) : (
-    <div className="flex flex-col gap-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('team.stepOf', { current: step, total: 3 })}</p>
+  const pageTitle = t('team.addSheetTitle')
 
+  const pageHeader = (
+    <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-1.5">
+        <nav aria-label={t('products.breadcrumbAria')} className="hidden gap-2 text-[13px] text-subtle lg:flex">
+          <Link href="/team" className="font-semibold">
+            {t('team.title')}
+          </Link>
+          <span aria-hidden>/</span>
+          <span>{pageTitle}</span>
+        </nav>
+        <h1 className="pl-14 text-[22px] font-bold text-ink lg:pl-0 lg:text-[28px] lg:tracking-tight">{pageTitle}</h1>
+      </div>
+      {/* Fermer (mobile) — même emplacement que sur la nouvelle vente. */}
+      <Link
+        href="/team"
+        aria-label={t('common.close')}
+        className="fixed left-4 top-[52px] z-30 flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink lg:hidden"
+      >
+        <X className="size-5" />
+      </Link>
+    </div>
+  )
+
+  if (result) {
+    return (
+      <div className="flex flex-col gap-5 pb-28 lg:pb-0">
+        {pageHeader}
+        <Card className="mx-auto w-full max-w-[560px] rounded-panel">
+          <CredentialsScreen name={result.name} credentials={result.credentials} onDone={backToTeam} />
+        </Card>
+      </div>
+    )
+  }
+
+  const stepContent = (
+    <>
       {step === 1 ? (
         <div className="flex flex-col gap-3.5">
           <div className="flex flex-col gap-1.5">
@@ -171,13 +187,12 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
             </label>
             <input
               id="team-add-name"
+              autoFocus
               placeholder={t('team.form.namePlaceholder')}
               className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink"
               {...form.register('name')}
             />
-            {form.formState.errors.name ? (
-              <p className="text-xs text-danger-strong">{form.formState.errors.name.message}</p>
-            ) : null}
+            {form.formState.errors.name ? <p className="text-xs text-danger-strong">{form.formState.errors.name.message}</p> : null}
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="team-add-phone" className="text-[13px] font-semibold text-ink">
@@ -190,21 +205,6 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
               className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink"
               {...form.register('phone')}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="team-add-email" className="text-[13px] font-semibold text-ink">
-              {t('team.form.email')}
-            </label>
-            <input
-              id="team-add-email"
-              type="email"
-              placeholder={t('team.form.emailPlaceholder')}
-              className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink"
-              {...form.register('email')}
-            />
-            {form.formState.errors.email ? (
-              <p className="text-xs text-danger-strong">{form.formState.errors.email.message}</p>
-            ) : null}
           </div>
         </div>
       ) : null}
@@ -228,12 +228,7 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
               <label htmlFor="team-add-share" className="text-[13px] font-semibold text-ink">
                 {t('team.shareLabel')}
               </label>
-              <input
-                id="team-add-share"
-                inputMode="numeric"
-                className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink"
-                {...form.register('share')}
-              />
+              <input id="team-add-share" inputMode="numeric" className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink" {...form.register('share')} />
               {form.formState.errors.share ? (
                 <p className="text-xs text-danger-strong">{form.formState.errors.share.message}</p>
               ) : (
@@ -276,67 +271,78 @@ function AddPersonPanel({ open, onOpenChange, remainingShare }: AddPersonPanelPr
           </dl>
         </div>
       ) : null}
-
-      <div className="flex gap-2.5">
-        {step < 3 ? (
-          <Button type="button" variant="primary" className="h-[52px] w-full" onClick={goNext}>
-            {t('common.next')}
-          </Button>
-        ) : (
-          <Button type="button" variant="primary" className="h-[52px] w-full" disabled={submitting} onClick={onSubmit}>
-            {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
-            {t('team.submitAdd')}
-          </Button>
-        )}
-      </div>
-    </div>
+    </>
   )
 
-  // SheetContent a déjà son propre bouton de fermeture (coin haut-droit,
-  // Radix) — ne pas en remettre un ici sur ordinateur (deux "X" sinon).
-  // DrawerContent (mobile), lui, n'en fournit aucun : on garde le nôtre.
-  const header = (
-    <div className="flex items-center gap-3">
-      <button type="button" onClick={goBack} aria-label={t('common.previous')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
-        <ChevronLeft className="size-[18px]" strokeWidth={2} />
-      </button>
-      <span className="flex-1 text-base font-bold text-ink">
-        {result ? '' : step === 1 ? t('team.step1Title') : step === 2 ? t('team.step2Title') : t('team.step3Title')}
-      </span>
-      {isDesktop ? null : (
-        <button type="button" onClick={close} aria-label={t('common.close')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
-          <X className="size-4" strokeWidth={2} />
-        </button>
+  const actions = (
+    <div className="flex gap-2.5">
+      <Button type="button" variant="secondary" className="h-[52px] flex-1" onClick={goBack}>
+        <ChevronLeft className="size-4" strokeWidth={2} />
+        {step === 1 ? t('common.cancel') : t('common.previous')}
+      </Button>
+      {step < 3 ? (
+        <Button type="button" variant="primary" className="h-[52px] flex-[2]" onClick={goNext}>
+          {t('common.next')}
+        </Button>
+      ) : (
+        <Button type="button" variant="primary" className="h-[52px] flex-[2]" disabled={submitting} onClick={onSubmit}>
+          {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
+          {t('team.submitAdd')}
+        </Button>
       )}
     </div>
   )
 
-  if (isDesktop) {
-    return (
-      <Sheet open={open} onOpenChange={(next) => !next && close()}>
-        <SheetContent className="flex w-full flex-col gap-0 sm:max-w-[420px]">
-          <SheetHeader className="border-b border-line pb-3.5">
-            <SheetTitle className="sr-only">{t('team.addSheetTitle')}</SheetTitle>
-            {header}
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-4 pb-6">{body}</div>
-        </SheetContent>
-      </Sheet>
-    )
-  }
-
   return (
-    <Drawer open={open} onOpenChange={(next) => !next && close()}>
-      <DrawerContent className="max-h-[94vh] px-5 pb-8 pt-2.5">
-        <DrawerHeader className="mt-1.5 p-0">
-          <DrawerTitle className="sr-only">{t('team.addSheetTitle')}</DrawerTitle>
-          {header}
-        </DrawerHeader>
-        <div className="mt-4 overflow-y-auto">{body}</div>
-      </DrawerContent>
-    </Drawer>
+    <div className="flex flex-col gap-5 pb-28 lg:pb-0">
+      {pageHeader}
+
+      <div className="flex flex-wrap items-start gap-5">
+        {/* --- Étape en cours --- */}
+        <Card className="flex min-w-0 flex-[3_1_520px] flex-col gap-5 rounded-panel">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('team.stepOf', { current: step, total: 3 })}</p>
+            <h2 className="text-lg font-bold text-ink">{t(STEP_TITLE_KEYS[step - 1])}</h2>
+          </div>
+          {stepContent}
+          {actions}
+        </Card>
+
+        {/* --- Récapitulatif (ordinateur) --- */}
+        <Card className="sticky top-5 hidden flex-[2_1_300px] flex-col gap-4 rounded-panel lg:flex">
+          <ol className="flex flex-col gap-2.5">
+            {STEP_TITLE_KEYS.map((key, i) => {
+              const n = i + 1
+              const done = n < step
+              const current = n === step
+              return (
+                <li key={key} className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                      done || current ? 'bg-brand-600 text-white' : 'bg-canvas text-subtle'
+                    )}
+                  >
+                    {done ? <Check className="size-3.5" strokeWidth={3} /> : n}
+                  </span>
+                  <span className={cn('text-sm', current ? 'font-bold text-ink' : 'text-subtle')}>{t(key)}</span>
+                </li>
+              )
+            })}
+          </ol>
+          <dl className="flex flex-col gap-2 border-t border-divider pt-4">
+            {summaryRows.map((row) => (
+              <div key={row.label} className="flex items-center justify-between gap-3 text-sm">
+                <dt className="text-subtle">{row.label}</dt>
+                <dd className="m-0 truncate font-semibold text-ink">{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      </div>
+    </div>
   )
 }
 
-export { AddPersonPanel }
-export type { AddPersonPanelProps }
+export { AddPersonForm }
+export type { AddPersonFormProps }
