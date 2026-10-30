@@ -26,6 +26,9 @@ export const keys = {
 
   userStats: {
     all: ['user-stats'] as const,
+    // Sous la même racine : invalidé par invalidateAfterOperation() après
+    // chaque vente/dépense — « Ma caisse du jour » se met à jour seule.
+    myDay: () => ['user-stats', 'my-day'] as const,
   },
 
   invoices: {

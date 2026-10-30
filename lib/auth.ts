@@ -18,6 +18,11 @@ export interface UserCompany {
 export interface MyDay {
   sales_count: number
   total: number
+  /** Ses dépenses du jour (payées depuis sa caisse) — absents sur un backend antérieur. */
+  expenses_count?: number
+  expenses_total?: number
+  /** Solde du jour = encaissé − dépensé (les siens uniquement, jamais le solde global). */
+  balance?: number
   by_payment_method: { payment_method: string; amount: number; count: number }[]
   last_sales: {
     id: string

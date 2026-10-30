@@ -68,6 +68,14 @@
     "noSalesYet": "Aucune vente aujourd'hui pour l'instant.",
     "reprint": "Réimprimer le ticket",
     "reprintAria": "Réimprimer le ticket {{code}}",
-    "reprintTitle": "Ticket"
+    "reprintTitle": "Ticket",
+    "dayBalance": "Solde du jour",
+    "kpiSalesCount": "Ventes du jour",
+    "kpiAverageBasket": "Panier moyen",
+    "kpiExpenses": "Dépenses du jour",
+    "kpiTopPayment": "Moyen le plus utilisé",
+    "none": "—",
+    "mySales": "Mes ventes",
+    "summary": "{{date}} · votre caisse du jour"
   }
 }

@@ -1,4 +1,5 @@
 import api, { isApiError } from '@/lib/api'
+import type { MyDay, User } from '@/lib/auth'
 import { isSilentError } from '@/lib/utils/error-handler'
 
 /**
@@ -53,3 +54,14 @@ export async function getMyPermissions(): Promise<string[]> {
     throw error
   }
 }
+
+/**
+ * « Ma caisse du jour » d'un membre sans wallet.view_balance — calculée par
+ * GET /api/user (my_day). Requête dédiée (et non l'utilisateur chargé à la
+ * connexion) pour être rafraîchie après chaque vente/dépense.
+ */
+export async function getMyDay(): Promise<MyDay | null> {
+  const response = await api.get<User>('/api/user')
+  return response.data.my_day ?? null
+}
+
