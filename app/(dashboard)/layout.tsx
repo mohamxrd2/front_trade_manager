@@ -47,7 +47,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const { can } = usePermissions()
   const { articles } = useArticles({ enabled: can("stock.view") })
   const isBusy = useIsAppBusy()
-  const routeRule = routeRuleFor(usePathname())
+  const pathname = usePathname()
+  const routeRule = routeRuleFor(pathname)
   const stockAlerts = articles.filter((article) => article.low_stock).length
 
   // Même clé que Settings > Entreprise (keys.settings.company()) : cache déjà
@@ -89,7 +90,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             <AmountVisibilityProvider>
               <TabPageTransition>
                 {routeRule ? (
-                  <PermissionGuard permission={routeRule.anyOf} allOf={routeRule.allOf}>
+                  <PermissionGuard permission={routeRule.anyOf} allOf={routeRule.allOf} silent={pathname === "/dashboard"}>
                     {children}
                   </PermissionGuard>
                 ) : (

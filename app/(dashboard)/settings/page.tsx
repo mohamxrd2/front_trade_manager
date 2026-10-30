@@ -22,6 +22,7 @@ import type { AppLanguage } from '@/lib/i18n/current-language'
 import { keys } from '@/lib/query-keys'
 import { useNotifications } from '@/hooks/useNotifications'
 import { usePermissions } from '@/hooks/usePermissions'
+import { homeRouteForUser } from '@/lib/permissions/home-route'
 import { updateUserProfile, updateUserPassword } from '@/lib/auth'
 import { getCompany, updateCompany, uploadCompanyLogo, type Company } from '@/lib/services/company'
 import {
@@ -1424,7 +1425,7 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-5 md:hidden">
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard"
+            href={homeRouteForUser(user)}
             aria-label={t('settings.mobile.backAria')}
             className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink"
           >

@@ -6,6 +6,7 @@ import { LazyMotion, MotionConfig, domAnimation } from 'motion/react'
 
 import { Navbar } from '@/components/landing/navbar'
 import { useAuth } from '@/contexts/AuthContext'
+import { homeRouteForUser } from '@/lib/permissions/home-route'
 
 /**
  * Layout du groupe (marketing) — route "/" : aucun menu latéral ni barre du
@@ -23,14 +24,14 @@ import { useAuth } from '@/contexts/AuthContext'
  * /dashboard dès que l'état d'authentification est connu.
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
   React.useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.replace('/dashboard')
+      router.replace(homeRouteForUser(user))
     }
-  }, [isAuthenticated, loading, router])
+  }, [user, isAuthenticated, loading, router])
 
   return (
     <LazyMotion features={domAnimation} strict>

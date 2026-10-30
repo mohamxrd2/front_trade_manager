@@ -43,9 +43,16 @@ describe('routeRuleFor / isRouteAllowed', () => {
   })
 
   test('pages ouvertes à tout membre connecté', () => {
-    for (const path of ['/dashboard', '/notifications', '/settings', '/account']) {
+    for (const path of ['/notifications', '/settings', '/account']) {
       expect(routeRuleFor(path)).toBeNull()
     }
+  })
+
+  test('/dashboard : pour qui vend ou voit le solde — pas pour le gestionnaire de stock', () => {
+    expect(isRouteAllowed('/dashboard', canFor(ROLES.stock_manager))).toBe(false)
+    expect(isRouteAllowed('/dashboard', canFor(ROLES.cashier))).toBe(true)
+    expect(isRouteAllowed('/dashboard', canFor(ROLES.accountant))).toBe(true)
+    expect(isRouteAllowed('/dashboard', canFor(ROLES.manager))).toBe(true)
   })
 
   test('un préfixe ne déborde pas sur une autre route (/walletx)', () => {

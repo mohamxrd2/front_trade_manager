@@ -23,6 +23,7 @@ import { useTranslation } from "@/lib/i18n/hooks/useTranslation"
 import { usePermissions } from "@/hooks/usePermissions"
 import { roleLabelKey } from "@/lib/permissions/role-labels"
 import { isRouteAllowed } from "@/lib/permissions/route-permissions"
+import { homeRouteForUser } from "@/lib/permissions/home-route"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -131,7 +132,9 @@ function GlassSidebar({
 }: GlassSidebarProps) {
   const pathname = usePathname()
   const { t } = useTranslation()
-  const { can } = usePermissions()
+  const { can, role, isOwner, permissions } = usePermissions()
+  // Logo → accueil du rôle (le gestionnaire de stock n'a pas de tableau de bord).
+  const homeHref = homeRouteForUser({ is_owner: isOwner, role, permissions })
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`)
   const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false)
 
@@ -164,7 +167,7 @@ function GlassSidebar({
         className
       )}
     >
-      <Link href="/dashboard" className="flex items-center gap-2.5 px-2">
+      <Link href={homeHref} className="flex items-center gap-2.5 px-2">
         <span className="flex size-[38px] items-center justify-center rounded-xl bg-orb text-[19px] font-extrabold text-white">
           W
         </span>

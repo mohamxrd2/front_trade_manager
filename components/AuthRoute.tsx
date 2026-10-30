@@ -3,6 +3,7 @@
 import { useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { homeRouteForUser } from '@/lib/permissions/home-route'
 import { FullPageSpinner } from '@/components/ui/full-page-spinner'
 
 interface AuthRouteProps {
@@ -14,12 +15,12 @@ interface AuthRouteProps {
  * Redirige vers /dashboard si l'utilisateur est déjà connecté
  */
 export default function AuthRoute({ children }: AuthRouteProps) {
-  const { isAuthenticated, loading } = useAuth()
+  const { user, isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      router.push('/dashboard')
+      router.push(homeRouteForUser(user))
     }
   }, [isAuthenticated, loading, router])
 

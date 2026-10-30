@@ -16,6 +16,8 @@ interface PermissionGuardProps {
   permission?: string | string[]
   /** Permissions TOUTES requises (en plus de `permission`). */
   allOf?: string[]
+  /** Rediriger sans toast « Accès non autorisé » (ex. /dashboard, page d'arrivée par défaut). */
+  silent?: boolean
   children: React.ReactNode
 }
 
@@ -27,7 +29,7 @@ interface PermissionGuardProps {
  * au lieu de renvoyer /login (l'utilisateur EST connecté, juste pas
  * autorisé ici).
  */
-export function PermissionGuard({ permission, allOf, children }: PermissionGuardProps) {
+export function PermissionGuard({ permission, allOf, silent = false, children }: PermissionGuardProps) {
   const { user, loading } = useAuth()
   const { can } = usePermissions()
   const router = useRouter()
@@ -41,9 +43,9 @@ export function PermissionGuard({ permission, allOf, children }: PermissionGuard
     if (loading || !user || allowed || deniedRef.current) return
 
     deniedRef.current = true
-    toast.error(t('team.accessDenied'))
+    if (!silent) toast.error(t('team.accessDenied'))
     router.replace(homeRouteForUser(user))
-  }, [loading, user, allowed, router, t])
+  }, [loading, user, allowed, silent, router, t])
 
   if (loading || !user || !allowed) {
     return <FullPageSpinner />

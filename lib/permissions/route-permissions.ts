@@ -14,6 +14,9 @@ export interface RouteRule {
 }
 
 const ROUTE_PERMISSIONS: Array<{ prefix: string } & RouteRule> = [
+  // Le tableau de bord n'a de sens que pour qui vend ou voit le solde : le
+  // gestionnaire de stock arrive directement sur /products.
+  { prefix: '/dashboard', anyOf: ['wallet.view_balance', 'sales.create', 'sales.view_own', 'sales.view_all'] },
   { prefix: '/wallet/new', anyOf: ['sales.create', 'expenses.create', 'deposits.manage'] },
   // Gérant : tout le portefeuille. Caissier : « Mes opérations », ses seules opérations (filtrées côté serveur).
   { prefix: '/wallet', anyOf: ['wallet.view_balance', 'sales.view_own', 'sales.view_all'] },
