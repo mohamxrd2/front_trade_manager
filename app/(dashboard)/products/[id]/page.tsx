@@ -3,7 +3,6 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import dayjs from 'dayjs'
 import { toast } from 'sonner'
 import {
   AlertCircle,
@@ -29,7 +28,6 @@ import {
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { useCurrency } from '@/lib/utils/currency'
 import { useSettings } from '@/contexts/SettingsContext'
-import { getTransactions, type Transaction } from '@/lib/services/transactions'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatNumber } from '@/lib/i18n/format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
@@ -77,9 +75,9 @@ function buildTypeOptions(t: ReturnType<typeof useTranslation>['t']) {
  *   possible, il ne soumet rien.
  * - Pas de téléversement d'image d'article dans l'API actuelle : le bloc
  *   photo reste un espace réservé statique.
- * - "Vendus (30 j)" / "CA généré (30 j)" sont calculés côté client à partir
- *   de GET /api/transactions (pas de filtre serveur par article ni par
- *   date) : aucun nouvel endpoint n'a été inventé.
+ * - "Vendus (30 j)" / "CA généré (30 j)" viennent de l'article lui-même
+ *   (last_30_days, GET /api/articles/{id}) — plus de GET /api/transactions,
+ *   refusé au gestionnaire de stock ; le CA est null sans accès aux finances.
  * - Un article variable n'a ni quantité ni prix propres : quantity/sale_price
  *   ne sont JAMAIS envoyés sur PUT /api/articles/{id} pour ce type (seuls
  *   name/image le sont) — le total et la plage de prix affichés viennent
@@ -132,7 +130,6 @@ export default function ProductDetailPage() {
   const [salePrice, setSalePrice] = React.useState('')
   const [savingInfo, setSavingInfo] = React.useState(false)
 
-  const [transactions, setTransactions] = React.useState<Transaction[]>([])
 
   const isVariable = article?.type === 'variable'
 
@@ -146,20 +143,6 @@ export default function ProductDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [article?.id])
-
-  React.useEffect(() => {
-    let cancelled = false
-    getTransactions()
-      .then((data) => {
-        if (!cancelled) setTransactions(data)
-      })
-      .catch(() => {
-        // Les KPI 30 j restent à 0 si la requête échoue — pas de blocage de page.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const fetchVariations = React.useCallback(async () => {
     setLoadingVariations(true)
@@ -178,16 +161,10 @@ export default function ProductDetailPage() {
     }
   }, [productId, article?.type, fetchVariations])
 
-  const last30Days = React.useMemo(() => {
-    const cutoff = dayjs().subtract(30, 'day')
-    const relevant = transactions.filter(
-      (t) => t.type === 'sale' && t.article_id === productId && dayjs(t.date).isAfter(cutoff)
-    )
-    return {
-      unitsSold: relevant.reduce((sum, t) => sum + (t.quantity ?? 0), 0),
-      revenue: relevant.reduce((sum, t) => sum + (t.amount ?? 0), 0),
-    }
-  }, [transactions, productId])
+  const last30Days = {
+    unitsSold: article?.last_30_days?.units_sold ?? 0,
+    revenue: article?.last_30_days?.revenue ?? null,
+  }
 
   const lowStockThreshold = settings?.low_stock_threshold ?? 80
 
@@ -656,12 +633,14 @@ export default function ProductDetailPage() {
               <span className="text-[13px] text-subtle">{t('products.detail.soldLast30Days')}</span>
               <span className="text-2xl font-bold tracking-[-0.02em] text-ink">{last30Days.unitsSold}</span>
             </div>
-            <div className="flex flex-col gap-1.5 rounded-card bg-surface p-[18px] shadow-card">
-              <span className="text-[13px] text-subtle">{t('products.detail.revenueLast30Days')}</span>
-              <span className="text-2xl font-bold tracking-[-0.02em] text-success">
-                {formatAmount(last30Days.revenue, language)} F
-              </span>
-            </div>
+            {last30Days.revenue !== null ? (
+              <div className="flex flex-col gap-1.5 rounded-card bg-surface p-[18px] shadow-card">
+                <span className="text-[13px] text-subtle">{t('products.detail.revenueLast30Days')}</span>
+                <span className="text-2xl font-bold tracking-[-0.02em] text-success">
+                  {formatAmount(last30Days.revenue, language)} F
+                </span>
+              </div>
+            ) : null}
           </div>
 
           {/* --- Variations --- */}

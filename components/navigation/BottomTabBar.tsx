@@ -91,7 +91,7 @@ function BottomTabBarInner() {
     }
   }
 
-  if (isTabBarHidden(pathname) || keyboardOpen) {
+  if (isTabBarHidden(pathname, TABS) || keyboardOpen) {
     return null
   }
 

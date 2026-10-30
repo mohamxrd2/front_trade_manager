@@ -1,4 +1,4 @@
-import { BarChart3, FileText, Home, Package, ShoppingCart, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Bell, FileText, Home, Package, Settings, ShoppingCart, Wallet, type LucideIcon } from 'lucide-react'
 import type { User } from '@/lib/auth'
 import { homeRouteForUser } from '@/lib/permissions/home-route'
 import { isRouteAllowed } from '@/lib/permissions/route-permissions'
@@ -40,6 +40,10 @@ const INVOICES_TAB: TabDefinition = {
   activeMatch: /^\/clients(\/|$)/,
 }
 const ANALYTICS_TAB: TabDefinition = { id: 'analytics', labelKey: 'nav.analytics', href: '/analytics', icon: BarChart3 }
+// Pour un membre avec très peu de pages (gestionnaire de stock) : même menu
+// que sur ordinateur — Stock · Notifications · Paramètres.
+const NOTIFICATIONS_TAB: TabDefinition = { id: 'notifications', labelKey: 'nav.notifications', href: '/notifications', icon: Bell }
+const SETTINGS_TAB: TabDefinition = { id: 'settings', labelKey: 'nav.settings', href: '/settings', icon: Settings }
 
 /** Onglets "legacy" pour un utilisateur sans `permissions` (ex. tests, état transitoire au premier rendu) — comportement inchangé. */
 export const TABS: TabDefinition[] = [HOME_TAB('/dashboard'), STOCK_TAB, WALLET_TAB, INVOICES_TAB, ANALYTICS_TAB]
@@ -56,7 +60,9 @@ export function getTabs(user: User | null | undefined): TabDefinition[] {
   const can = (p: string) => (user.permissions ?? []).includes(p)
   const hasWallet = can('wallet.view_balance')
 
-  const tabs: TabDefinition[] = [HOME_TAB(homeRouteForUser(user))]
+  // Pas de tableau de bord (gestionnaire de stock) : pas d'onglet « Accueil »
+  // — sa page d'accueil (Stock) a déjà son propre onglet, avec son vrai nom.
+  const tabs: TabDefinition[] = isRouteAllowed('/dashboard', can) ? [HOME_TAB(homeRouteForUser(user))] : []
 
   // Un membre sans accès au Portefeuille global a besoin de ces deux
   // raccourcis dédiés (le propriétaire/gérant les ont déjà via le héros du
@@ -72,6 +78,10 @@ export function getTabs(user: User | null | undefined): TabDefinition[] {
   // Dédoublonne par href (ex. gestionnaire de stock : l'accueil ET l'onglet
   // Stock pointeraient tous deux vers /products) — garde la première
   // occurrence (toujours l'accueil).
+  // Trop peu d'onglets métier : on complète avec Notifications et
+  // Paramètres, comme le menu latéral sur ordinateur.
+  if (tabs.length < 3) tabs.push(NOTIFICATIONS_TAB, SETTINGS_TAB)
+
   // Jamais un onglet vers une page que la garde des routes refuserait.
   const seenHrefs = new Set<string>()
   return tabs.filter((tab) => {
@@ -107,8 +117,10 @@ export const TAB_BAR_HIDDEN_ON: RegExp[] = [
   /^\/notifications$/,
 ]
 
-export function isTabBarHidden(pathname: string | null): boolean {
+/** `tabs` : une page qui a SON onglet dans la barre (ex. Paramètres du gestionnaire de stock) la garde toujours. */
+export function isTabBarHidden(pathname: string | null, tabs: TabDefinition[] = []): boolean {
   if (!pathname) return false
+  if (tabs.some((tab) => tab.href.split('?')[0] === pathname)) return false
   return TAB_BAR_HIDDEN_ON.some((pattern) => pattern.test(pathname))
 }
 

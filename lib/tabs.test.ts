@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { User } from '@/lib/auth'
-import { getTabs } from './tabs'
+import { getTabs, isTabBarHidden } from './tabs'
 
 function makeUser(overrides: Partial<User> = {}): User {
   return {
@@ -29,11 +29,20 @@ describe('getTabs — navigation adaptée au rôle (chantier "Équipe" §6)', ()
     expect(tabs[0].href).toBe('/dashboard')
   })
 
-  test('gestionnaire de stock : accueil redirige vers /products, pas de doublon avec l\'onglet Stock', () => {
+  test('gestionnaire de stock : Stock · Notifications · Paramètres (comme sur ordinateur, pas d\'« Accueil »)', () => {
     const stockManager = makeUser({ role: 'stock_manager', permissions: ['stock.view', 'stock.edit', 'stock.restock'] })
     const tabs = getTabs(stockManager)
-    expect(tabs.map((t) => t.id)).toEqual(['home'])
+    expect(tabs.map((t) => t.id)).toEqual(['stock', 'notifications', 'settings'])
     expect(tabs[0].href).toBe('/products')
+  })
+
+  test('la barre reste visible sur Paramètres/Notifications quand ce sont des onglets', () => {
+    const stockManager = makeUser({ role: 'stock_manager', permissions: ['stock.view'] })
+    const tabs = getTabs(stockManager)
+    expect(isTabBarHidden('/settings', tabs)).toBe(false)
+    expect(isTabBarHidden('/notifications', tabs)).toBe(false)
+    // Pour les autres rôles, Paramètres n'a pas d'onglet : barre masquée comme avant.
+    expect(isTabBarHidden('/settings', getTabs(makeUser({ role: 'cashier', permissions: ['sales.create', 'sales.view_own', 'stock.view'] })))).toBe(true)
   })
 
   test('comptable : accueil redirige vers /analytics (déduplique l\'onglet Analyses, même href), garde portefeuille et factures', () => {
@@ -55,8 +64,8 @@ describe('getTabs — navigation adaptée au rôle (chantier "Équipe" §6)', ()
     expect(tabs.map((t) => t.id)).toEqual(['home', 'stock', 'wallet', 'invoices', 'analytics'])
   })
 
-  test('membre sans aucune permission : seulement l\'accueil', () => {
+  test('membre sans aucune permission : jamais un onglet vers une page refusée — Notifications et Paramètres', () => {
     const noPerms = makeUser({ role: 'cashier', permissions: [] })
-    expect(getTabs(noPerms).map((t) => t.id)).toEqual(['home'])
+    expect(getTabs(noPerms).map((t) => t.id)).toEqual(['notifications', 'settings'])
   })
 })

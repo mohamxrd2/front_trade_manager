@@ -60,6 +60,8 @@ export interface Article {
   id: number
   name: string
   sale_price: number
+  /** Ventes des 30 derniers jours (GET /api/articles/{id} uniquement) — `revenue` null sans accès aux finances. */
+  last_30_days?: { units_sold: number; revenue: number | null }
   /** Prix maximum parmi les variations — avec sale_price (minimum), définit
    * la plage affichée pour un article variable ("15 000 – 25 000 F"). */
   price_max?: number | null
