@@ -82,11 +82,15 @@ export interface RoleDefinition {
 export interface ActivityLogEntry {
   id: string
   account_id: string
-  user_id: string
+  user_id: string | null
   action: string
   subject_type: string | null
   subject_id: string | null
   details: Record<string, unknown> | null
+  /** Nom de l'auteur (ou son nom figé s'il a été supprimé). */
+  actor_name?: string | null
+  /** Personne, article/variation ou code d'opération concerné. */
+  subject_name?: string | null
   created_at: string
 }
 

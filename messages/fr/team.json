@@ -250,22 +250,6 @@
   "errorCodeReset": "Échec de la génération du code",
   "activityTitle": "Activité de {{name}}",
   "activityEmpty": "Aucune activité pour l'instant",
-  "activityAction": {
-    "operation.deleted": "Opération annulée",
-    "operation.restored": "Opération restaurée",
-    "team.member_login": "Connexion",
-    "variation.price_changed": "Prix d'une variation modifié",
-    "transaction.deleted": "Transaction annulée",
-    "transaction.restored": "Transaction restaurée",
-    "article.price_changed": "Prix d'un article modifié",
-    "team.person_added": "Ajouté à l'équipe",
-    "team.person_updated": "Informations modifiées",
-    "team.access_granted": "Accès à l'application créé",
-    "team.member_suspended": "Suspendu",
-    "team.member_reactivated": "Réactivé",
-    "team.member_code_reset": "Code régénéré",
-    "team.person_removed": "Retiré de l'équipe"
-  },
   "deleteConfirmTitle": "Supprimer définitivement le compte de {{name}} ?",
   "deleteConfirmDescription": "Le compte et son identifiant sont supprimés : {{name}} ne pourra plus se connecter. Ses ventes restent dans l'historique, avec son nom. S'il est associé, sa part est retirée. Cette action est irréversible.",
   "deleteConfirmTypeLabel": "Pour confirmer, tapez « {{name}} »",
@@ -285,5 +269,35 @@
     "members": "Membres de l'équipe",
     "membersHint": "Caissiers, gestion du stock, comptabilité"
   },
-  "partnerRole": "Associé"
+  "partnerRole": "Associé",
+  "activity": {
+    "someone": "une personne",
+    "unknown": "Autre action ({{action}})",
+    "done": {
+      "team_member_login": "Connexion à l’application",
+      "operation_deleted": "A annulé l’opération {{subject}}",
+      "operation_restored": "A restauré l’opération {{subject}}",
+      "transaction_deleted": "A annulé une transaction",
+      "transaction_restored": "A restauré une transaction",
+      "article_price_changed": "A changé le prix de {{subject}} : {{from}} → {{to}}",
+      "variation_price_changed": "A changé le prix de {{subject}} : {{from}} → {{to}}",
+      "team_person_added": "A ajouté {{subject}} à l’équipe",
+      "team_person_updated": "A modifié les informations de {{subject}}",
+      "team_access_granted": "A créé l’accès de {{subject}}",
+      "team_member_suspended": "A suspendu {{subject}}",
+      "team_member_reactivated": "A réactivé {{subject}}",
+      "team_member_code_reset": "A régénéré le code de {{subject}}",
+      "team_person_removed": "A retiré {{subject}} de l’équipe",
+      "team_member_deleted": "A supprimé le compte de {{subject}}"
+    },
+    "received": {
+      "team_person_added": "Ajout à l’équipe par {{actor}}",
+      "team_person_updated": "Informations modifiées par {{actor}}",
+      "team_access_granted": "Accès créé par {{actor}}",
+      "team_member_suspended": "Suspension par {{actor}}",
+      "team_member_reactivated": "Réactivation par {{actor}}",
+      "team_member_code_reset": "Code régénéré par {{actor}}",
+      "team_person_removed": "Retrait de l’équipe par {{actor}}"
+    }
+  }
 }

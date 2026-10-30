@@ -4,10 +4,11 @@ import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
-import { formatDateTime } from '@/lib/i18n/format'
+import { formatDateTime, formatMoney } from '@/lib/i18n/format'
 import { keys } from '@/lib/query-keys'
 import { getTeamActivity, type TeamMember } from '@/lib/services/team'
-import { activityActionLabelKey } from '@/lib/permissions/activity-labels'
+import { describeActivity } from '@/lib/permissions/activity-labels'
+import { useCurrency } from '@/lib/utils/currency'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
@@ -20,6 +21,7 @@ interface MemberActivityPanelProps {
 function MemberActivityPanel({ member, onOpenChange }: MemberActivityPanelProps) {
   const { t, language } = useTranslation()
   const isDesktop = useIsDesktop()
+  const { currency } = useCurrency()
   const open = member !== null
   const close = () => onOpenChange(false)
 
@@ -36,12 +38,12 @@ function MemberActivityPanel({ member, onOpenChange }: MemberActivityPanelProps)
         : (data?.data ?? []).length === 0
           ? <p className="py-6 text-center text-sm text-subtle">{t('team.activityEmpty')}</p>
           : (data?.data ?? []).map((entry) => {
-              const labelKey = activityActionLabelKey(entry.action)
-              // i18n:allow — repli sur l'identifiant technique brut si l'action n'est pas dans le catalogue (lib/permissions/activity-labels.ts), jamais un texte rédigé en dur.
-              const label = labelKey ? t(labelKey) : entry.action
+              // Phrase complète : ce que la personne a fait (« A suspendu
+              // Koffi ») ou ce qu'on lui a fait (« Suspension par Awa »).
+              const label = describeActivity(entry, member?.id ?? '', t, (value) => formatMoney(value, currency, language))
               return (
-                <div key={entry.id} className="flex items-center justify-between gap-3 rounded-2xl border border-line-strong bg-surface px-3.5 py-3">
-                  <span className="text-sm font-semibold text-ink">{label}</span>
+                <div key={entry.id} className="flex flex-col gap-1 rounded-2xl border border-line-strong bg-surface px-3.5 py-3">
+                  <span className="text-sm font-semibold leading-snug text-ink">{label}</span>
                   <span className="text-xs text-subtle">{formatDateTime(entry.created_at, language)}</span>
                 </div>
               )
