@@ -30,7 +30,8 @@
     "suspend": "Suspend",
     "reactivate": "Reactivate",
     "remove": "Remove",
-    "activity": "Activity"
+    "activity": "Activity",
+    "deletePermanently": "Delete permanently"
   },
   "suspendConfirmTitle": "Suspend {{name}}?",
   "suspendConfirmDescription": "{{name}} won't be able to sign in until reactivated.",
@@ -264,5 +265,10 @@
     "team.member_reactivated": "Reactivated",
     "team.member_code_reset": "Code regenerated",
     "team.person_removed": "Removed from the team"
-  }
+  },
+  "deleteConfirmTitle": "Permanently delete {{name}}'s account?",
+  "deleteConfirmDescription": "The account and its username are deleted: {{name}} will no longer be able to sign in. Their sales stay in the history, under their name. If they are a partner, their share is removed. This cannot be undone.",
+  "deleteConfirmTypeLabel": "To confirm, type \"{{name}}\"",
+  "toastDeleted": "{{name}}'s account has been deleted",
+  "errorDelete": "Unable to delete this account"
 }

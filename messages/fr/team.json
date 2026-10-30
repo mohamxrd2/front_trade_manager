@@ -30,7 +30,8 @@
     "suspend": "Suspendre",
     "reactivate": "Réactiver",
     "remove": "Retirer",
-    "activity": "Activité"
+    "activity": "Activité",
+    "deletePermanently": "Supprimer définitivement"
   },
   "suspendConfirmTitle": "Suspendre {{name}} ?",
   "suspendConfirmDescription": "{{name}} ne pourra plus se connecter jusqu'à réactivation.",
@@ -264,5 +265,10 @@
     "team.member_reactivated": "Réactivé",
     "team.member_code_reset": "Code régénéré",
     "team.person_removed": "Retiré de l'équipe"
-  }
+  },
+  "deleteConfirmTitle": "Supprimer définitivement le compte de {{name}} ?",
+  "deleteConfirmDescription": "Le compte et son identifiant sont supprimés : {{name}} ne pourra plus se connecter. Ses ventes restent dans l'historique, avec son nom. S'il est associé, sa part est retirée. Cette action est irréversible.",
+  "deleteConfirmTypeLabel": "Pour confirmer, tapez « {{name}} »",
+  "toastDeleted": "Le compte de {{name}} a été supprimé",
+  "errorDelete": "Impossible de supprimer ce compte"
 }

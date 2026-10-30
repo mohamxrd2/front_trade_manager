@@ -236,9 +236,14 @@ export async function resetTeamMemberCode(id: string): Promise<{ login_code: str
   }
 }
 
-export async function removeTeamMember(id: string): Promise<void> {
+/**
+ * Sans option : retire l'accès (réversible, compte désactivé). `permanent` :
+ * supprime aussi le compte de connexion du membre et libère son identifiant
+ * — ses ventes restent, avec son nom.
+ */
+export async function removeTeamMember(id: string, options: { permanent?: boolean } = {}): Promise<void> {
   try {
-    await api.delete(`/api/team/${id}`)
+    await api.delete(`/api/team/${id}`, { params: options.permanent ? { permanent: 1 } : undefined })
   } catch (error) {
     handleTeamError(error, 'Erreur lors du retrait')
   }

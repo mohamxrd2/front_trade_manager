@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ManageMemberPanel } from '@/components/team/manage-member-panel'
 import { MemberActivityPanel } from '@/components/team/member-activity-panel'
+import { DeleteMemberDialog } from '@/components/team/delete-member-dialog'
 
 const AVATAR_CYCLE = [
   { bg: 'bg-brand-100', text: 'text-brand-600' },
@@ -108,6 +109,7 @@ function TeamPageContent() {
   const [suspendTarget, setSuspendTarget] = React.useState<TeamMember | null>(null)
   const [reactivateTarget, setReactivateTarget] = React.useState<TeamMember | null>(null)
   const [removeTarget, setRemoveTarget] = React.useState<TeamMember | null>(null)
+  const [deleteTarget, setDeleteTarget] = React.useState<TeamMember | null>(null)
   const [actionPending, setActionPending] = React.useState(false)
 
   React.useEffect(() => {
@@ -176,6 +178,21 @@ function TeamPageContent() {
       setRemoveTarget(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('team.errorRemove'))
+    } finally {
+      setActionPending(false)
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setActionPending(true)
+    try {
+      await removeTeamMember(deleteTarget.id, { permanent: true })
+      invalidateTeam()
+      toast.success(t('team.toastDeleted', { name: deleteTarget.name }))
+      setDeleteTarget(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('team.errorDelete'))
     } finally {
       setActionPending(false)
     }
@@ -307,6 +324,11 @@ function TeamPageContent() {
                 <DropdownMenuItem variant="destructive" onSelect={() => setRemoveTarget(member)}>
                   {t('team.actions.remove')}
                 </DropdownMenuItem>
+                {member.access !== 'none' ? (
+                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(member)}>
+                    {t('team.actions.deletePermanently')}
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -494,6 +516,13 @@ function TeamPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DeleteMemberDialog
+        member={deleteTarget}
+        pending={actionPending}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
     </>
   )
 }
