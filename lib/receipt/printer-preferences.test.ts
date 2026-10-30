@@ -28,8 +28,12 @@ const {
   clearRememberedPrinter,
   readDefaultPrintMode,
   writeDefaultPrintMode,
-  readCompatibilityMode,
-  writeCompatibilityMode,
+  readPrinterCharset,
+  writePrinterCharset,
+  readPrintLogo,
+  writePrintLogo,
+  readPrintQr,
+  writePrintQr,
   readCutPaper,
   writeCutPaper,
 } = await import('./printer-preferences')
@@ -78,16 +82,38 @@ describe('mode d’impression par défaut', () => {
   })
 })
 
-describe('mode compatibilité', () => {
-  test('désactivé par défaut', () => {
-    expect(readCompatibilityMode()).toBe(false)
+describe('table de caractères', () => {
+  test('CP437 par défaut (la table de l’imprimante réelle, qui imprimait bien les accents)', () => {
+    expect(readPrinterCharset()).toBe('cp437')
   })
 
-  test('activation/désactivation persistée', () => {
-    writeCompatibilityMode(true)
-    expect(readCompatibilityMode()).toBe(true)
-    writeCompatibilityMode(false)
-    expect(readCompatibilityMode()).toBe(false)
+  test('choix persisté', () => {
+    writePrinterCharset('cp858')
+    expect(readPrinterCharset()).toBe('cp858')
+  })
+
+  test('l’ancien « Mode compatibilité » activé devient la table « Sans accents »', () => {
+    localStorage.setItem('waelly-printer-compat-mode', '1')
+    expect(readPrinterCharset()).toBe('ascii')
+  })
+
+  test('une valeur inconnue en storage retombe sur CP437', () => {
+    localStorage.setItem('waelly-printer-charset', 'utf8')
+    expect(readPrinterCharset()).toBe('cp437')
+  })
+})
+
+describe('logo et QR code en ESC/POS', () => {
+  test('désactivés par défaut', () => {
+    expect(readPrintLogo()).toBe(false)
+    expect(readPrintQr()).toBe(false)
+  })
+
+  test('activation persistée', () => {
+    writePrintLogo(true)
+    writePrintQr(true)
+    expect(readPrintLogo()).toBe(true)
+    expect(readPrintQr()).toBe(true)
   })
 })
 

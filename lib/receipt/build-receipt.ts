@@ -36,6 +36,8 @@ export interface ReceiptTextRow {
   align: 'left' | 'center' | 'right'
   bold?: boolean
   size?: 'normal' | 'large'
+  /** Ligne du nom de l'entreprise — l'impression ESC/POS la garde toujours en tête (avec un nom de secours s'il est vide). */
+  role?: 'company-name'
 }
 
 /** Ligne à deux colonnes déjà alignée (padding inclus) — ex. "2 × 12 000" / "24 000". */
@@ -191,7 +193,7 @@ export function buildReceipt(
     rows.push({ kind: 'logo', url: company.logoUrl })
   }
 
-  rows.push({ kind: 'text', text: company.name, align: 'center', bold: true, size: 'large' })
+  rows.push({ kind: 'text', text: company.name, align: 'center', bold: true, size: 'large', role: 'company-name' })
 
   if (settings.showAddress && company.address) {
     for (const line of wrapText(company.address, charsPerLine)) {

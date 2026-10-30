@@ -1,4 +1,4 @@
-import { packetizeBytes } from './packetize'
+import { packetizeBlocks } from './packetize'
 
 /**
  * Connexion Web Bluetooth à une imprimante thermique — code glue navigateur
@@ -119,22 +119,19 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Envoie les octets ESC/POS déjà encodés, en paquets de ~160 octets avec
- * une courte pause entre chaque écriture (packetize.ts) — beaucoup
- * d'imprimantes BLE bon marché perdent des données si tout est envoyé
- * d'un coup.
+ * Envoie les blocs ESC/POS déjà encodés (encodeReceiptEscPosBlocks), en
+ * paquets de ~160 octets qui ne coupent jamais une commande, avec une
+ * courte pause entre chaque écriture — beaucoup d'imprimantes BLE bon
+ * marché perdent des données si tout est envoyé d'un coup.
  */
 export async function sendToPrinter(
   characteristic: BluetoothRemoteGATTCharacteristic,
-  bytes: Uint8Array,
+  blocks: Uint8Array[],
   options: { chunkSize?: number; delayMs?: number } = {}
 ): Promise<void> {
-  // Copie vers un Uint8Array<ArrayBuffer> classique : la sortie de
-  // ReceiptPrinterEncoder.encode() est typée en Uint8Array<ArrayBufferLike>
-  // (pourrait en théorie être adossée à un SharedArrayBuffer), alors que
-  // writeValue()/writeValueWithoutResponse() exigent un ArrayBuffer classique.
-  const plainBytes = new Uint8Array(bytes)
-  const packets = packetizeBytes(plainBytes, options.chunkSize ?? 160)
+  // packetizeBlocks() renvoie des Uint8Array<ArrayBuffer> classiques, comme
+  // l'exigent writeValue()/writeValueWithoutResponse().
+  const packets = packetizeBlocks(blocks, options.chunkSize ?? 160)
   for (const packet of packets) {
     if (characteristic.properties.writeWithoutResponse) {
       await characteristic.writeValueWithoutResponse(packet)

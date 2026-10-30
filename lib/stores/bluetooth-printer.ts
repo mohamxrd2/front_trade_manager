@@ -39,7 +39,8 @@ interface BluetoothPrinterState {
   /** Reconnexion à l'appareil mémorisé si le navigateur le permet sans geste utilisateur ; sinon se comporte comme connect(). */
   reconnect: () => Promise<void>
   disconnect: () => void
-  print: (bytes: Uint8Array) => Promise<PrintResult>
+  /** Blocs ESC/POS (encodeReceiptEscPosBlocks) — jamais coupés entre deux paquets. */
+  print: (blocks: Uint8Array[]) => Promise<PrintResult>
 }
 
 let initStarted = false
@@ -146,13 +147,13 @@ export const useBluetoothPrinterStore = create<BluetoothPrinterState>()((set, ge
     set({ status: 'disconnected', connection: null, deviceId: null, deviceName: null, batteryLevel: null })
   },
 
-  print: async (bytes) => {
+  print: async (blocks) => {
     const { connection, status } = get()
     if (status !== 'connected' || !connection) {
       return { ok: false, errorCode: 'not-connected' }
     }
     try {
-      await sendToPrinter(connection.characteristic, bytes)
+      await sendToPrinter(connection.characteristic, blocks)
       return { ok: true }
     } catch {
       set({ status: 'disconnected', connection: null })
