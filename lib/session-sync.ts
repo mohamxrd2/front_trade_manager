@@ -93,3 +93,24 @@ export function onSessionChange(callback: () => void): () => void {
   window.addEventListener('storage', handler)
   return () => window.removeEventListener('storage', handler)
 }
+
+/**
+ * Le backend renvoie sur chaque réponse le compte de la SESSION
+ * (`X-Account-Id`, voir EnsureAccountHeaderMatchesSession). Vrai quand cet
+ * onglet affiche un autre compte : un autre onglet a changé de session sur
+ * le cookie partagé, et cette réponse contient les données de l'AUTRE
+ * compte — elle ne doit jamais être affichée ici.
+ *
+ * GET /api/user est exclu : c'est précisément la requête par laquelle
+ * l'onglet apprend son (nouveau) compte et met à jour le compte affiché.
+ */
+export function isAccountMismatch(
+  displayedAccountId: string | null,
+  responseAccountId: string | null | undefined,
+  url: string | undefined
+): boolean {
+  if (!displayedAccountId || !responseAccountId) return false
+  if (url && /\/api\/user\/?(\?.*)?$/.test(url)) return false
+  return displayedAccountId !== responseAccountId
+}
+

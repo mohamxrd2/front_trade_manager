@@ -6,7 +6,7 @@ import axios, {
   type AxiosResponse,
 } from 'axios'
 import { getCurrentLanguage } from '@/lib/i18n/current-language'
-import { getDisplayedAccountId } from '@/lib/session-sync'
+import { getDisplayedAccountId, isAccountMismatch } from '@/lib/session-sync'
 import {
   MUST_CHANGE_PASSWORD_ERROR_CODE,
   MUST_CHANGE_PASSWORD_EVENT,
@@ -477,6 +477,25 @@ api.interceptors.response.use(
 
     // Log de la réponse réussie
     logger.info(`✅ ${method} ${config.url} → ${status}`)
+
+    // Synchro session entre onglets : réponse d'un AUTRE compte que celui
+    // affiché par cet onglet (cookie partagé, un autre onglet a changé de
+    // compte) → on ne l'affiche pas, l'onglet est rechargé (voir
+    // AccountMismatchListener).
+    const responseAccountId = response.headers?.['x-account-id'] as string | undefined
+    if (isAccountMismatch(getDisplayedAccountId(), responseAccountId, config.url)) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('account-mismatch-detected'))
+      }
+      return Promise.reject(
+        createApiError('Account mismatch', ApiErrorType.UNKNOWN, {
+          status,
+          url: config.url,
+          code: 'ACCOUNT_MISMATCH',
+          silent: true,
+        })
+      )
+    }
 
     // Update CSRF token if available
     if (typeof document !== 'undefined') {

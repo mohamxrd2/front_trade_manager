@@ -211,3 +211,30 @@ describe('announceSessionChange / onSessionChange — repli localStorage (sans B
     expect(() => onSessionChange(() => {})()).not.toThrow()
   })
 })
+
+describe('isAccountMismatch — réponse d’un autre compte que celui affiché', () => {
+  test('même compte : pas d’écart', async () => {
+    const { isAccountMismatch } = await import('./session-sync')
+    expect(isAccountMismatch('acc-A', 'acc-A', '/api/team')).toBe(false)
+  })
+
+  test('onglet affiché sur A, réponse du compte B : écart (ne jamais afficher ces données)', async () => {
+    const { isAccountMismatch } = await import('./session-sync')
+    expect(isAccountMismatch('acc-A', 'acc-B', '/api/team')).toBe(true)
+    expect(isAccountMismatch('acc-A', 'acc-B', '/api/transactions?page=2')).toBe(true)
+  })
+
+  test('GET /api/user est exclu : c’est lui qui fait connaître le nouveau compte', async () => {
+    const { isAccountMismatch } = await import('./session-sync')
+    expect(isAccountMismatch('acc-A', 'acc-B', '/api/user')).toBe(false)
+    expect(isAccountMismatch('acc-A', 'acc-B', 'http://localhost:8000/api/user')).toBe(false)
+    expect(isAccountMismatch('acc-A', 'acc-B', '/api/user/settings')).toBe(true)
+  })
+
+  test('rien d’affiché encore, ou réponse sans en-tête (route publique) : pas d’écart', async () => {
+    const { isAccountMismatch } = await import('./session-sync')
+    expect(isAccountMismatch(null, 'acc-B', '/api/team')).toBe(false)
+    expect(isAccountMismatch('acc-A', undefined, '/api/login')).toBe(false)
+  })
+})
+
