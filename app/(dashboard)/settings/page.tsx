@@ -460,6 +460,7 @@ function ReceiptSettingsFields({
   t,
   language,
   currency,
+  readOnly = false,
 }: {
   draft: ReceiptSettings
   onChange: (next: ReceiptSettings) => void
@@ -468,6 +469,8 @@ function ReceiptSettingsFields({
   t: ReturnType<typeof useTranslation>['t']
   language: AppLanguage
   currency: string | undefined
+  /** Caissier : aperçu, impression de test et imprimante Bluetooth — sans modifier les réglages de l'entreprise. */
+  readOnly?: boolean
 }) {
   const [testPrinting, setTestPrinting] = React.useState(false)
 
@@ -528,69 +531,75 @@ function ReceiptSettingsFields({
   return (
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
       <div className="flex min-w-0 flex-1 flex-col gap-4.5">
-        <div className="flex flex-col gap-2">
-          <span className="text-[13px] font-semibold text-ink">{t('settings.receipt.widthLabel')}</span>
-          <div className="flex gap-2">
-            {RECEIPT_WIDTH_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onChange({ ...draft, width: opt.value })}
-                aria-pressed={draft.width === opt.value}
-                className={`flex h-11 flex-1 items-center justify-center rounded-field border text-sm font-semibold ${
-                  draft.width === opt.value ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line-strong text-ink-2'
-                }`}
-              >
-                {t(opt.labelKey)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col">
-          {RECEIPT_TOGGLES.map((toggle) => {
-            const on = Boolean(draft[toggle.key])
-            return (
-              <div key={toggle.key} className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0">
-                <span id={`${idPrefix}-${toggle.key}`} className="flex-1 text-sm font-semibold text-ink">
-                  {t(toggle.labelKey)}
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={on}
-                  aria-labelledby={`${idPrefix}-${toggle.key}`}
-                  onClick={() => onChange({ ...draft, [toggle.key]: !on })}
-                  className="flex p-[3px]"
-                  style={{
-                    width: 50,
-                    height: 30,
-                    borderRadius: 15,
-                    justifyContent: on ? 'flex-end' : 'flex-start',
-                    background: on ? '#5B3FE6' : '#C9C9D6',
-                  }}
-                >
-                  <span className="rounded-full bg-white" style={{ width: 24, height: 24, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
-                </button>
+        {readOnly ? (
+          <p className="rounded-tile bg-surface-soft px-3.5 py-3 text-[13px] text-subtle">{t('settings.receipt.readOnlyHint')}</p>
+        ) : (
+          <>
+            <div className="flex flex-col gap-2">
+              <span className="text-[13px] font-semibold text-ink">{t('settings.receipt.widthLabel')}</span>
+              <div className="flex gap-2">
+                {RECEIPT_WIDTH_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onChange({ ...draft, width: opt.value })}
+                    aria-pressed={draft.width === opt.value}
+                    className={`flex h-11 flex-1 items-center justify-center rounded-field border text-sm font-semibold ${
+                      draft.width === opt.value ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line-strong text-ink-2'
+                    }`}
+                  >
+                    {t(opt.labelKey)}
+                  </button>
+                ))}
               </div>
-            )
-          })}
-        </div>
+            </div>
 
-        <div className="flex flex-col gap-2">
-          <label htmlFor={`${idPrefix}-footer`} className="text-[13px] font-semibold text-ink">
-            {t('settings.receipt.footerMessageLabel')}
-          </label>
-          <input
-            id={`${idPrefix}-footer`}
-            value={draft.footer_message ?? ''}
-            onChange={(e) => onChange({ ...draft, footer_message: e.target.value.slice(0, 120) })}
-            placeholder={t('settings.receipt.footerMessagePlaceholder')}
-            maxLength={120}
-            className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
-          />
-          <span className="self-end text-xs text-subtle">{(draft.footer_message ?? '').length}/120</span>
-        </div>
+            <div className="flex flex-col">
+              {RECEIPT_TOGGLES.map((toggle) => {
+                const on = Boolean(draft[toggle.key])
+                return (
+                  <div key={toggle.key} className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0">
+                    <span id={`${idPrefix}-${toggle.key}`} className="flex-1 text-sm font-semibold text-ink">
+                      {t(toggle.labelKey)}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={on}
+                      aria-labelledby={`${idPrefix}-${toggle.key}`}
+                      onClick={() => onChange({ ...draft, [toggle.key]: !on })}
+                      className="flex p-[3px]"
+                      style={{
+                        width: 50,
+                        height: 30,
+                        borderRadius: 15,
+                        justifyContent: on ? 'flex-end' : 'flex-start',
+                        background: on ? '#5B3FE6' : '#C9C9D6',
+                      }}
+                    >
+                      <span className="rounded-full bg-white" style={{ width: 24, height: 24, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label htmlFor={`${idPrefix}-footer`} className="text-[13px] font-semibold text-ink">
+                {t('settings.receipt.footerMessageLabel')}
+              </label>
+              <input
+                id={`${idPrefix}-footer`}
+                value={draft.footer_message ?? ''}
+                onChange={(e) => onChange({ ...draft, footer_message: e.target.value.slice(0, 120) })}
+                placeholder={t('settings.receipt.footerMessagePlaceholder')}
+                maxLength={120}
+                className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+              />
+              <span className="self-end text-xs text-subtle">{(draft.footer_message ?? '').length}/120</span>
+            </div>
+          </>
+        )}
 
         <Button type="button" variant="secondary" className="h-11 self-start px-5" onClick={handleTestPrint} disabled={testPrinting}>
           {t('settings.receipt.testPrintButton')}
@@ -952,7 +961,14 @@ export default function SettingsPage() {
   const canManageSettings = can('settings.manage')
   const canManageTeam = can('team.manage')
   const isOwner = !!user?.is_owner
-  const visibleTabs = TABS.filter((tab) => canManageSettings || (tab.id !== 'entreprise' && tab.id !== 'ticket'))
+  // Ticket de caisse : le caissier (sales.create) le voit en lecture seule —
+  // aperçu, impression de test et son imprimante Bluetooth (propre à son
+  // appareil) ; seul settings.manage modifie les réglages de l'entreprise.
+  const canSeeReceipt = canManageSettings || can('sales.create')
+  const receiptReadOnly = !canManageSettings
+  const visibleTabs = TABS.filter(
+    (tab) => canManageSettings || (tab.id !== 'entreprise' && (tab.id !== 'ticket' || canSeeReceipt))
+  )
 
   const urlTab = searchParams.get('tab') as TabId | null
   const activeTab: TabId = urlTab && visibleTabs.some((tab) => tab.id === urlTab) ? urlTab : 'profil'
@@ -972,7 +988,7 @@ export default function SettingsPage() {
   const { data: receiptSettingsData } = useQuery({
     queryKey: keys.settings.receipt(),
     queryFn: getReceiptSettings,
-    enabled: canManageSettings,
+    enabled: canSeeReceipt,
     staleTime: 10 * 60 * 1000,
   })
 
@@ -1126,7 +1142,7 @@ export default function SettingsPage() {
             <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('settings.pageTitle')}</h1>
             <span className="text-sm text-subtle">{t('settings.pageSubtitle')}</span>
           </div>
-          {activeTab !== 'securite' ? (
+          {activeTab !== 'securite' && !(activeTab === 'ticket' && receiptReadOnly) ? (
             <button
               type="button"
               onClick={handleSave}
@@ -1383,6 +1399,7 @@ export default function SettingsPage() {
               t={t}
               language={language}
               currency={settings?.currency}
+              readOnly={receiptReadOnly}
             />
           </section>
         ) : null}
@@ -1501,7 +1518,7 @@ export default function SettingsPage() {
           </>
         ) : null}
 
-        {canManageSettings ? (
+        {canSeeReceipt ? (
           <>
             <div className="flex flex-col gap-2">
               <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.tabs.receipt')}</h2>
@@ -1767,32 +1784,35 @@ export default function SettingsPage() {
               t={t}
               language={language}
               currency={settings?.currency}
+              readOnly={receiptReadOnly}
             />
           </div>
-          <Button
-            type="button"
-            variant="primary"
-            className="mt-5 w-full"
-            disabled={!receiptDirty || saving}
-            onClick={async () => {
-              setSaving(true)
-              try {
-                const updated = await updateReceiptSettings(receiptDraft)
-                setReceiptDraft(updated)
-                await queryClient.invalidateQueries({ queryKey: keys.settings.receipt() })
-                toast.success(t('settings.saveSuccess'))
-                setMobileTicketOpen(false)
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : t('settings.saveFailed'))
-                setReceiptDraft(receiptSettingsData ?? DEFAULT_RECEIPT_SETTINGS)
-              } finally {
-                setSaving(false)
-              }
-            }}
-          >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            {t('common.save')}
-          </Button>
+          {receiptReadOnly ? null : (
+            <Button
+              type="button"
+              variant="primary"
+              className="mt-5 w-full"
+              disabled={!receiptDirty || saving}
+              onClick={async () => {
+                setSaving(true)
+                try {
+                  const updated = await updateReceiptSettings(receiptDraft)
+                  setReceiptDraft(updated)
+                  await queryClient.invalidateQueries({ queryKey: keys.settings.receipt() })
+                  toast.success(t('settings.saveSuccess'))
+                  setMobileTicketOpen(false)
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : t('settings.saveFailed'))
+                  setReceiptDraft(receiptSettingsData ?? DEFAULT_RECEIPT_SETTINGS)
+                } finally {
+                  setSaving(false)
+                }
+              }}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {t('common.save')}
+            </Button>
+          )}
         </SheetContent>
       </Sheet>
 
