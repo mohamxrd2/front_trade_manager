@@ -983,7 +983,7 @@ export default function SettingsPage() {
   React.useEffect(() => {
     if (user) {
       setFullName(`${user.first_name} ${user.last_name}`.trim())
-      setEmail(user.email)
+      setEmail(user.email ?? '')
     }
   }, [user])
   const sourceFullName = user ? `${user.first_name} ${user.last_name}`.trim() : ''
@@ -1065,7 +1065,8 @@ export default function SettingsPage() {
     try {
       if (activeTab === 'profil') {
         const { first_name, last_name } = splitFullName(fullName)
-        await updateUserProfile({ first_name, last_name, email })
+        // E-mail facultatif (membre sans e-mail) : ne pas envoyer une chaîne vide.
+        await updateUserProfile({ first_name, last_name, ...(email.trim() ? { email: email.trim() } : {}) })
         await checkAuth()
         toast.success(t('settings.saveSuccess'))
       } else if (activeTab === 'entreprise') {
@@ -1438,7 +1439,7 @@ export default function SettingsPage() {
           </span>
           <span className="flex flex-1 flex-col gap-0.5">
             <span className="text-base font-bold text-ink">{sourceFullName || user?.username}</span>
-            <span className="text-[13px] text-subtle">{user?.email}</span>
+            <span className="text-[13px] text-subtle">{user?.email ?? user?.username}</span>
           </span>
           <button
             type="button"

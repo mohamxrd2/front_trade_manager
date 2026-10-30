@@ -38,7 +38,8 @@ export interface User {
   first_name: string
   last_name: string
   username: string
-  email: string
+  /** `null` pour un membre d'équipe (il se connecte avec son identifiant). */
+  email: string | null
   phone?: string | null
   company_share?: string
   profile_image?: string | null
