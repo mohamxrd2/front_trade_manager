@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/api'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // ============================================================================
 // TYPES
@@ -48,11 +49,22 @@ export function useCompanyOnboarding(
   } = options
 
   const router = useRouter()
+  // Compléter la fiche entreprise relève du propriétaire (settings.manage) :
+  // un membre (caissier sur /clients…) ne doit ni appeler l'endpoint (403)
+  // ni être renvoyé vers /company/onboarding.
+  const { can } = usePermissions()
+  const canManageCompany = can('settings.manage')
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
   const fetchStatus = useCallback(async () => {
+    if (!canManageCompany) {
+      setStatus({ needs_onboarding: false, missing_fields: [] })
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -138,7 +150,7 @@ export function useCompanyOnboarding(
     } finally {
       setIsLoading(false)
     }
-  }, [redirectIfNeeded, onboardingRoute, router])
+  }, [canManageCompany, redirectIfNeeded, onboardingRoute, router])
 
   useEffect(() => {
     fetchStatus()

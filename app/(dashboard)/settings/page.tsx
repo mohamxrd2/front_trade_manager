@@ -21,6 +21,7 @@ import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import type { AppLanguage } from '@/lib/i18n/current-language'
 import { keys } from '@/lib/query-keys'
 import { useNotifications } from '@/hooks/useNotifications'
+import { usePermissions } from '@/hooks/usePermissions'
 import { updateUserProfile, updateUserPassword } from '@/lib/auth'
 import { getCompany, updateCompany, uploadCompanyLogo, type Company } from '@/lib/services/company'
 import {
@@ -942,8 +943,18 @@ export default function SettingsPage() {
   const [mountedTheme, setMountedTheme] = React.useState(false)
   React.useEffect(() => setMountedTheme(true), [])
 
+  // Membre d'équipe : l'entreprise, le ticket, la devise, le seuil de stock
+  // et l'équipe sont ceux du COMPTE — réservés à settings.manage /
+  // team.manage. Il garde son profil, la langue, le thème, son code et la
+  // déconnexion.
+  const { can } = usePermissions()
+  const canManageSettings = can('settings.manage')
+  const canManageTeam = can('team.manage')
+  const isOwner = !!user?.is_owner
+  const visibleTabs = TABS.filter((tab) => canManageSettings || (tab.id !== 'entreprise' && tab.id !== 'ticket'))
+
   const urlTab = searchParams.get('tab') as TabId | null
-  const activeTab: TabId = urlTab && TABS.some((tab) => tab.id === urlTab) ? urlTab : 'profil'
+  const activeTab: TabId = urlTab && visibleTabs.some((tab) => tab.id === urlTab) ? urlTab : 'profil'
   const setActiveTab = (id: TabId) => router.replace(`/settings?tab=${id}`, { scroll: false })
 
   const { data: company } = useQuery({
@@ -954,11 +965,13 @@ export default function SettingsPage() {
   const { data: collaborators } = useQuery({
     queryKey: keys.collaborators.all,
     queryFn: getCollaborators,
+    enabled: can('partners.view'),
     staleTime: 5 * 60 * 1000, // Collaborateurs : 5 min — même clé que /collaborators
   })
   const { data: receiptSettingsData } = useQuery({
     queryKey: keys.settings.receipt(),
     queryFn: getReceiptSettings,
+    enabled: canManageSettings,
     staleTime: 10 * 60 * 1000,
   })
 
@@ -1134,12 +1147,12 @@ export default function SettingsPage() {
           className="glass self-start flex flex-wrap gap-1 rounded-panel p-1"
           onKeyDown={(e) => {
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-            const idx = TABS.findIndex((tab) => tab.id === activeTab)
-            const next = e.key === 'ArrowRight' ? (idx + 1) % TABS.length : (idx - 1 + TABS.length) % TABS.length
-            setActiveTab(TABS[next].id)
+            const idx = visibleTabs.findIndex((tab) => tab.id === activeTab)
+            const next = e.key === 'ArrowRight' ? (idx + 1) % visibleTabs.length : (idx - 1 + visibleTabs.length) % visibleTabs.length
+            setActiveTab(visibleTabs[next].id)
           }}
         >
-          {TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -1233,54 +1246,58 @@ export default function SettingsPage() {
 
         {activeTab === 'preferences' ? (
           <section className="flex flex-col rounded-panel bg-surface px-6 py-0.5 shadow-card">
-            <div className="flex flex-wrap items-center gap-3 border-b border-divider py-4.5">
-              <span className="flex flex-[1_1_240px] flex-col gap-0.5">
-                <label htmlFor="pref-devise" className="text-[15px] font-bold text-ink">
-                  {t('settings.preferences.currency')}
-                </label>
-                <span className="text-[13px] text-subtle">{t('settings.preferences.currencyHelp')}</span>
-              </span>
-              <select
-                id="pref-devise"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="h-[46px] min-w-[200px] rounded-field border border-line-strong bg-surface px-3 text-sm text-ink"
-              >
-                {CURRENCY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {canManageSettings ? (
+              <>
+                <div className="flex flex-wrap items-center gap-3 border-b border-divider py-4.5">
+                  <span className="flex flex-[1_1_240px] flex-col gap-0.5">
+                    <label htmlFor="pref-devise" className="text-[15px] font-bold text-ink">
+                      {t('settings.preferences.currency')}
+                    </label>
+                    <span className="text-[13px] text-subtle">{t('settings.preferences.currencyHelp')}</span>
+                  </span>
+                  <select
+                    id="pref-devise"
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="h-[46px] min-w-[200px] rounded-field border border-line-strong bg-surface px-3 text-sm text-ink"
+                  >
+                    {CURRENCY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="flex flex-wrap items-center gap-3 border-b border-divider py-4.5">
-              <span className="flex flex-[1_1_240px] flex-col gap-0.5">
-                <span className="text-[15px] font-bold text-ink">{t('settings.preferences.lowStockThreshold')}</span>
-                <span className="text-[13px] text-subtle">{t('settings.preferences.lowStockThresholdHelp')}</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setThreshold((v) => Math.max(0, v - 1))}
-                  aria-label={t('settings.preferences.decreaseThreshold')}
-                  className="flex size-[42px] items-center justify-center rounded-full border border-line-strong bg-surface text-lg font-bold text-ink"
-                >
-                  −
-                </button>
-                <span aria-live="polite" className="w-10 text-center text-lg font-extrabold text-ink">
-                  {threshold}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setThreshold((v) => v + 1)}
-                  aria-label={t('settings.preferences.increaseThreshold')}
-                  className="flex size-[42px] items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white"
-                >
-                  +
-                </button>
-              </span>
-            </div>
+                <div className="flex flex-wrap items-center gap-3 border-b border-divider py-4.5">
+                  <span className="flex flex-[1_1_240px] flex-col gap-0.5">
+                    <span className="text-[15px] font-bold text-ink">{t('settings.preferences.lowStockThreshold')}</span>
+                    <span className="text-[13px] text-subtle">{t('settings.preferences.lowStockThresholdHelp')}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setThreshold((v) => Math.max(0, v - 1))}
+                      aria-label={t('settings.preferences.decreaseThreshold')}
+                      className="flex size-[42px] items-center justify-center rounded-full border border-line-strong bg-surface text-lg font-bold text-ink"
+                    >
+                      −
+                    </button>
+                    <span aria-live="polite" className="w-10 text-center text-lg font-extrabold text-ink">
+                      {threshold}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setThreshold((v) => v + 1)}
+                      aria-label={t('settings.preferences.increaseThreshold')}
+                      className="flex size-[42px] items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white"
+                    >
+                      +
+                    </button>
+                  </span>
+                </div>
+              </>
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-3 border-b border-divider py-4.5">
               <span className="flex flex-[1_1_240px] flex-col gap-0.5">
@@ -1383,16 +1400,20 @@ export default function SettingsPage() {
               >
                 {t('nav.logout')}
               </button>
-              <button
-                type="button"
-                onClick={() => setDeleteDialogOpen(true)}
-                className="flex min-h-[46px] items-center justify-center rounded-full bg-danger-bg text-sm font-bold text-danger-strong"
-              >
-                {t('settings.security.deleteAccount')}
-              </button>
-              <span className="text-xs leading-relaxed text-subtle">
-                {t('settings.security.deleteAccountWarning')}
-              </span>
+              {isOwner ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    className="flex min-h-[46px] items-center justify-center rounded-full bg-danger-bg text-sm font-bold text-danger-strong"
+                  >
+                    {t('settings.security.deleteAccount')}
+                  </button>
+                  <span className="text-xs leading-relaxed text-subtle">
+                    {t('settings.security.deleteAccountWarning')}
+                  </span>
+                </>
+              ) : null}
             </section>
           </div>
         ) : null}
@@ -1428,132 +1449,152 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.mobile.companySection')}</h2>
-          <div className="flex flex-col rounded-tile border border-line bg-surface">
-            <button
-              type="button"
-              onClick={() => setMobileCompanyOpen(true)}
-              className="flex min-h-14 items-center gap-3 border-b border-divider px-4 text-left"
-            >
-              <span className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-ink">{t('settings.company.title')}</span>
-                <span className="text-xs text-subtle">{t('settings.company.mobileSubtitle')}</span>
-              </span>
-              <ChevronRight className="size-[18px] text-subtle" />
-            </button>
-            <Link href="/team" className="flex min-h-14 items-center gap-3 px-4">
-              <span className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-ink">{t('settings.mobile.collaborators')}</span>
-                <span className="text-xs text-subtle">{t('settings.mobile.collaboratorsCount', { count: collaboratorCount })}</span>
-              </span>
-              <span className="flex">
-                {collaboratorAvatars.map((c, i) => {
-                  const cycle = AVATAR_CYCLE[i % AVATAR_CYCLE.length]
-                  return (
-                    <span
-                      key={c.id}
-                      className={`flex size-7 items-center justify-center rounded-[14px] border-2 border-surface text-[11px] font-bold ${cycle.bg} ${cycle.text}`}
-                      style={i > 0 ? { marginLeft: -8 } : undefined}
+        {canManageSettings || canManageTeam ? (
+          <>
+            <div className="flex flex-col gap-2">
+              <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.mobile.companySection')}</h2>
+              <div className="flex flex-col rounded-tile border border-line bg-surface">
+                {canManageSettings ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setMobileCompanyOpen(true)}
+                      className="flex min-h-14 items-center gap-3 border-b border-divider px-4 text-left"
                     >
-                      {getInitials(c.name)}
-                    </span>
-                  )
-                })}
-              </span>
-              <ChevronRight className="size-[18px] text-subtle" />
-            </Link>
-          </div>
-        </div>
+                      <span className="flex flex-1 flex-col gap-0.5">
+                        <span className="text-[15px] font-semibold text-ink">{t('settings.company.title')}</span>
+                        <span className="text-xs text-subtle">{t('settings.company.mobileSubtitle')}</span>
+                      </span>
+                      <ChevronRight className="size-[18px] text-subtle" />
+                    </button>
+                  </>
+                ) : null}
+                {canManageTeam ? (
+                  <>
+                    <Link href="/team" className="flex min-h-14 items-center gap-3 px-4">
+                      <span className="flex flex-1 flex-col gap-0.5">
+                        <span className="text-[15px] font-semibold text-ink">{t('settings.mobile.collaborators')}</span>
+                        <span className="text-xs text-subtle">{t('settings.mobile.collaboratorsCount', { count: collaboratorCount })}</span>
+                      </span>
+                      <span className="flex">
+                        {collaboratorAvatars.map((c, i) => {
+                          const cycle = AVATAR_CYCLE[i % AVATAR_CYCLE.length]
+                          return (
+                            <span
+                              key={c.id}
+                              className={`flex size-7 items-center justify-center rounded-[14px] border-2 border-surface text-[11px] font-bold ${cycle.bg} ${cycle.text}`}
+                              style={i > 0 ? { marginLeft: -8 } : undefined}
+                            >
+                              {getInitials(c.name)}
+                            </span>
+                          )
+                        })}
+                      </span>
+                      <ChevronRight className="size-[18px] text-subtle" />
+                    </Link>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </>
+        ) : null}
 
-        <div className="flex flex-col gap-2">
-          <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.tabs.receipt')}</h2>
-          <div className="flex flex-col rounded-tile border border-line bg-surface">
-            <button
-              type="button"
-              onClick={() => setMobileTicketOpen(true)}
-              className="flex min-h-14 items-center gap-3 px-4 text-left"
-            >
-              <span className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-ink">{t('settings.tabs.receipt')}</span>
-                <span className="text-xs text-subtle">{t('settings.receipt.mobileSubtitle')}</span>
-              </span>
-              <ChevronRight className="size-[18px] text-subtle" />
-            </button>
-          </div>
-        </div>
+        {canManageSettings ? (
+          <>
+            <div className="flex flex-col gap-2">
+              <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.tabs.receipt')}</h2>
+              <div className="flex flex-col rounded-tile border border-line bg-surface">
+                <button
+                  type="button"
+                  onClick={() => setMobileTicketOpen(true)}
+                  className="flex min-h-14 items-center gap-3 px-4 text-left"
+                >
+                  <span className="flex flex-1 flex-col gap-0.5">
+                    <span className="text-[15px] font-semibold text-ink">{t('settings.tabs.receipt')}</span>
+                    <span className="text-xs text-subtle">{t('settings.receipt.mobileSubtitle')}</span>
+                  </span>
+                  <ChevronRight className="size-[18px] text-subtle" />
+                </button>
+              </div>
+            </div>
+          </>
+        ) : null}
 
         <div className="flex flex-col gap-2">
           <h2 className="mx-1 text-xs font-bold uppercase tracking-wide text-subtle">{t('settings.tabs.preferences')}</h2>
           <div className="flex flex-col rounded-tile border border-line bg-surface">
-            <div className="flex min-h-14 items-center gap-3 border-b border-divider px-4">
-              <label htmlFor="pref-devise-m" className="flex-1 text-[15px] font-semibold text-ink">
-                {t('settings.preferences.currency')}
-              </label>
-              <select
-                id="pref-devise-m"
-                value={currency}
-                onChange={async (e) => {
-                  const value = e.target.value
-                  setCurrency(value)
-                  try {
-                    await updateSettings({ currency: value })
-                  } catch {
-                    setCurrency(settings?.currency ?? 'FCFA')
-                  }
-                }}
-                className="min-h-10 border-0 bg-transparent text-right text-[15px] text-ink-2"
-              >
-                {CURRENCY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex min-h-14 items-center gap-3 border-b border-divider py-1.5 pl-4 pr-3">
-              <span className="flex flex-1 flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-ink">{t('settings.preferences.lowStockThreshold')}</span>
-                <span className="text-xs text-subtle">{t('settings.preferences.lowStockThresholdHelpShort')}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const value = Math.max(0, threshold - 1)
-                    setThreshold(value)
-                    try {
-                      await updateSettings({ low_stock_threshold: value })
-                    } catch {
-                      setThreshold(settings?.low_stock_threshold ?? 5)
-                    }
-                  }}
-                  aria-label={t('settings.preferences.decreaseThreshold')}
-                  className="flex size-10 items-center justify-center rounded-[10px] border border-line-strong bg-canvas text-lg font-bold text-ink"
-                >
-                  −
-                </button>
-                <span aria-live="polite" className="w-8 text-center text-base font-bold text-ink">
-                  {threshold}
-                </span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const value = threshold + 1
-                    setThreshold(value)
-                    try {
-                      await updateSettings({ low_stock_threshold: value })
-                    } catch {
-                      setThreshold(settings?.low_stock_threshold ?? 5)
-                    }
-                  }}
-                  aria-label={t('settings.preferences.increaseThreshold')}
-                  className="flex size-10 items-center justify-center rounded-[10px] border border-line-strong bg-canvas text-lg font-bold text-ink"
-                >
-                  +
-                </button>
-              </span>
-            </div>
+            {canManageSettings ? (
+              <>
+                <div className="flex min-h-14 items-center gap-3 border-b border-divider px-4">
+                  <label htmlFor="pref-devise-m" className="flex-1 text-[15px] font-semibold text-ink">
+                    {t('settings.preferences.currency')}
+                  </label>
+                  <select
+                    id="pref-devise-m"
+                    value={currency}
+                    onChange={async (e) => {
+                      const value = e.target.value
+                      setCurrency(value)
+                      try {
+                        await updateSettings({ currency: value })
+                      } catch {
+                        setCurrency(settings?.currency ?? 'FCFA')
+                      }
+                    }}
+                    className="min-h-10 border-0 bg-transparent text-right text-[15px] text-ink-2"
+                  >
+                    {CURRENCY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex min-h-14 items-center gap-3 border-b border-divider py-1.5 pl-4 pr-3">
+                  <span className="flex flex-1 flex-col gap-0.5">
+                    <span className="text-[15px] font-semibold text-ink">{t('settings.preferences.lowStockThreshold')}</span>
+                    <span className="text-xs text-subtle">{t('settings.preferences.lowStockThresholdHelpShort')}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const value = Math.max(0, threshold - 1)
+                        setThreshold(value)
+                        try {
+                          await updateSettings({ low_stock_threshold: value })
+                        } catch {
+                          setThreshold(settings?.low_stock_threshold ?? 5)
+                        }
+                      }}
+                      aria-label={t('settings.preferences.decreaseThreshold')}
+                      className="flex size-10 items-center justify-center rounded-[10px] border border-line-strong bg-canvas text-lg font-bold text-ink"
+                    >
+                      −
+                    </button>
+                    <span aria-live="polite" className="w-8 text-center text-base font-bold text-ink">
+                      {threshold}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const value = threshold + 1
+                        setThreshold(value)
+                        try {
+                          await updateSettings({ low_stock_threshold: value })
+                        } catch {
+                          setThreshold(settings?.low_stock_threshold ?? 5)
+                        }
+                      }}
+                      aria-label={t('settings.preferences.increaseThreshold')}
+                      className="flex size-10 items-center justify-center rounded-[10px] border border-line-strong bg-canvas text-lg font-bold text-ink"
+                    >
+                      +
+                    </button>
+                  </span>
+                </div>
+              </>
+            ) : null}
             <div className="flex min-h-14 items-center gap-3 border-b border-divider px-4">
               <label htmlFor="pref-langue-m" className="flex-1 text-[15px] font-semibold text-ink">
                 {t('settings.preferences.language')}

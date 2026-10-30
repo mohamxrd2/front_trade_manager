@@ -12,6 +12,7 @@ import { formatNumber } from '@/lib/i18n/format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, Card, FilterChips } from '@/components/waelly'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const PAGE_SIZE = 10
 
@@ -58,6 +59,9 @@ export default function ProductsPage() {
   const { articles, error: articlesError, isLoading: isLoadingArticles } = useArticles()
   const { currency } = useCurrency()
   const { t, language } = useTranslation()
+  const { can } = usePermissions()
+  const canEditStock = can('stock.edit')
+  const canExport = can('exports.download')
 
   const [search, setSearch] = React.useState('')
   const [filter, setFilter] = React.useState<FilterValue>('all')
@@ -138,13 +142,15 @@ export default function ProductsPage() {
             })}
           </span>
         </div>
-        <Link
-          href="/products/new"
-          aria-label={t('products.list.addArticle')}
-          className="flex size-12 items-center justify-center rounded-full bg-orb text-white shadow-button"
-        >
-          <Plus className="size-6" strokeWidth={2} />
-        </Link>
+        {canEditStock ? (
+          <Link
+            href="/products/new"
+            aria-label={t('products.list.addArticle')}
+            className="flex size-12 items-center justify-center rounded-full bg-orb text-white shadow-button"
+          >
+            <Plus className="size-6" strokeWidth={2} />
+          </Link>
+        ) : null}
       </div>
 
       {/* --- En-tête ordinateur --- */}
@@ -154,16 +160,20 @@ export default function ProductsPage() {
           <span className="text-sm text-subtle">{t('products.list.subtitleDesktop')}</span>
         </div>
         <div className="flex flex-wrap gap-2.5">
-          <Button variant="secondary" onClick={handleExport}>
-            <Download className="size-[18px]" />
-            {t('products.list.exportExcel')}
-          </Button>
-          <Button variant="primary" asChild>
-            <Link href="/products/new">
-              <Plus className="size-[18px]" strokeWidth={2.2} />
-              {t('products.list.addArticle')}
-            </Link>
-          </Button>
+          {canExport ? (
+            <Button variant="secondary" onClick={handleExport}>
+              <Download className="size-[18px]" />
+              {t('products.list.exportExcel')}
+            </Button>
+          ) : null}
+          {canEditStock ? (
+            <Button variant="primary" asChild>
+              <Link href="/products/new">
+                <Plus className="size-[18px]" strokeWidth={2.2} />
+                {t('products.list.addArticle')}
+              </Link>
+            </Button>
+          ) : null}
         </div>
       </div>
 

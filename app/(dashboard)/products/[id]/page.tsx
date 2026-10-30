@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 
 import { useArticle } from '@/lib/hooks/useArticles'
+import { usePermissions } from '@/hooks/usePermissions'
 import { updateArticle, deleteArticle, addStock } from '@/lib/services/articles'
 import {
   createVariation,
@@ -91,6 +92,12 @@ export default function ProductDetailPage() {
   const { currency } = useCurrency()
   const { settings } = useSettings()
   const { t, language } = useTranslation()
+  // Caissier (stock.view seul) : consulte l'article, sans le modifier ni le
+  // réapprovisionner — le serveur refuserait (403).
+  const { can } = usePermissions()
+  const canEditStock = can('stock.edit')
+  const canRestock = can('stock.restock')
+  const canSell = can('sales.create')
   const typeOptions = React.useMemo(() => buildTypeOptions(t), [t])
 
   const { article, error, isLoading, mutate: mutateArticle } = useArticle(productId)
@@ -405,14 +412,16 @@ export default function ProductDetailPage() {
           >
             <ArrowLeft className="size-[22px]" />
           </Link>
-          <button
-            type="button"
-            aria-label={t('products.detail.editArticle')}
-            onClick={() => setMobileEditOpen(true)}
-            className="absolute right-5 top-[52px] flex size-11 items-center justify-center rounded-full bg-surface text-ink"
-          >
-            <Pencil className="size-5" strokeWidth={1.9} />
-          </button>
+          {canEditStock ? (
+            <button
+              type="button"
+              aria-label={t('products.detail.editArticle')}
+              onClick={() => setMobileEditOpen(true)}
+              className="absolute right-5 top-[52px] flex size-11 items-center justify-center rounded-full bg-surface text-ink"
+            >
+              <Pencil className="size-5" strokeWidth={1.9} />
+            </button>
+          ) : null}
         </div>
 
         <div className="-mt-6 flex flex-col gap-5 rounded-t-3xl bg-canvas p-5">
@@ -446,13 +455,15 @@ export default function ProductDetailPage() {
             <div className="flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-ink">{t('products.detail.variationsTitle')}</h2>
-                <button
-                  type="button"
-                  onClick={() => setAddVariationOpen(true)}
-                  className="text-[13px] font-bold text-brand-700"
-                >
-                  {t('products.detail.addShort')}
-                </button>
+                {canEditStock ? (
+                  <button
+                    type="button"
+                    onClick={() => setAddVariationOpen(true)}
+                    className="text-[13px] font-bold text-brand-700"
+                  >
+                    {t('products.detail.addShort')}
+                  </button>
+                ) : null}
               </div>
               {loadingVariations ? (
                 <p className="text-sm text-subtle">{t('products.detail.loading')}</p>
@@ -478,17 +489,19 @@ export default function ProductDetailPage() {
                         </span>
                       ) : null}
                       <span className="text-sm font-bold text-ink">{variation.remaining_quantity}</span>
-                      <button
-                        type="button"
-                        aria-label={t('products.detail.restockVariationAria', { name: variation.name })}
-                        onClick={() => {
-                          setRestockingVariation(variation)
-                          setVariationRestockQty(10)
-                        }}
-                        className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink"
-                      >
-                        <Plus className="size-3.5" />
-                      </button>
+                      {canRestock ? (
+                        <button
+                          type="button"
+                          aria-label={t('products.detail.restockVariationAria', { name: variation.name })}
+                          onClick={() => {
+                            setRestockingVariation(variation)
+                            setVariationRestockQty(10)
+                          }}
+                          className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink"
+                        >
+                          <Plus className="size-3.5" />
+                        </button>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -503,17 +516,23 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2.5 border-t border-line bg-surface p-5 pb-7 lg:hidden">
-        <Button
-          variant="secondary"
-          onClick={() => (isVariable ? setAddVariationOpen(true) : setMobileRestockOpen(true))}
-        >
-          {isVariable ? t('products.detail.manageVariations') : t('products.detail.restock')}
-        </Button>
-        <Button variant="primary" asChild>
-          <Link href={sellHref}>{t('products.detail.sell')}</Link>
-        </Button>
-      </div>
+      {(isVariable ? canEditStock : canRestock) || canSell ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 grid auto-cols-fr grid-flow-col gap-2.5 border-t border-line bg-surface p-5 pb-7 lg:hidden">
+          {(isVariable ? canEditStock : canRestock) ? (
+            <Button
+              variant="secondary"
+              onClick={() => (isVariable ? setAddVariationOpen(true) : setMobileRestockOpen(true))}
+            >
+              {isVariable ? t('products.detail.manageVariations') : t('products.detail.restock')}
+            </Button>
+          ) : null}
+          {canSell ? (
+            <Button variant="primary" asChild>
+              <Link href={sellHref}>{t('products.detail.sell')}</Link>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* --- Ordinateur (≥ 1024px) --- */}
       <div className="hidden flex-col gap-5 lg:flex">
@@ -530,35 +549,41 @@ export default function ProductDetailPage() {
           <h1 className="text-[28px] font-bold tracking-tight text-ink">{article.name}</h1>
         </div>
         <div className="flex flex-wrap gap-2.5">
-          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <Button
-              variant="danger"
-              className="border border-danger-border bg-surface"
-              onClick={() => setDeleteDialogOpen(true)}
-            >
-              {t('products.detail.deleteArticle')}
+          {canEditStock ? (
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <Button
+                variant="danger"
+                className="border border-danger-border bg-surface"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                {t('products.detail.deleteArticle')}
+              </Button>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('products.detail.deleteArticleTitle')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('products.detail.deleteArticleDescription')}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>{t('products.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteArticle} disabled={deleting}>
+                    {deleting ? t('products.detail.deleting') : t('products.detail.deleteArticle')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
+          {canSell ? (
+            <Button variant="glass" asChild>
+              <Link href={sellHref}>{t('products.detail.sell')}</Link>
             </Button>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t('products.detail.deleteArticleTitle')}</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t('products.detail.deleteArticleDescription')}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={deleting}>{t('products.cancel')}</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteArticle} disabled={deleting}>
-                  {deleting ? t('products.detail.deleting') : t('products.detail.deleteArticle')}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <Button variant="glass" asChild>
-            <Link href={sellHref}>{t('products.detail.sell')}</Link>
-          </Button>
-          <Button variant="primary" onClick={handleSaveInfo} disabled={savingInfo}>
-            {savingInfo ? t('products.saving') : t('products.save')}
-          </Button>
+          ) : null}
+          {canEditStock ? (
+            <Button variant="primary" onClick={handleSaveInfo} disabled={savingInfo}>
+              {savingInfo ? t('products.saving') : t('products.save')}
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -644,10 +669,12 @@ export default function ProductDetailPage() {
             <Card className="flex flex-col gap-3 rounded-panel">
               <CardHeader>
                 <CardTitle>{t('products.detail.variationsTitle')}</CardTitle>
-                <Button variant="secondary" onClick={() => setAddVariationOpen(true)}>
-                  <Plus className="size-4" />
-                  {t('products.detail.addVariation')}
-                </Button>
+                {canEditStock ? (
+                  <Button variant="secondary" onClick={() => setAddVariationOpen(true)}>
+                    <Plus className="size-4" />
+                    {t('products.detail.addVariation')}
+                  </Button>
+                ) : null}
               </CardHeader>
               {loadingVariations ? (
                 <div className="py-8 text-center text-sm text-subtle">{t('products.detail.loading')}</div>
@@ -688,36 +715,42 @@ export default function ProductDetailPage() {
                           </td>
                           <td className="px-2 py-2.5 text-right">
                             <span className="inline-flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRestockingVariation(variation)
-                                  setVariationRestockQty(10)
-                                }}
-                                className="inline-flex min-h-9 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink"
-                              >
-                                <Plus className="mr-1.5 size-3.5" />
-                                {t('products.detail.restock')}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingVariation(variation)
-                                  setEditVariationDialogOpen(true)
-                                }}
-                                className="inline-flex min-h-9 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink"
-                              >
-                                <Pencil className="mr-1.5 size-3.5" />
-                                {t('products.detail.modify')}
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={t('products.detail.archiveVariationAria')}
-                                onClick={() => openDeleteVariationDialog(variation)}
-                                className="inline-flex size-9 items-center justify-center rounded-full border border-danger-border text-danger-strong"
-                              >
-                                <X className="size-3.5" />
-                              </button>
+                              {canRestock ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRestockingVariation(variation)
+                                    setVariationRestockQty(10)
+                                  }}
+                                  className="inline-flex min-h-9 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink"
+                                >
+                                  <Plus className="mr-1.5 size-3.5" />
+                                  {t('products.detail.restock')}
+                                </button>
+                              ) : null}
+                              {canEditStock ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingVariation(variation)
+                                      setEditVariationDialogOpen(true)
+                                    }}
+                                    className="inline-flex min-h-9 items-center rounded-full border border-line-strong px-3 text-[13px] font-semibold text-ink"
+                                  >
+                                    <Pencil className="mr-1.5 size-3.5" />
+                                    {t('products.detail.modify')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-label={t('products.detail.archiveVariationAria')}
+                                    onClick={() => openDeleteVariationDialog(variation)}
+                                    className="inline-flex size-9 items-center justify-center rounded-full border border-danger-border text-danger-strong"
+                                  >
+                                    <X className="size-3.5" />
+                                  </button>
+                                </>
+                              ) : null}
                             </span>
                           </td>
                         </tr>
@@ -730,7 +763,7 @@ export default function ProductDetailPage() {
           ) : null}
 
           <div className="flex flex-wrap items-start gap-5">
-            {!isVariable ? (
+            {!isVariable && canRestock ? (
               <Card className="glass-panel flex flex-[1_1_300px] flex-col gap-3">
                 <CardTitle>{t('products.detail.restock')}</CardTitle>
                 <div className="flex items-center justify-between gap-2.5">
