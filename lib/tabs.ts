@@ -91,6 +91,7 @@ export const TAB_BAR_HIDDEN_ON: RegExp[] = [
   /^\/wallet\/new$/,
   // Formulaire « Ajouter une personne » en pleine page : comme la nouvelle vente.
   /^\/team\/new$/,
+  /^\/team\/[^/]+\/edit$/,
   /^\/clients\/[^/]+$/,
   // /invoices/new ET /invoices/<id> : la barre flottante couvrait les
   // boutons d'action (PDF, Dupliquer, Marquer payée) en bas de page, qui ne

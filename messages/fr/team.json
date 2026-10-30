@@ -276,5 +276,13 @@
     "shareAmount": "Sa part",
     "lastLogin": "Dernière connexion",
     "neverLoggedIn": "Jamais connecté"
+  },
+  "memberNotFound": "Cette personne ne fait plus partie de l'équipe.",
+  "backToTeam": "Retour à l'équipe",
+  "section": {
+    "leadership": "Direction et associés",
+    "leadershipHint": "Propriétaire, gérants et associés",
+    "members": "Membres de l'équipe",
+    "membersHint": "Caissiers, gestion du stock, comptabilité"
   }
 }

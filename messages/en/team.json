@@ -276,5 +276,13 @@
     "shareAmount": "Their share",
     "lastLogin": "Last sign-in",
     "neverLoggedIn": "Never signed in"
+  },
+  "memberNotFound": "This person is no longer part of the team.",
+  "backToTeam": "Back to team",
+  "section": {
+    "leadership": "Management and partners",
+    "leadershipHint": "Owner, managers and partners",
+    "members": "Team members",
+    "membersHint": "Cashiers, stock, accounting"
   }
 }

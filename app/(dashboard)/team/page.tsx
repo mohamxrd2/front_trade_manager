@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, Check, Copy, Loader2, MoreHorizontal, Plus } from 'lucide-react'
@@ -15,6 +16,7 @@ import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatNumber, formatRelative } from '@/lib/i18n/format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
 import { roleLabelKey, roleTone } from '@/lib/permissions/role-labels'
+import { splitTeamSections } from '@/lib/team/sections'
 import { Amount } from '@/components/waelly'
 import {
   AlertDialog,
@@ -32,7 +34,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ManageMemberPanel } from '@/components/team/manage-member-panel'
 import { MemberActivityPanel } from '@/components/team/member-activity-panel'
 import { DeleteMemberDialog } from '@/components/team/delete-member-dialog'
 
@@ -99,13 +100,13 @@ function TeamPageContent() {
   const { user } = useAuth()
   const { t, language } = useTranslation()
   const queryClient = useQueryClient()
+  const router = useRouter()
 
-  const { base, isNegativeBase, isLoading: sharesLoading, collaborators, ownerShare, remainingShare } = useCollaboratorShares()
+  const { base, isNegativeBase, isLoading: sharesLoading, collaborators, ownerShare } = useCollaboratorShares()
 
   const { data: team, isLoading: teamLoading, error: teamError } = useQuery({ queryKey: keys.team.all, queryFn: getTeam })
 
   const [filter, setFilter] = React.useState<FilterValue>('all')
-  const [manageTarget, setManageTarget] = React.useState<TeamMember | null>(null)
   const [activityTarget, setActivityTarget] = React.useState<TeamMember | null>(null)
   const [suspendTarget, setSuspendTarget] = React.useState<TeamMember | null>(null)
   const [reactivateTarget, setReactivateTarget] = React.useState<TeamMember | null>(null)
@@ -240,113 +241,231 @@ function TeamPageContent() {
     </section>
   )
 
-  const MemberCard = ({ member, index }: { member: TeamMember; index: number }) => {
+  const editHref = (member: TeamMember) => `/team/${member.id}/edit`
+
+  const Avatar = ({ member, index, large }: { member: TeamMember; index: number; large?: boolean }) => {
     const cycle = AVATAR_CYCLE[index % AVATAR_CYCLE.length]
-    const tone = roleTone(member.role)
+    const size = large ? 'size-14 text-[18px]' : 'size-10 text-[14px] lg:size-12 lg:text-[15px]'
+    return member.photo ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={member.photo} alt="" className={`${size} shrink-0 rounded-full object-cover`} />
+    ) : (
+      <span className={`flex ${size} shrink-0 items-center justify-center rounded-full font-extrabold ${cycle.bg} ${cycle.text}`}>
+        {getInitials(member.name)}
+      </span>
+    )
+  }
 
-    // Bande de chiffres en bas de carte : ventes (30 j) pour un membre qui
-    // vend, sinon le montant de sa part pour un associé, sinon sa dernière
-    // connexion.
-    const stat = member.last_30_days
-      ? {
-          label: t('team.stats.sales30d'),
-          value: (
-            <>
-              <Amount value={member.last_30_days.total} currency />
-              <span className="text-xs font-semibold text-subtle"> · {t('team.salesCount', { count: member.last_30_days.sales_count })}</span>
-            </>
-          ),
-        }
-      : member.is_partner && member.part_amount !== null
-        ? { label: t('team.stats.shareAmount'), value: <Amount value={member.part_amount ?? 0} currency /> }
-        : member.username
-          ? {
-              label: t('team.stats.lastLogin'),
-              value: member.last_login_at ? formatRelative(member.last_login_at, language) : t('team.stats.neverLoggedIn'),
-            }
-          : null
+  const Badges = ({ member }: { member: TeamMember }) => (
+    <div className="flex flex-wrap items-center gap-1">
+      {member.is_owner ? (
+        <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] font-bold text-brand-700">{t('team.badgeOwner')}</span>
+      ) : null}
+      {member.role && member.role !== 'owner' ? (
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${roleTone(member.role).bg} ${roleTone(member.role).text}`}>
+          {t(roleLabelKey(member.role))}
+        </span>
+      ) : null}
+      {member.is_partner ? (
+        <span className="rounded-full bg-success-bg px-2 py-0.5 text-[11px] font-bold text-success-strong">
+          {t('team.badgePartner', { share: formatShare(Number(member.part ?? 0), language) })}
+        </span>
+      ) : null}
+      {member.access === 'suspended' ? (
+        <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[11px] font-bold text-danger-strong">{t('team.badgeSuspended')}</span>
+      ) : null}
+    </div>
+  )
 
+  const ActionsMenu = ({ member }: { member: TeamMember }) =>
+    member.is_owner ? (
+      <Link href="/settings" className="flex h-8 shrink-0 items-center rounded-full border border-line-strong px-3 text-[12px] font-semibold text-ink">
+        {t('team.actions.modify')}
+      </Link>
+    ) : (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={t('team.actionsMenuAria', { name: member.name })}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink-2"
+          >
+            <MoreHorizontal className="size-4" strokeWidth={2} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => router.push(editHref(member))}>{t('team.actions.modify')}</DropdownMenuItem>
+          {member.username ? (
+            <DropdownMenuItem onSelect={() => router.push(editHref(member))}>{t('team.actions.credentials')}</DropdownMenuItem>
+          ) : null}
+          {member.access === 'active' ? (
+            <DropdownMenuItem onSelect={() => setSuspendTarget(member)}>{t('team.actions.suspend')}</DropdownMenuItem>
+          ) : null}
+          {member.access === 'suspended' ? (
+            <DropdownMenuItem onSelect={() => setReactivateTarget(member)}>{t('team.actions.reactivate')}</DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem onSelect={() => setActivityTarget(member)}>{t('team.actions.activity')}</DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onSelect={() => setRemoveTarget(member)}>
+            {t('team.actions.remove')}
+          </DropdownMenuItem>
+          {member.access !== 'none' ? (
+            <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(member)}>
+              {t('team.actions.deletePermanently')}
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+
+  /** Ventes des 30 derniers jours, montant en couleur (indigo). */
+  const SalesStat = ({ member, large }: { member: TeamMember; large?: boolean }) =>
+    member.last_30_days ? (
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">{t('team.stats.sales30d')}</span>
+        <span className={`truncate font-extrabold text-brand-600 ${large ? 'text-[20px]' : 'text-[16px] lg:text-[18px]'}`}>
+          <Amount value={member.last_30_days.total} currency />
+        </span>
+        <span className="text-xs text-subtle">{t('team.salesCount', { count: member.last_30_days.sales_count })}</span>
+      </div>
+    ) : null
+
+  /** Direction et associés : grande carte, part en % avec barre et montant en vert. */
+  const LeaderCard = ({ member, index }: { member: TeamMember; index: number }) => {
+    const share = Number(member.part ?? 0)
+    const hasShare = member.part !== null && share > 0
     return (
-      <div className="flex h-full min-w-0 flex-col gap-3 rounded-[20px] border border-line bg-surface p-3 lg:p-4">
-        <div className="flex items-start justify-between gap-2">
-          {member.photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={member.photo} alt="" className="size-10 shrink-0 rounded-full object-cover lg:size-14" />
-          ) : (
-            <span className={`flex size-10 shrink-0 items-center justify-center rounded-full text-[14px] font-extrabold lg:size-14 lg:text-[17px] ${cycle.bg} ${cycle.text}`}>
-              {getInitials(member.name)}
-            </span>
-          )}
-
-          {member.is_owner ? (
-            <Link href="/settings" className="flex h-8 shrink-0 items-center rounded-full border border-line-strong px-3 text-[12px] font-semibold text-ink">
-              {t('team.actions.modify')}
-            </Link>
-          ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={t('team.actionsMenuAria', { name: member.name })}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line-strong text-ink-2"
-                >
-                  <MoreHorizontal className="size-4" strokeWidth={2} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setManageTarget(member)}>{t('team.actions.modify')}</DropdownMenuItem>
-                {member.username ? (
-                  <DropdownMenuItem onSelect={() => setManageTarget(member)}>{t('team.actions.credentials')}</DropdownMenuItem>
-                ) : null}
-                {member.access === 'active' ? (
-                  <DropdownMenuItem onSelect={() => setSuspendTarget(member)}>{t('team.actions.suspend')}</DropdownMenuItem>
-                ) : null}
-                {member.access === 'suspended' ? (
-                  <DropdownMenuItem onSelect={() => setReactivateTarget(member)}>{t('team.actions.reactivate')}</DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem onSelect={() => setActivityTarget(member)}>{t('team.actions.activity')}</DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onSelect={() => setRemoveTarget(member)}>
-                  {t('team.actions.remove')}
-                </DropdownMenuItem>
-                {member.access !== 'none' ? (
-                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(member)}>
-                    {t('team.actions.deletePermanently')}
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+      <div
+        className={`flex h-full min-w-0 flex-col gap-4 rounded-[22px] border border-line bg-surface p-4 shadow-card lg:p-5 ${
+          member.access === 'suspended' ? 'opacity-70' : ''
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <Avatar member={member} index={index} large />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span className="truncate text-[16px] font-bold text-ink lg:text-[17px]">{member.name}</span>
+            <Badges member={member} />
+          </div>
+          <ActionsMenu member={member} />
         </div>
 
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="truncate text-[14px] font-bold text-ink lg:text-[16px]">{member.name}</span>
-          <div className="flex flex-wrap items-center gap-1">
-            {member.is_owner ? (
-              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[11px] font-bold text-brand-700">{t('team.badgeOwner')}</span>
-            ) : null}
-            {member.role ? (
-              <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${tone.bg} ${tone.text}`}>{t(roleLabelKey(member.role))}</span>
-            ) : null}
-            {member.is_partner ? (
-              <span className="rounded-full bg-surface-soft px-2 py-0.5 text-[11px] font-bold text-ink-2">
-                {t('team.badgePartner', { share: formatShare(Number(member.part ?? 0), language) })}
+        {hasShare ? (
+          <div className="flex flex-col gap-2 rounded-2xl bg-success-bg p-3.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-success-strong">{t('team.stats.shareAmount')}</span>
+              <span className="text-[22px] font-extrabold text-success-strong">{formatShare(share, language)}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-surface">
+              <span className="block h-full rounded-full bg-success" style={{ width: `${Math.min(100, Math.max(2, share))}%` }} />
+            </div>
+            {member.part_amount !== null ? (
+              <span className="text-[18px] font-extrabold text-success">
+                <Amount value={member.part_amount ?? 0} currency />
               </span>
             ) : null}
-            {member.access === 'suspended' ? (
-              <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[11px] font-bold text-danger-strong">{t('team.badgeSuspended')}</span>
+          </div>
+        ) : null}
+
+        <SalesStat member={member} large />
+
+        {member.username ? (
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-divider pt-3">
+            <IdentifierRow username={member.username} />
+            {member.last_login_at ? (
+              <span className="text-[12px] text-subtle">{formatRelative(member.last_login_at, language)}</span>
             ) : null}
           </div>
-        </div>
+        ) : null}
+      </div>
+    )
+  }
 
-        <div className="mt-auto flex flex-col gap-1.5 border-t border-divider pt-3">
-          {stat ? (
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">{stat.label}</span>
-              <span className="truncate text-[14px] font-bold text-ink lg:text-[15px]">{stat.value}</span>
-            </div>
-          ) : null}
-          {member.username ? <IdentifierRow username={member.username} /> : null}
+  /** Autres membres : carte compacte, ventes (30 j) en couleur. */
+  const MemberCard = ({ member, index }: { member: TeamMember; index: number }) => (
+    <div
+      className={`flex h-full min-w-0 flex-col gap-3 rounded-[20px] border border-line bg-surface p-3 lg:p-4 ${
+        member.access === 'suspended' ? 'opacity-70' : ''
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <Avatar member={member} index={index} />
+        <ActionsMenu member={member} />
+      </div>
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <span className="truncate text-[14px] font-bold text-ink lg:text-[16px]">{member.name}</span>
+        <Badges member={member} />
+      </div>
+      <div className="mt-auto flex flex-col gap-1.5 border-t border-divider pt-3">
+        {member.last_30_days ? (
+          <SalesStat member={member} />
+        ) : member.username ? (
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-subtle">{t('team.stats.lastLogin')}</span>
+            <span className="truncate text-[14px] font-bold text-ink">
+              {member.last_login_at ? formatRelative(member.last_login_at, language) : t('team.stats.neverLoggedIn')}
+            </span>
+          </div>
+        ) : null}
+        {member.username ? <IdentifierRow username={member.username} /> : null}
+      </div>
+    </div>
+  )
+
+  const { leaders, others } = splitTeamSections(filteredMembers)
+
+  const SectionTitle = ({ title, hint, count }: { title: string; hint: string; count: number }) => (
+    <div className="flex items-baseline justify-between gap-3 px-1">
+      <span className="flex flex-col gap-0.5">
+        <span className="text-[15px] font-bold text-ink lg:text-[17px]">{title}</span>
+        <span className="text-xs text-subtle">{hint}</span>
+      </span>
+      <span className="rounded-full bg-surface-soft px-2.5 py-1 text-xs font-bold text-ink-2">{count}</span>
+    </div>
+  )
+
+  /** Liste en deux sections : direction et associés en haut, le reste de l'équipe en dessous. */
+  const renderSections = (mobile: boolean) => {
+    if (teamLoading) {
+      return (
+        <div className={mobile ? 'grid grid-cols-2 gap-2.5' : 'grid gap-3.5'} style={mobile ? undefined : { gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-[200px] animate-pulse rounded-[20px] bg-surface-soft" />)}
         </div>
+      )
+    }
+    if (isEmpty) {
+      return (
+        <div className="flex flex-col items-center gap-1 rounded-panel border border-dashed border-line-strong py-12 text-center">
+          <span className="text-base font-bold text-ink">{t('team.emptyTitle')}</span>
+          <span className="text-sm text-subtle">{t('team.emptyDescription')}</span>
+        </div>
+      )
+    }
+    if (filteredMembers.length === 0) {
+      return <p className="py-8 text-center text-sm text-subtle">{t('team.noResultsForFilter')}</p>
+    }
+    return (
+      <div className="flex flex-col gap-6">
+        {leaders.length > 0 ? (
+          <section className="flex flex-col gap-3">
+            <SectionTitle title={t('team.section.leadership')} hint={t('team.section.leadershipHint')} count={leaders.length} />
+            <div
+              className={mobile ? 'flex flex-col gap-3' : 'grid gap-3.5'}
+              style={mobile ? undefined : { gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))' }}
+            >
+              {leaders.map((m, i) => <LeaderCard key={m.id} member={m} index={i} />)}
+            </div>
+          </section>
+        ) : null}
+        {others.length > 0 ? (
+          <section className="flex flex-col gap-3">
+            <SectionTitle title={t('team.section.members')} hint={t('team.section.membersHint')} count={others.length} />
+            <div
+              className={mobile ? 'grid grid-cols-2 gap-2.5' : 'grid gap-3.5'}
+              style={mobile ? undefined : { gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}
+            >
+              {others.map((m, i) => <MemberCard key={m.id} member={m} index={leaders.length + i} />)}
+            </div>
+          </section>
+        ) : null}
       </div>
     )
   }
@@ -358,7 +477,6 @@ function TeamPageContent() {
     { value: 'suspended', labelKey: 'team.filter.suspended' },
   ]
 
-  const remainingShareForEdit = manageTarget ? remainingShare + Number(manageTarget.part ?? 0) : remainingShare
 
   return (
     <>
@@ -403,22 +521,7 @@ function TeamPageContent() {
           ))}
         </div>
 
-        {teamLoading ? (
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
-            {[1, 2, 3].map((i) => <div key={i} className="h-[220px] animate-pulse rounded-[20px] bg-surface-soft" />)}
-          </div>
-        ) : isEmpty ? (
-          <div className="flex flex-col items-center gap-1 rounded-panel border border-dashed border-line-strong py-12 text-center">
-            <span className="text-base font-bold text-ink">{t('team.emptyTitle')}</span>
-            <span className="text-sm text-subtle">{t('team.emptyDescription')}</span>
-          </div>
-        ) : filteredMembers.length === 0 ? (
-          <p className="py-8 text-center text-sm text-subtle">{t('team.noResultsForFilter')}</p>
-        ) : (
-          <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
-            {filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)}
-          </div>
-        )}
+        {renderSections(false)}
       </div>
 
       {/* ============================= MOBILE (< 1024px / lg) ============================= */}
@@ -466,25 +569,9 @@ function TeamPageContent() {
           ))}
         </div>
 
-        {teamLoading ? (
-          <div className="grid grid-cols-2 gap-2.5">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-[190px] animate-pulse rounded-[20px] bg-surface-soft" />)}
-          </div>
-        ) : isEmpty ? (
-          <div className="flex flex-col items-center gap-1 rounded-[20px] border border-dashed border-line-strong py-10 text-center">
-            <span className="text-base font-bold text-ink">{t('team.emptyTitle')}</span>
-            <span className="text-sm text-subtle">{t('team.emptyDescription')}</span>
-          </div>
-        ) : filteredMembers.length === 0 ? (
-          <p className="py-8 text-center text-sm text-subtle">{t('team.noResultsForFilter')}</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2.5">
-            {filteredMembers.map((m, i) => <MemberCard key={m.id} member={m} index={i} />)}
-          </div>
-        )}
+        {renderSections(true)}
       </div>
 
-      <ManageMemberPanel member={manageTarget} onOpenChange={(open) => !open && setManageTarget(null)} remainingShareForEdit={remainingShareForEdit} />
       <MemberActivityPanel member={activityTarget} onOpenChange={(open) => !open && setActivityTarget(null)} />
 
       <AlertDialog open={!!suspendTarget} onOpenChange={(open) => !open && setSuspendTarget(null)}>
