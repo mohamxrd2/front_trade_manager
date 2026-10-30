@@ -22,10 +22,12 @@ import {
 import { generateReceiptQrDataUrl } from '@/lib/receipt/qr'
 import { printReceiptModel } from '@/lib/receipt/print-receipt'
 import { shareReceiptImage } from '@/lib/receipt/share-receipt'
-import { encodeReceiptEscPos } from '@/lib/receipt/escpos-encoder'
-import { loadLogoAsCanvas } from '@/lib/receipt/load-logo-canvas'
+import { encodeReceiptEscPosBlocks } from '@/lib/receipt/escpos-encoder'
+import { printerDotsFor } from '@/lib/receipt/escpos/raster'
+import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
-import { readDefaultPrintMode, readCompatibilityMode, readCutPaper } from '@/lib/receipt/printer-preferences'
+import { readDefaultPrintMode, readCutPaper, readPrintLogo, readPrintQr, readPrinterCharset } from '@/lib/receipt/printer-preferences'
+import { useAuth } from '@/contexts/AuthContext'
 import { ReceiptView } from './receipt-view'
 import { Button } from './button'
 
@@ -48,6 +50,7 @@ export interface ReceiptActionsProps {
 function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = false, defaultOpen = false }: ReceiptActionsProps) {
   const { t, language } = useTranslation()
   const { settings: userSettings } = useSettings()
+  const { user } = useAuth()
   const [open, setOpen] = React.useState(defaultOpen)
   const [qrDataUrl, setQrDataUrl] = React.useState<string | null>(null)
   const [helpOpen, setHelpOpen] = React.useState(false)
@@ -78,8 +81,10 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     showWaellyMention: apiSettings.show_waelly_mention,
   }
 
+  // Nom de l'entreprise vide : nom du compte, puis la marque en dernier recours.
+  const accountName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()
   const receiptCompany: ReceiptCompanyInfo = {
-    name: company?.name || 'Waelly', // i18n:allow — nom de secours uniquement si l'entreprise n'a pas encore été configurée
+    name: company?.name || accountName || 'Waelly', // i18n:allow — nom de secours uniquement si ni l'entreprise ni le compte n'ont de nom
     logoUrl: company?.logo_url ?? null,
     address: company?.headquarters ?? null,
     phone: company?.phone ?? null,
@@ -185,23 +190,29 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
 
   const printBluetooth = React.useCallback(async (): Promise<boolean> => {
     try {
-      let logoImage: HTMLCanvasElement | null = null
-      if (settings.showLogo && receiptCompany.logoUrl) {
-        logoImage = await loadLogoAsCanvas(receiptCompany.logoUrl)
-      }
-      const bytes = encodeReceiptEscPos(model, {
-        compatibilityMode: readCompatibilityMode(),
+      // Logo et QR : seulement si activés pour l'imprimante (désactivés par
+      // défaut, commandes d'image pas toujours comprises) ET sur le ticket.
+      const printLogo = readPrintLogo() && settings.showLogo && !!receiptCompany.logoUrl
+      const logoImage =
+        printLogo && receiptCompany.logoUrl
+          ? await loadLogoImageData(receiptCompany.logoUrl, Math.round(printerDotsFor(model.width) * 0.6), 160)
+          : null
+      const blocks = encodeReceiptEscPosBlocks(model, {
+        charset: readPrinterCharset(),
         cutPaper: readCutPaper(),
+        printLogo,
         logoImage,
+        printQr: readPrintQr() && settings.showQr,
+        companyNameFallback: receiptCompany.name,
       })
-      const result = await bluetoothPrint(bytes)
+      const result = await bluetoothPrint(blocks)
       return result.ok
     } catch {
       // Un échec d'impression ne doit jamais remonter plus haut — la vente
       // reste enregistrée dans tous les cas, voir handlePrint ci-dessous.
       return false
     }
-  }, [model, settings.showLogo, receiptCompany.logoUrl, bluetoothPrint])
+  }, [model, settings.showLogo, settings.showQr, receiptCompany.logoUrl, receiptCompany.name, bluetoothPrint])
 
   const handlePrint = React.useCallback(async () => {
     const mode = readDefaultPrintMode()

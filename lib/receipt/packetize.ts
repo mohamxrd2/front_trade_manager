@@ -18,3 +18,36 @@ export function packetizeBytes(bytes: Uint8Array<ArrayBuffer>, chunkSize = 160):
   }
   return packets
 }
+
+/**
+ * Comme packetizeBytes, mais par BLOCS (commandes ESC/POS ou lignes
+ * complètes, voir encodeReceiptEscPosBlocks) : un paquet regroupe autant
+ * de blocs entiers que possible, sans jamais couper un bloc — une commande
+ * coupée entre deux écritures Bluetooth peut être mal reçue et ses octets
+ * imprimés comme du texte. Un bloc plus grand qu'un paquet (ne devrait pas
+ * arriver : l'encodeur découpe les images en bandes) est découpé en dernier
+ * recours.
+ */
+export function packetizeBlocks(blocks: Uint8Array[], chunkSize = 160): Uint8Array<ArrayBuffer>[] {
+  if (chunkSize <= 0) throw new Error('chunkSize doit être strictement positif')
+  const packets: Uint8Array<ArrayBuffer>[] = []
+  let current: number[] = []
+
+  const flush = () => {
+    if (current.length > 0) packets.push(Uint8Array.from(current))
+    current = []
+  }
+
+  for (const block of blocks) {
+    if (block.length > chunkSize) {
+      flush()
+      packets.push(...packetizeBytes(new Uint8Array(block), chunkSize))
+      continue
+    }
+    if (current.length + block.length > chunkSize) flush()
+    for (const byte of block) current.push(byte)
+  }
+  flush()
+  return packets
+}
+

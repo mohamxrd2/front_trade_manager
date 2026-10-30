@@ -90,8 +90,19 @@
     "defaultModeLabel": "Default print mode",
     "defaultModeBluetooth": "Bluetooth direct",
     "defaultModeClassic": "Standard printing",
-    "compatibilityModeLabel": "Compatibility mode (simplified accents)",
-    "cutPaperLabel": "Cut paper automatically"
+    "cutPaperLabel": "Cut paper automatically",
+    "charsetLabel": "Character table",
+    "charsetHint": "If accents or numbers print incorrectly, try another table, then “Print a character test page”.",
+    "charset": {
+      "cp437": "CP437 (default)",
+      "cp850": "CP850",
+      "cp858": "CP858",
+      "ascii": "No accents (maximum compatibility)"
+    },
+    "charsetTestButton": "Print a character test page",
+    "charsetTestTitle": "Character test",
+    "printLogoLabel": "Print the logo",
+    "printQrLabel": "Print the QR code"
   },
   "security": {
     "changePassword": "Change password",

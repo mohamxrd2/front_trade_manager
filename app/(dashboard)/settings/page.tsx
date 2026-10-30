@@ -33,14 +33,22 @@ import {
 import { buildReceipt, type ReceiptOperationInput, type ReceiptModel } from '@/lib/receipt/build-receipt'
 import { generateReceiptQrDataUrl } from '@/lib/receipt/qr'
 import { printReceiptModel } from '@/lib/receipt/print-receipt'
-import { encodeReceiptEscPos } from '@/lib/receipt/escpos-encoder'
+import { encodeCharsetTestPage, encodeReceiptEscPosBlocks } from '@/lib/receipt/escpos-encoder'
+import { DEFAULT_PRINTER_CHARSET, PRINTER_CHARSETS, type PrinterCharset } from '@/lib/receipt/escpos/charsets'
+import { printerDotsFor } from '@/lib/receipt/escpos/raster'
+import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
+import { formatMoney } from '@/lib/i18n/format'
 import { isWebBluetoothSupported } from '@/lib/receipt/bluetooth-transport'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import {
   readDefaultPrintMode,
   writeDefaultPrintMode,
-  readCompatibilityMode,
-  writeCompatibilityMode,
+  readPrinterCharset,
+  writePrinterCharset,
+  readPrintLogo,
+  writePrintLogo,
+  readPrintQr,
+  writePrintQr,
   readCutPaper,
   writeCutPaper,
   type DefaultPrintMode,
@@ -594,7 +602,14 @@ function ReceiptSettingsFields({
           {t('settings.receipt.testPrintButton')}
         </Button>
 
-        <BluetoothPrinterSection idPrefix={idPrefix} t={t} charsPerLine={draft.width === '80mm' ? 48 : 32} />
+        <BluetoothPrinterSection
+          idPrefix={idPrefix}
+          t={t}
+          charsPerLine={draft.width === '80mm' ? 48 : 32}
+          sampleModel={model}
+          logoUrl={draft.show_logo ? (company?.logo_url ?? null) : null}
+          companyName={company?.name || 'Waelly'} // i18n:allow — nom de secours uniquement si l'entreprise n'a pas encore été configurée
+        />
       </div>
 
       <div className="flex w-full flex-col items-center gap-2 rounded-panel border border-line bg-canvas p-4 lg:w-auto">
@@ -612,23 +627,33 @@ function ReceiptSettingsFields({
  * ESC/POS directe, sans fenêtre d'impression. Web Bluetooth n'existe QUE sur
  * Chrome/Chromium (Android et ordinateur) — absent sur Safari/iOS : cette
  * section entière se masque (return null) si indisponible, jamais un bouton
- * mort. Mode par défaut, mode compatibilité et coupe papier sont des
- * préférences PROPRES À CET APPAREIL (un appairage Bluetooth ne se
+ * mort. Mode par défaut, table de caractères, logo, QR code et coupe papier
+ * sont des préférences PROPRES À CET APPAREIL (un appairage Bluetooth ne se
  * synchronise pas entre appareils) — localStorage, pas receipt_settings.
  */
 function BluetoothPrinterSection({
   idPrefix,
   t,
   charsPerLine,
+  sampleModel,
+  logoUrl,
+  companyName,
 }: {
   idPrefix: string
   t: ReturnType<typeof useTranslation>['t']
   charsPerLine: 32 | 48
+  /** Ticket d'exemple (aperçu) — imprimé tel quel par « Imprimer un test », logo et QR compris s'ils sont activés. */
+  sampleModel: ReceiptModel
+  logoUrl: string | null
+  companyName: string
 }) {
   const [supported, setSupported] = React.useState(false)
   const [showAllDevices, setShowAllDevices] = React.useState(false)
   const [defaultMode, setDefaultModeState] = React.useState<DefaultPrintMode>('classic')
-  const [compatibilityMode, setCompatibilityModeState] = React.useState(false)
+  const [charset, setCharsetState] = React.useState<PrinterCharset>(DEFAULT_PRINTER_CHARSET)
+  const [printLogo, setPrintLogoState] = React.useState(false)
+  const [printQr, setPrintQrState] = React.useState(false)
+  const [charsetTesting, setCharsetTesting] = React.useState(false)
   const [cutPaper, setCutPaperState] = React.useState(false)
   const [testPrinting, setTestPrinting] = React.useState(false)
 
@@ -638,13 +663,15 @@ function BluetoothPrinterSection({
   const connect = useBluetoothPrinterStore((s) => s.connect)
   const reconnect = useBluetoothPrinterStore((s) => s.reconnect)
   const disconnect = useBluetoothPrinterStore((s) => s.disconnect)
-  const printBytes = useBluetoothPrinterStore((s) => s.print)
+  const printBlocks = useBluetoothPrinterStore((s) => s.print)
   const init = useBluetoothPrinterStore((s) => s.init)
 
   React.useEffect(() => {
     setSupported(isWebBluetoothSupported())
     setDefaultModeState(readDefaultPrintMode())
-    setCompatibilityModeState(readCompatibilityMode())
+    setCharsetState(readPrinterCharset())
+    setPrintLogoState(readPrintLogo())
+    setPrintQrState(readPrintQr())
     setCutPaperState(readCutPaper())
     init()
   }, [init])
@@ -677,19 +704,42 @@ function BluetoothPrinterSection({
   const handleTestPrint = async () => {
     setTestPrinting(true)
     try {
-      const testModel: ReceiptModel = {
-        width: charsPerLine === 48 ? '80mm' : '58mm',
-        charsPerLine,
-        rows: [
-          { kind: 'text', text: t('settings.receipt.bluetoothTestLine'), align: 'center', bold: true },
-          { kind: 'text', text: new Date().toLocaleString(), align: 'center' },
-        ],
-      }
-      const bytes = encodeReceiptEscPos(testModel, { compatibilityMode, cutPaper })
-      const result = await printBytes(bytes)
+      // Le ticket d'exemple de l'aperçu, avec les réglages de CET appareil
+      // (table, logo, QR) — pour vérifier le logo et le QR avant une vraie vente.
+      const logoImage =
+        printLogo && logoUrl ? await loadLogoImageData(logoUrl, Math.round(printerDotsFor(sampleModel.width) * 0.6), 160) : null
+      const blocks = encodeReceiptEscPosBlocks(sampleModel, {
+        charset,
+        cutPaper,
+        printLogo,
+        logoImage,
+        printQr,
+        companyNameFallback: companyName,
+      })
+      const result = await printBlocks(blocks)
       if (!result.ok) toast.error(t('settings.receipt.bluetoothNotConnected'))
     } finally {
       setTestPrinting(false)
+    }
+  }
+
+  const handleCharsetTest = async () => {
+    setCharsetTesting(true)
+    try {
+      const blocks = encodeCharsetTestPage(charsPerLine === 48 ? '80mm' : '58mm', charset, {
+        title: t('settings.receipt.charsetTestTitle'),
+        charsetName: t(`settings.receipt.charset.${charset}`),
+        // Caractères ÉPROUVÉS, pas du texte d'interface : mêmes lettres et
+        // même format fr-FR (séparateur U+202F) que sur un vrai ticket, quelle
+        // que soit la langue de l'app.
+        accents: 'é è à ç ù ô', // i18n:allow — échantillon de caractères à tester, jamais traduit
+        amount: `${formatMoney(130000, 'FCFA', 'fr')} - 1 250 000`,
+        multiply: `1 × ${formatMoney(130000, 'FCFA', 'fr')}`,
+      })
+      const result = await printBlocks(blocks)
+      if (!result.ok) toast.error(t('settings.receipt.bluetoothNotConnected'))
+    } finally {
+      setCharsetTesting(false)
     }
   }
 
@@ -771,6 +821,38 @@ function BluetoothPrinterSection({
         >
           {t('settings.receipt.bluetoothTestPrintButton')}
         </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-11 px-5"
+          onClick={handleCharsetTest}
+          disabled={charsetTesting || status !== 'connected'}
+        >
+          {t('settings.receipt.charsetTestButton')}
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[13px] font-semibold text-ink">{t('settings.receipt.charsetLabel')}</span>
+        <div className="grid grid-cols-2 gap-2">
+          {PRINTER_CHARSETS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => {
+                setCharsetState(value)
+                writePrinterCharset(value)
+              }}
+              aria-pressed={charset === value}
+              className={`flex min-h-11 items-center justify-center rounded-field border px-2 text-center text-[13px] font-semibold ${
+                charset === value ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line-strong text-ink-2'
+              }`}
+            >
+              {t(`settings.receipt.charset.${value}`)}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-subtle">{t('settings.receipt.charsetHint')}</span>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -796,10 +878,15 @@ function BluetoothPrinterSection({
       </div>
 
       <div className="flex flex-col">
-        {toggleRow(`${idPrefix}-compat`, t('settings.receipt.compatibilityModeLabel'), compatibilityMode, () => {
-          const next = !compatibilityMode
-          setCompatibilityModeState(next)
-          writeCompatibilityMode(next)
+        {toggleRow(`${idPrefix}-print-logo`, t('settings.receipt.printLogoLabel'), printLogo, () => {
+          const next = !printLogo
+          setPrintLogoState(next)
+          writePrintLogo(next)
+        })}
+        {toggleRow(`${idPrefix}-print-qr`, t('settings.receipt.printQrLabel'), printQr, () => {
+          const next = !printQr
+          setPrintQrState(next)
+          writePrintQr(next)
         })}
         {toggleRow(
           `${idPrefix}-cut`,
