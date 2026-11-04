@@ -41,6 +41,7 @@ import { printerDotsFor } from '@/lib/receipt/escpos/raster'
 import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
 import { formatMoney } from '@/lib/i18n/format'
 import { isWebBluetoothSupported } from '@/lib/receipt/bluetooth-transport'
+import { getPlatformInfo } from '@/lib/receipt/platform'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import {
   readDefaultPrintMode,
@@ -484,6 +485,8 @@ function ReceiptSettingsFields({
   readOnly?: boolean
 }) {
   const [testPrinting, setTestPrinting] = React.useState(false)
+  const [isIOSDevice, setIsIOSDevice] = React.useState(false)
+  React.useEffect(() => setIsIOSDevice(getPlatformInfo().ios), [])
 
   const model = React.useMemo(
     () =>
@@ -545,7 +548,11 @@ function ReceiptSettingsFields({
         {readOnly ? (
           <>
             <p className="rounded-tile bg-surface-soft px-3.5 py-3 text-[13px] text-subtle">{t('settings.receipt.readOnlyHint')}</p>
-            <DeviceAutoPrintToggle idPrefix={idPrefix} accountAutoPrint={draft.auto_print} t={t} />
+            {isIOSDevice ? (
+              <p className="text-xs text-subtle">{t('settings.receipt.autoPrintUnavailableIos')}</p>
+            ) : (
+              <DeviceAutoPrintToggle idPrefix={idPrefix} accountAutoPrint={draft.auto_print} t={t} />
+            )}
           </>
         ) : (
           <>
@@ -570,6 +577,15 @@ function ReceiptSettingsFields({
 
             <div className="flex flex-col">
               {RECEIPT_TOGGLES.map((toggle) => {
+                // iPhone : impression automatique impossible (le partage exige un geste).
+                if (toggle.key === 'auto_print' && isIOSDevice) {
+                  return (
+                    <div key={toggle.key} className="flex flex-col gap-0.5 border-b border-line py-2.5 last:border-b-0">
+                      <span className="text-sm font-semibold text-ink-3">{t(toggle.labelKey)}</span>
+                      <span className="text-xs text-subtle">{t('settings.receipt.autoPrintUnavailableIos')}</span>
+                    </div>
+                  )
+                }
                 const on = Boolean(draft[toggle.key])
                 return (
                   <div key={toggle.key} className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0">
@@ -627,6 +643,11 @@ function ReceiptSettingsFields({
           logoUrl={draft.show_logo ? (company?.logo_url ?? null) : null}
           companyName={company?.name || 'Waelly'} // i18n:allow — nom de secours uniquement si l'entreprise n'a pas encore été configurée
         />
+
+        <div className="flex flex-col gap-1.5 border-t border-divider pt-4.5">
+          <h3 className="text-[15px] font-bold text-ink">{t('settings.receipt.iosHelpTitle')}</h3>
+          <p className="text-[13px] text-subtle">{t('settings.receipt.iosHelpText')}</p>
+        </div>
       </div>
 
       <div className="flex w-full flex-col items-center gap-2 rounded-panel border border-line bg-canvas p-4 lg:w-auto">

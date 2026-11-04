@@ -105,7 +105,10 @@
     "charsetTestButton": "Imprimer une page de test des caractères",
     "charsetTestTitle": "Test des caractères",
     "printLogoLabel": "Imprimer le logo",
-    "printQrLabel": "Imprimer le QR code"
+    "printQrLabel": "Imprimer le QR code",
+    "autoPrintUnavailableIos": "Non disponible sur iPhone : utilisez le partage",
+    "iosHelpTitle": "Imprimer depuis un iPhone",
+    "iosHelpText": "Sur iPhone, touchez « Partager / Imprimer le ticket » puis choisissez l’application de votre imprimante thermique (fournie par son fabricant) : elle reçoit l’image du ticket et l’imprime. Vous pouvez aussi l’envoyer sur WhatsApp, ou choisir « Imprimer » pour une imprimante AirPrint."
   },
   "security": {
     "changePassword": "Changer le mot de passe",

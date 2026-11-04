@@ -1,4 +1,4 @@
-import { toPng } from 'html-to-image'
+import { toCanvas, toPng } from 'html-to-image'
 import { jsPDF } from 'jspdf'
 
 /**
@@ -22,6 +22,64 @@ export async function renderReceiptPng(node: HTMLElement): Promise<string> {
       filter: (domNode) => !(domNode instanceof HTMLElement && domNode.dataset.receiptLogo === 'true'),
     })
   }
+}
+
+/**
+ * Image du ticket pour une imprimante thermique (application de
+ * l'imprimante, WhatsApp, AirPrint) : 2x, marges réduites, NOIR ET BLANC
+ * PUR (seuil) — pas de gris ni de couleurs que l'imprimante tramerait mal.
+ */
+export async function renderThermalReceiptPng(node: HTMLElement): Promise<string> {
+  const options = { pixelRatio: 2, backgroundColor: '#ffffff', style: { padding: '4px', margin: '0' } }
+  let canvas: HTMLCanvasElement
+  try {
+    canvas = await toCanvas(node, options)
+  } catch {
+    canvas = await toCanvas(node, {
+      ...options,
+      filter: (domNode) => !(domNode instanceof HTMLElement && domNode.dataset.receiptLogo === 'true'),
+    })
+  }
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const d = image.data
+    for (let i = 0; i < d.length; i += 4) {
+      const alpha = d[i + 3] / 255
+      const lum = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) * alpha + 255 * (1 - alpha)
+      const v = lum < 170 ? 0 : 255
+      d[i] = v
+      d[i + 1] = v
+      d[i + 2] = v
+      d[i + 3] = 255
+    }
+    ctx.putImageData(image, 0, 0)
+  }
+  return canvas.toDataURL('image/png')
+}
+
+/** Le navigateur sait-il partager un FICHIER (feuille de partage iOS/Android) ? */
+export function canShareFiles(): boolean {
+  if (typeof navigator === 'undefined' || !navigator.canShare) return false
+  try {
+    return navigator.canShare({ files: [new File([''], 'ticket.png', { type: 'image/png' })] })
+  } catch {
+    return false
+  }
+}
+
+/** Repli iPhone sans partage de fichier : l'image dans un onglet, avec la consigne. */
+function writeImageTab(win: Window, dataUrl: string, hint: string): void {
+  const doc = win.document
+  doc.title = hint
+  doc.body.style.cssText = 'margin:0;padding:16px;font-family:-apple-system,system-ui,sans-serif;background:#fff;text-align:center'
+  const p = doc.createElement('p')
+  p.textContent = hint
+  p.style.cssText = 'font-size:16px;font-weight:600;margin:0 0 16px'
+  const img = doc.createElement('img')
+  img.src = dataUrl
+  img.style.cssText = 'max-width:100%;height:auto'
+  doc.body.append(p, img)
 }
 
 function dataUrlToFile(dataUrl: string, filename: string): File {
@@ -50,7 +108,7 @@ export interface ShareReceiptResult {
    * afficher une confirmation, sinon rien ne semble se produire visuellement.
    * 'cancelled' : l'utilisateur a fermé lui-même la feuille de partage — pas une erreur, rien à afficher.
    */
-  outcome: 'shared' | 'downloaded' | 'cancelled'
+  outcome: 'shared' | 'downloaded' | 'cancelled' | 'opened'
 }
 
 /**
@@ -59,9 +117,21 @@ export interface ShareReceiptResult {
  * fichier (la plupart des navigateurs ordinateur ne supportent pas le
  * partage de fichiers). Nom de fichier : ticket-{code}.png.
  */
-export async function shareReceiptImage(node: HTMLElement, code: string, shareTitle: string): Promise<ShareReceiptResult> {
-  const dataUrl = await renderReceiptPng(node)
+export async function shareReceiptImage(
+  node: HTMLElement,
+  code: string,
+  shareTitle: string,
+  options: { openHint?: string } = {}
+): Promise<ShareReceiptResult> {
+  // iPhone sans partage de fichier : l'onglet est ouvert TOUT DE SUITE, dans
+  // le geste de l'utilisateur (sinon Safari bloque la fenêtre), puis rempli.
+  const tab = options.openHint && !canShareFiles() ? window.open('', '_blank') : null
+  const dataUrl = await renderThermalReceiptPng(node)
   const filename = `ticket-${code}.png`
+  if (tab && options.openHint) {
+    writeImageTab(tab, dataUrl, options.openHint)
+    return { outcome: 'opened' }
+  }
   const file = dataUrlToFile(dataUrl, filename)
 
   if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {

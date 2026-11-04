@@ -28,6 +28,7 @@ import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import { readDefaultPrintMode, readCutPaper, readPrintLogo, readPrintQr, readPrinterCharset, readAutoPrintPreference, resolveAutoPrint } from '@/lib/receipt/printer-preferences'
 import { useAuth } from '@/contexts/AuthContext'
+import { canAutoPrint, canUseAirPrint, choosePrintMode, getPlatformInfo, type PlatformInfo } from '@/lib/receipt/platform'
 import { ReceiptView } from './receipt-view'
 import { Button } from './button'
 
@@ -57,6 +58,10 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
   const [sharing, setSharing] = React.useState(false)
   const previewRef = React.useRef<HTMLDivElement>(null)
   const autoPrintedRef = React.useRef(false)
+  // iPhone/iPad : partage de l'image (pas de Web Bluetooth, AirPrint ignoré
+  // par les imprimantes thermiques) — voir lib/receipt/platform.ts.
+  const [platform, setPlatform] = React.useState<PlatformInfo>({ ios: false, standalone: false, bluetooth: false })
+  React.useEffect(() => setPlatform(getPlatformInfo()), [])
 
   const { data: company } = useQuery({
     queryKey: keys.settings.company(),
@@ -215,7 +220,8 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
   }, [model, settings.showLogo, settings.showQr, receiptCompany.logoUrl, receiptCompany.name, bluetoothPrint])
 
   const handlePrint = React.useCallback(async () => {
-    const mode = readDefaultPrintMode()
+    const mode = choosePrintMode(platform, readDefaultPrintMode())
+    if (mode === 'share') return
     if (mode === 'classic') {
       printClassic()
       return
@@ -230,10 +236,10 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     } else {
       showDisconnectedToast()
     }
-  }, [bluetoothStatus, printBluetooth, printClassic, showDisconnectedToast, t])
+  }, [platform, bluetoothStatus, printBluetooth, printClassic, showDisconnectedToast, t])
 
   React.useEffect(() => {
-    if (!autoPrintOnSuccess || autoPrintedRef.current) return
+    if (!autoPrintOnSuccess || autoPrintedRef.current || !canAutoPrint(getPlatformInfo())) return
     // Choix de cet appareil (réglable par le caissier) sinon réglage de
     // l'entreprise — on attend ce dernier seulement s'il est nécessaire.
     const devicePreference = readAutoPrintPreference()
@@ -248,7 +254,9 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     if (!previewRef.current) return
     setSharing(true)
     try {
-      const result = await shareReceiptImage(previewRef.current, operation.code, t('wallet.receipt.shareTitle'))
+      const result = await shareReceiptImage(previewRef.current, operation.code, t('wallet.receipt.shareTitle'), {
+        openHint: platform.ios ? t('wallet.receipt.iosOpenedImageHint') : undefined,
+      })
       // 'shared' : l'OS affiche déjà son propre retour (feuille de partage). 'cancelled' : fermée par
       // l'utilisateur lui-même, rien à dire. 'downloaded' : repli silencieux sinon — sans ce toast, rien
       // ne semble se produire (la plupart des navigateurs ordinateur ne supportent pas le partage de fichiers).
@@ -283,6 +291,20 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
         </div>
       </div>
 
+      {platform.ios ? (
+        <div className="flex w-full flex-col gap-2.5">
+          <Button variant="primary" className="h-12 min-h-11 w-full rounded-full" onClick={handleShare} disabled={sharing}>
+            <Share2 className="size-4" />
+            {sharing ? t('wallet.receipt.sharing') : t('wallet.receipt.iosShareButton')}
+          </Button>
+          {canUseAirPrint(platform) ? (
+            <Button variant="secondary" className="h-11 w-full rounded-full" onClick={printClassic}>
+              <Printer className="size-4" />
+              {t('wallet.receipt.airPrintButton')}
+            </Button>
+          ) : null}
+        </div>
+      ) : (
       <div className="flex w-full flex-col gap-2.5 sm:flex-row">
         <Button variant="secondary" className="h-12 min-h-11 flex-1 rounded-full" onClick={handlePrint}>
           <Printer className="size-4" />
@@ -293,6 +315,7 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
           {sharing ? t('wallet.receipt.sharing') : t('wallet.receipt.shareButton')}
         </Button>
       </div>
+      )}
 
       <div className="flex flex-col items-start gap-1">
         <button type="button" onClick={() => setHelpOpen((v) => !v)} className="text-xs font-semibold text-brand-600">

@@ -105,7 +105,10 @@
     "charsetTestButton": "Print a character test page",
     "charsetTestTitle": "Character test",
     "printLogoLabel": "Print the logo",
-    "printQrLabel": "Print the QR code"
+    "printQrLabel": "Print the QR code",
+    "autoPrintUnavailableIos": "Not available on iPhone: use sharing",
+    "iosHelpTitle": "Printing from an iPhone",
+    "iosHelpText": "On iPhone, tap “Share / Print receipt” then choose your thermal printer’s app (from its manufacturer): it receives the receipt image and prints it. You can also send it on WhatsApp, or choose “Print” for an AirPrint printer."
   },
   "security": {
     "changePassword": "Change password",
