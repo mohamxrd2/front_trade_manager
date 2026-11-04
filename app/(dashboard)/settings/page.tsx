@@ -42,6 +42,7 @@ import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
 import { formatMoney } from '@/lib/i18n/format'
 import { isWebBluetoothSupported } from '@/lib/receipt/bluetooth-transport'
 import { getPlatformInfo } from '@/lib/receipt/platform'
+import { IosReceiptShare } from '@/components/waelly/ios-receipt-share'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import {
   readDefaultPrintMode,
@@ -485,6 +486,7 @@ function ReceiptSettingsFields({
   readOnly?: boolean
 }) {
   const [testPrinting, setTestPrinting] = React.useState(false)
+  const previewRef = React.useRef<HTMLDivElement>(null)
   const [isIOSDevice, setIsIOSDevice] = React.useState(false)
   React.useEffect(() => setIsIOSDevice(getPlatformInfo().ios), [])
 
@@ -644,16 +646,27 @@ function ReceiptSettingsFields({
           companyName={company?.name || 'Waelly'} // i18n:allow — nom de secours uniquement si l'entreprise n'a pas encore été configurée
         />
 
-        <div className="flex flex-col gap-1.5 border-t border-divider pt-4.5">
+        <div className="flex flex-col gap-2 border-t border-divider pt-4.5">
           <h3 className="text-[15px] font-bold text-ink">{t('settings.receipt.iosHelpTitle')}</h3>
           <p className="text-[13px] text-subtle">{t('settings.receipt.iosHelpText')}</p>
+          {isIOSDevice ? (
+            <IosReceiptShare
+              nodeRef={previewRef}
+              renderKey={JSON.stringify(model)}
+              code="TEST"
+              widthMm={draft.width === '80mm' ? 80 : 58}
+              label={t('settings.receipt.iosTestShareButton')}
+            />
+          ) : null}
         </div>
       </div>
 
       <div className="flex w-full flex-col items-center gap-2 rounded-panel border border-line bg-canvas p-4 lg:w-auto">
         <span className="text-xs font-semibold uppercase tracking-wide text-subtle">{t('settings.receipt.previewLabel')}</span>
         <div className="rounded-tile bg-white p-3 shadow-sm">
-          <ReceiptView model={model} />
+          <div ref={previewRef}>
+            <ReceiptView model={model} />
+          </div>
         </div>
       </div>
     </div>

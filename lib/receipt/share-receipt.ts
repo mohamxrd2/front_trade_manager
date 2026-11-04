@@ -29,17 +29,40 @@ export async function renderReceiptPng(node: HTMLElement): Promise<string> {
  * l'imprimante, WhatsApp, AirPrint) : 2x, marges réduites, NOIR ET BLANC
  * PUR (seuil) — pas de gris ni de couleurs que l'imprimante tramerait mal.
  */
-export async function renderThermalReceiptPng(node: HTMLElement): Promise<string> {
+export async function renderThermalReceiptPng(node: HTMLElement, widthDots?: number): Promise<string> {
   const options = { pixelRatio: 2, backgroundColor: '#ffffff', style: { padding: '4px', margin: '0' } }
+  const withoutLogo = {
+    ...options,
+    filter: (domNode: HTMLElement) => !(domNode instanceof HTMLElement && domNode.dataset.receiptLogo === 'true'),
+  }
+  // Safari (iOS) : le PREMIER rendu sort souvent vide ou sans polices/images —
+  // on attend les polices et on « chauffe » une fois avant le vrai rendu.
+  if (typeof document !== 'undefined' && document.fonts?.ready) await document.fonts.ready
   let canvas: HTMLCanvasElement
   try {
+    await toCanvas(node, options)
     canvas = await toCanvas(node, options)
   } catch {
-    canvas = await toCanvas(node, {
-      ...options,
-      filter: (domNode) => !(domNode instanceof HTMLElement && domNode.dataset.receiptLogo === 'true'),
-    })
+    // Logo cross-origin (SecurityError) : le ticket sans logo plutôt qu'un échec.
+    await toCanvas(node, withoutLogo)
+    canvas = await toCanvas(node, withoutLogo)
   }
+
+  // Largeur exacte de l'imprimante (384 points en 58 mm, 576 en 80 mm).
+  if (widthDots && canvas.width !== widthDots) {
+    const scaled = document.createElement('canvas')
+    scaled.width = widthDots
+    scaled.height = Math.max(1, Math.round((canvas.height * widthDots) / canvas.width))
+    const sctx = scaled.getContext('2d')
+    if (sctx) {
+      sctx.fillStyle = '#ffffff'
+      sctx.fillRect(0, 0, scaled.width, scaled.height)
+      sctx.imageSmoothingQuality = 'high'
+      sctx.drawImage(canvas, 0, 0, scaled.width, scaled.height)
+      canvas = scaled
+    }
+  }
+
   const ctx = canvas.getContext('2d')
   if (ctx) {
     const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -68,21 +91,7 @@ export function canShareFiles(): boolean {
   }
 }
 
-/** Repli iPhone sans partage de fichier : l'image dans un onglet, avec la consigne. */
-function writeImageTab(win: Window, dataUrl: string, hint: string): void {
-  const doc = win.document
-  doc.title = hint
-  doc.body.style.cssText = 'margin:0;padding:16px;font-family:-apple-system,system-ui,sans-serif;background:#fff;text-align:center'
-  const p = doc.createElement('p')
-  p.textContent = hint
-  p.style.cssText = 'font-size:16px;font-weight:600;margin:0 0 16px'
-  const img = doc.createElement('img')
-  img.src = dataUrl
-  img.style.cssText = 'max-width:100%;height:auto'
-  doc.body.append(p, img)
-}
-
-function dataUrlToFile(dataUrl: string, filename: string): File {
+export function dataUrlToFile(dataUrl: string, filename: string): File {
   const [header, base64] = dataUrl.split(',')
   const mimeMatch = /data:(.*);base64/.exec(header)
   const mime = mimeMatch?.[1] || 'image/png'
@@ -108,7 +117,7 @@ export interface ShareReceiptResult {
    * afficher une confirmation, sinon rien ne semble se produire visuellement.
    * 'cancelled' : l'utilisateur a fermé lui-même la feuille de partage — pas une erreur, rien à afficher.
    */
-  outcome: 'shared' | 'downloaded' | 'cancelled' | 'opened'
+  outcome: 'shared' | 'downloaded' | 'cancelled'
 }
 
 /**
@@ -117,21 +126,9 @@ export interface ShareReceiptResult {
  * fichier (la plupart des navigateurs ordinateur ne supportent pas le
  * partage de fichiers). Nom de fichier : ticket-{code}.png.
  */
-export async function shareReceiptImage(
-  node: HTMLElement,
-  code: string,
-  shareTitle: string,
-  options: { openHint?: string } = {}
-): Promise<ShareReceiptResult> {
-  // iPhone sans partage de fichier : l'onglet est ouvert TOUT DE SUITE, dans
-  // le geste de l'utilisateur (sinon Safari bloque la fenêtre), puis rempli.
-  const tab = options.openHint && !canShareFiles() ? window.open('', '_blank') : null
+export async function shareReceiptImage(node: HTMLElement, code: string, shareTitle: string): Promise<ShareReceiptResult> {
   const dataUrl = await renderThermalReceiptPng(node)
   const filename = `ticket-${code}.png`
-  if (tab && options.openHint) {
-    writeImageTab(tab, dataUrl, options.openHint)
-    return { outcome: 'opened' }
-  }
   const file = dataUrlToFile(dataUrl, filename)
 
   if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {

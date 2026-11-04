@@ -252,6 +252,8 @@
     "printerHelpText": "Install a print service (RawBT or your printer's own app) from the Play Store, pair your printer over Bluetooth, then try again.",
     "iosShareButton": "Share / Print receipt",
     "airPrintButton": "AirPrint printing",
-    "iosOpenedImageHint": "Tap the Share icon to print or send"
+    "preparing": "Preparing receipt…",
+    "retryShare": "Tap again to share",
+    "imageModalHint": "Press and hold the image, then tap Share or Save"
   }
 }

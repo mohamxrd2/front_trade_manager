@@ -108,7 +108,8 @@
     "printQrLabel": "Print the QR code",
     "autoPrintUnavailableIos": "Not available on iPhone: use sharing",
     "iosHelpTitle": "Printing from an iPhone",
-    "iosHelpText": "On iPhone, tap “Share / Print receipt” then choose your thermal printer’s app (from its manufacturer): it receives the receipt image and prints it. You can also send it on WhatsApp, or choose “Print” for an AirPrint printer."
+    "iosHelpText": "On iPhone, printing goes through your thermal printer manufacturer’s app, which must accept a shared image (often the brand’s app: Xprinter, Goojprt, MUNBYN… — see the manual). Tap “Share / Print receipt”, then choose that app. Otherwise, share to WhatsApp, or choose “Print” for an AirPrint printer.",
+    "iosTestShareButton": "Test sharing"
   },
   "security": {
     "changePassword": "Change password",

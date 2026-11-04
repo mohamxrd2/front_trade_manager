@@ -252,6 +252,8 @@
     "printerHelpText": "Installez un service d'impression (RawBT ou l'application de votre imprimante) depuis le Play Store, connectez votre imprimante en Bluetooth, puis réessayez.",
     "iosShareButton": "Partager / Imprimer le ticket",
     "airPrintButton": "Impression AirPrint",
-    "iosOpenedImageHint": "Touchez l’icône Partager pour imprimer ou envoyer"
+    "preparing": "Préparation du ticket…",
+    "retryShare": "Touchez à nouveau pour partager",
+    "imageModalHint": "Appuyez longuement sur l’image puis touchez Partager ou Enregistrer"
   }
 }

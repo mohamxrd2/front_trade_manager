@@ -30,6 +30,7 @@ import { readDefaultPrintMode, readCutPaper, readPrintLogo, readPrintQr, readPri
 import { useAuth } from '@/contexts/AuthContext'
 import { canAutoPrint, canUseAirPrint, choosePrintMode, getPlatformInfo, type PlatformInfo } from '@/lib/receipt/platform'
 import { ReceiptView } from './receipt-view'
+import { IosReceiptShare } from './ios-receipt-share'
 import { Button } from './button'
 
 export interface ReceiptActionsProps {
@@ -254,9 +255,7 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     if (!previewRef.current) return
     setSharing(true)
     try {
-      const result = await shareReceiptImage(previewRef.current, operation.code, t('wallet.receipt.shareTitle'), {
-        openHint: platform.ios ? t('wallet.receipt.iosOpenedImageHint') : undefined,
-      })
+      const result = await shareReceiptImage(previewRef.current, operation.code, t('wallet.receipt.shareTitle'))
       // 'shared' : l'OS affiche déjà son propre retour (feuille de partage). 'cancelled' : fermée par
       // l'utilisateur lui-même, rien à dire. 'downloaded' : repli silencieux sinon — sans ce toast, rien
       // ne semble se produire (la plupart des navigateurs ordinateur ne supportent pas le partage de fichiers).
@@ -292,18 +291,13 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
       </div>
 
       {platform.ios ? (
-        <div className="flex w-full flex-col gap-2.5">
-          <Button variant="primary" className="h-12 min-h-11 w-full rounded-full" onClick={handleShare} disabled={sharing}>
-            <Share2 className="size-4" />
-            {sharing ? t('wallet.receipt.sharing') : t('wallet.receipt.iosShareButton')}
-          </Button>
-          {canUseAirPrint(platform) ? (
-            <Button variant="secondary" className="h-11 w-full rounded-full" onClick={printClassic}>
-              <Printer className="size-4" />
-              {t('wallet.receipt.airPrintButton')}
-            </Button>
-          ) : null}
-        </div>
+        <IosReceiptShare
+          nodeRef={previewRef}
+          renderKey={`${JSON.stringify(model)}|${qrDataUrl ?? ''}`}
+          code={operation.code}
+          widthMm={settings.width === '80mm' ? 80 : 58}
+          showAirPrint={canUseAirPrint(platform)}
+        />
       ) : (
       <div className="flex w-full flex-col gap-2.5 sm:flex-row">
         <Button variant="secondary" className="h-12 min-h-11 flex-1 rounded-full" onClick={handlePrint}>
