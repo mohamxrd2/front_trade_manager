@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { canAutoPrint, canUseAirPrint, choosePrintMode, detectIOS } from './platform'
+import { canAutoPrint, canUseAirPrint, choosePrintMode, detectIOS, isShareOnlyPlatform } from './platform'
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
 const IPAD_AS_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15'
@@ -37,8 +37,16 @@ describe('choix du mode d’impression', () => {
     expect(canUseAirPrint(android)).toBe(false)
   })
 
-  test('impression automatique désactivée sur iOS', () => {
+  test('impression automatique désactivée sur iOS sans Bluetooth', () => {
     expect(canAutoPrint(ios)).toBe(false)
     expect(canAutoPrint(android)).toBe(true)
+  })
+
+  test('iPhone avec Bluetooth (navigateur Bluefy) : imprimante connectée comme sur Android', () => {
+    const bluefy = { ios: true, standalone: false, bluetooth: true }
+    expect(choosePrintMode(bluefy, 'bluetooth')).toBe('bluetooth')
+    expect(isShareOnlyPlatform(bluefy)).toBe(false)
+    expect(canAutoPrint(bluefy)).toBe(true)
+    expect(isShareOnlyPlatform(ios)).toBe(true)
   })
 })

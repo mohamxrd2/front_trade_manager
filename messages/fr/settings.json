@@ -108,7 +108,7 @@
     "printQrLabel": "Imprimer le QR code",
     "autoPrintUnavailableIos": "Non disponible sur iPhone : utilisez le partage",
     "iosHelpTitle": "Imprimer depuis un iPhone",
-    "iosHelpText": "Sur iPhone, l’impression passe par l’application du fabricant de votre imprimante thermique, qui doit accepter une image partagée (souvent l’application de la marque : Xprinter, Goojprt, MUNBYN… — voir la notice). Touchez « Partager / Imprimer le ticket », puis choisissez cette application. À défaut, partagez vers WhatsApp, ou choisissez « Imprimer » pour une imprimante AirPrint.",
+    "iosHelpText": "Safari ne peut pas se connecter à une imprimante Bluetooth (limite d’Apple). Pour imprimer directement comme sur Android, ouvrez l’application dans le navigateur gratuit « Bluefy » (App Store) : la section Imprimante Bluetooth y fonctionne. Sinon, sur iPhone, l’impression passe par l’application du fabricant de votre imprimante, qui doit accepter une image partagée (souvent l’application de la marque : Xprinter, Goojprt, MUNBYN… — voir la notice) : touchez « Partager / Imprimer le ticket », puis choisissez cette application. À défaut, partagez vers WhatsApp, ou choisissez « Imprimer » pour une imprimante AirPrint.",
     "iosTestShareButton": "Tester le partage"
   },
   "security": {

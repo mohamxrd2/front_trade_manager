@@ -108,7 +108,7 @@
     "printQrLabel": "Print the QR code",
     "autoPrintUnavailableIos": "Not available on iPhone: use sharing",
     "iosHelpTitle": "Printing from an iPhone",
-    "iosHelpText": "On iPhone, printing goes through your thermal printer manufacturer’s app, which must accept a shared image (often the brand’s app: Xprinter, Goojprt, MUNBYN… — see the manual). Tap “Share / Print receipt”, then choose that app. Otherwise, share to WhatsApp, or choose “Print” for an AirPrint printer.",
+    "iosHelpText": "Safari cannot connect to a Bluetooth printer (an Apple limitation). To print directly as on Android, open the app in the free “Bluefy” browser (App Store): the Bluetooth printer section works there. Otherwise, on iPhone, printing goes through your thermal printer manufacturer’s app, which must accept a shared image (often the brand’s app: Xprinter, Goojprt, MUNBYN… — see the manual): tap “Share / Print receipt”, then choose that app. Otherwise, share to WhatsApp, or choose “Print” for an AirPrint printer.",
     "iosTestShareButton": "Test sharing"
   },
   "security": {

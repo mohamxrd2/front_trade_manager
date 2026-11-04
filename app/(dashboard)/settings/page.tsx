@@ -41,7 +41,7 @@ import { printerDotsFor } from '@/lib/receipt/escpos/raster'
 import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
 import { formatMoney } from '@/lib/i18n/format'
 import { isWebBluetoothSupported } from '@/lib/receipt/bluetooth-transport'
-import { getPlatformInfo } from '@/lib/receipt/platform'
+import { getPlatformInfo, isShareOnlyPlatform } from '@/lib/receipt/platform'
 import { IosReceiptShare } from '@/components/waelly/ios-receipt-share'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import {
@@ -488,7 +488,7 @@ function ReceiptSettingsFields({
   const [testPrinting, setTestPrinting] = React.useState(false)
   const previewRef = React.useRef<HTMLDivElement>(null)
   const [isIOSDevice, setIsIOSDevice] = React.useState(false)
-  React.useEffect(() => setIsIOSDevice(getPlatformInfo().ios), [])
+  React.useEffect(() => setIsIOSDevice(isShareOnlyPlatform(getPlatformInfo())), [])
 
   const model = React.useMemo(
     () =>

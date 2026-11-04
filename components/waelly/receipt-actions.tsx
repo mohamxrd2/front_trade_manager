@@ -28,7 +28,7 @@ import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import { readDefaultPrintMode, readCutPaper, readPrintLogo, readPrintQr, readPrinterCharset, readAutoPrintPreference, resolveAutoPrint } from '@/lib/receipt/printer-preferences'
 import { useAuth } from '@/contexts/AuthContext'
-import { canAutoPrint, canUseAirPrint, choosePrintMode, getPlatformInfo, type PlatformInfo } from '@/lib/receipt/platform'
+import { canAutoPrint, canUseAirPrint, choosePrintMode, getPlatformInfo, isShareOnlyPlatform, type PlatformInfo } from '@/lib/receipt/platform'
 import { ReceiptView } from './receipt-view'
 import { IosReceiptShare } from './ios-receipt-share'
 import { Button } from './button'
@@ -290,7 +290,7 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
         </div>
       </div>
 
-      {platform.ios ? (
+      {isShareOnlyPlatform(platform) ? (
         <IosReceiptShare
           nodeRef={previewRef}
           renderKey={`${JSON.stringify(model)}|${qrDataUrl ?? ''}`}

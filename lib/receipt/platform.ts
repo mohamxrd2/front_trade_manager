@@ -28,9 +28,19 @@ export function detectIOS(nav: NavigatorLike): boolean {
 }
 
 export function choosePrintMode(platform: PlatformInfo, defaultMode: 'bluetooth' | 'classic'): ReceiptPrintMode {
-  if (platform.ios) return 'share'
+  // Bluetooth disponible (Chrome/Android, ou navigateur Bluefy sur iPhone) : comme partout.
   if (defaultMode === 'bluetooth' && platform.bluetooth) return 'bluetooth'
+  if (platform.ios) return 'share'
   return 'classic'
+}
+
+/**
+ * Interface « partage d'image » réservée à l'iPhone SANS Bluetooth (Safari,
+ * Chrome iOS…). Avec Bluetooth (navigateur Bluefy, qui ajoute Web Bluetooth
+ * sur iOS), on garde l'impression directe comme sur Android.
+ */
+export function isShareOnlyPlatform(platform: PlatformInfo): boolean {
+  return platform.ios && !platform.bluetooth
 }
 
 /** AirPrint (window.print()) seulement dans Safari : sans effet en mode écran d'accueil. */
@@ -40,7 +50,7 @@ export function canUseAirPrint(platform: PlatformInfo): boolean {
 
 /** Impression automatique après une vente : impossible sur iOS (le partage exige un geste). */
 export function canAutoPrint(platform: PlatformInfo): boolean {
-  return !platform.ios
+  return !platform.ios || platform.bluetooth
 }
 
 export function getPlatformInfo(): PlatformInfo {
