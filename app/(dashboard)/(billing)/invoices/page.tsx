@@ -265,23 +265,35 @@ export default function InvoicesPage() {
     }
   }
 
+  // Suppression optimiste : la facture disparaît aussitôt des listes en
+  // cache ; si le serveur refuse, invalidateQueries la fait revenir.
   const handleDeleteInvoice = async () => {
     if (!selectedInvoice) return
+    const removed = selectedInvoice
+    const withoutRemoved = (data: { invoices: Invoice[]; total: number; pages: number } | undefined) =>
+      data && { ...data, invoices: data.invoices.filter((inv) => inv.id !== removed.id), total: Math.max(0, data.total - 1) }
+
     setDeleting(true)
+    setDeleteDialogOpen(false)
+    await queryClient.cancelQueries({ queryKey: keys.invoices.all })
+    queryClient.setQueriesData({ queryKey: ['invoices', 'list'] }, withoutRemoved)
+    queryClient.setQueriesData<{ pages: { invoices: Invoice[]; total: number; pages: number }[] }>(
+      { queryKey: [...keys.invoices.all, 'mobile'] },
+      (data) => data && { ...data, pages: data.pages.map((p) => withoutRemoved(p) ?? p) }
+    )
+    router.replace('/invoices', { scroll: false })
+
     try {
-      const result = await deleteInvoice(selectedInvoice.id)
+      const result = await deleteInvoice(removed.id)
       if (result.success) {
-        invalidateInvoices()
         toast.success(t('invoices.detail.toastDeletedShort'))
-        setDeleteDialogOpen(false)
-        router.replace('/invoices', { scroll: false })
-        await refreshAfterMutation()
       } else {
         toast.error(result.message)
       }
     } catch (err: unknown) {
       toast.error((err as Error).message || t('invoices.detail.errorDelete'))
     } finally {
+      invalidateInvoices()
       setDeleting(false)
     }
   }
