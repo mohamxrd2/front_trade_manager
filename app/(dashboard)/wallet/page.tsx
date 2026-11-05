@@ -132,7 +132,7 @@ function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }
         type="button"
         onClick={onRemove}
         aria-label={label}
-        className="flex size-5 items-center justify-center rounded-full hover:bg-brand-200"
+        className="relative flex size-5 items-center justify-center rounded-full hover:bg-brand-200 after:absolute after:-inset-3"
       >
         <X className="size-3" strokeWidth={2.5} />
       </button>

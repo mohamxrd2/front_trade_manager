@@ -703,7 +703,7 @@ function SaleConfirmation({ operation, onNewSale }: { operation: Operation; onNe
           type="button"
           onClick={copyCode}
           aria-label={t('wallet.confirmation.copyCode')}
-          className="flex size-8 items-center justify-center rounded-full bg-surface-soft text-ink-3"
+          className="relative flex size-8 items-center justify-center rounded-full bg-surface-soft text-ink-3 after:absolute after:-inset-1.5"
         >
           <Copy className="size-4" />
         </button>

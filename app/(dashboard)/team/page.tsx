@@ -81,7 +81,7 @@ function IdentifierRow({ username }: { username: string }) {
     <span className="flex min-w-0 items-center gap-1 text-[12px] text-subtle">
       <span className="sr-only">{t('team.identifier')}</span>
       <span className="truncate font-mono font-semibold text-ink-2" title={username}>{username}</span>
-      <button type="button" onClick={copy} aria-label={t('team.copyIdentifierAria')} className="flex size-6 shrink-0 items-center justify-center rounded-full text-ink-3">
+      <button type="button" onClick={copy} aria-label={t('team.copyIdentifierAria')} className="relative flex size-6 shrink-0 items-center justify-center rounded-full text-ink-3 after:absolute after:-inset-2.5">
         {copied ? <Check className="size-3.5" strokeWidth={2.2} /> : <Copy className="size-3.5" strokeWidth={2} />}
       </button>
     </span>

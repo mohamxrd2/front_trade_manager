@@ -155,7 +155,7 @@ export default function CompanyOnboardingPage() {
                     type="button"
                     onClick={removeLogo}
                     disabled={isSubmitting}
-                    className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-danger text-white disabled:opacity-50"
+                    className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-danger text-white disabled:opacity-50 after:absolute after:-inset-2.5"
                   >
                     <X className="size-4" />
                   </button>

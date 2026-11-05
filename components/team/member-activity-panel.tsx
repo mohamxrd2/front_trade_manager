@@ -58,7 +58,7 @@ function MemberActivityPanel({ member, onOpenChange }: MemberActivityPanelProps)
     <div className="flex items-center gap-3">
       <span className="flex-1 text-base font-bold text-ink">{member ? t('team.activityTitle', { name: member.name }) : ''}</span>
       {isDesktop ? null : (
-        <button type="button" onClick={close} aria-label={t('common.close')} className="flex size-9 items-center justify-center rounded-full bg-canvas text-ink">
+        <button type="button" onClick={close} aria-label={t('common.close')} className="relative flex size-9 items-center justify-center rounded-full bg-canvas text-ink after:absolute after:-inset-1">
           <X className="size-4" strokeWidth={2} />
         </button>
       )}

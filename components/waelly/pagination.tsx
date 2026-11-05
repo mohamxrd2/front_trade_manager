@@ -39,21 +39,21 @@ function Pagination({ page, pageCount, onPageChange, summary, className }: Pagin
           type="button"
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page === 1}
-          className="flex min-h-10 items-center rounded-full border border-line-strong bg-surface px-3.5 text-sm font-bold text-ink disabled:opacity-40"
+          className="flex min-h-11 items-center rounded-full border border-line-strong bg-surface px-3.5 text-sm font-bold text-ink disabled:opacity-40"
         >
           {t('common.previous')}
         </button>
         {visiblePages.map((p, i) => (
           <React.Fragment key={p}>
             {i > 0 && visiblePages[i - 1] !== p - 1 ? (
-              <span className="flex min-h-10 items-center px-1 text-ink-3">…</span>
+              <span className="flex min-h-11 items-center px-1 text-ink-3">…</span>
             ) : null}
             <button
               type="button"
               onClick={() => onPageChange(p)}
               aria-current={p === page ? "page" : undefined}
               className={cn(
-                "flex min-h-10 min-w-10 items-center justify-center rounded-full text-sm font-bold",
+                "flex min-h-11 min-w-11 items-center justify-center rounded-full text-sm font-bold",
                 p === page ? "bg-active text-white" : "border border-line-strong bg-surface text-ink"
               )}
             >
@@ -65,7 +65,7 @@ function Pagination({ page, pageCount, onPageChange, summary, className }: Pagin
           type="button"
           onClick={() => onPageChange(Math.min(pageCount, page + 1))}
           disabled={page === pageCount}
-          className="flex min-h-10 items-center rounded-full border border-line-strong bg-surface px-3.5 text-sm font-bold text-ink disabled:opacity-40"
+          className="flex min-h-11 items-center rounded-full border border-line-strong bg-surface px-3.5 text-sm font-bold text-ink disabled:opacity-40"
         >
           {t('common.next')}
         </button>

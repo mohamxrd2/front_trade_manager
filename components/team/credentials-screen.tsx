@@ -33,7 +33,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
         type="button"
         onClick={copy}
         aria-label={`${t('team.copy')} — ${label}`}
-        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-canvas text-ink-2"
+        className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-canvas text-ink-2 after:absolute after:-inset-1"
       >
         {copied ? <Check className="size-4" strokeWidth={2.2} /> : <Copy className="size-4" strokeWidth={2} />}
       </button>
