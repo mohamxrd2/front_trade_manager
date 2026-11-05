@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dayjs from 'dayjs'
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { AlertCircle, Download, Loader2, Plus, Search, Users } from 'lucide-react'
 
@@ -21,6 +22,7 @@ import {
   type InvoiceStatus,
 } from '@/lib/services/invoices'
 import { invalidateInvoices } from '@/lib/invalidate'
+import { keys } from '@/lib/query-keys'
 import { usePermissions } from '@/hooks/usePermissions'
 import { isRouteAllowed } from '@/lib/permissions/route-permissions'
 import { exportToExcel } from '@/lib/utils/export'
@@ -43,6 +45,26 @@ import { formatNumber, formatDate } from '@/lib/i18n/format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
 
 const PAGE_SIZE = 10
+const EMPTY_INVOICES: Invoice[] = []
+
+/** Nombre et montant total des brouillons (toutes pages confondues). */
+async function fetchDraftStats(): Promise<{ count: number; total: number }> {
+  try {
+    let currentPage = 1
+    let count = 0
+    let total = 0
+    for (;;) {
+      const { invoices: drafts, pages } = await getInvoices({ status: 'draft', page: currentPage, per_page: 100 })
+      count += drafts.length
+      total += drafts.reduce((sum, inv) => sum + Number(inv.total), 0)
+      if (currentPage >= pages) break
+      currentPage += 1
+    }
+    return { count, total }
+  } catch {
+    return { count: 0, total: 0 }
+  }
+}
 
 const formatAmount = (value: number, language: AppLanguage): string =>
   formatNumber(value, language, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -100,30 +122,14 @@ export default function InvoicesPage() {
   const selectedId = searchParams.get('id')
   const clientFilter = searchParams.get('client')
 
-  const [stats, setStats] = React.useState<InvoiceDashboardStats | null>(null)
-  const [loadingStats, setLoadingStats] = React.useState(true)
-  const [draftStats, setDraftStats] = React.useState({ count: 0, total: 0 })
-  const [allCount, setAllCount] = React.useState(0)
+  const queryClient = useQueryClient()
 
   const [statusFilter, setStatusFilter] = React.useState<FilterValue>('all')
   const [search, setSearch] = React.useState('')
   // La liste n'est rechargée que 300 ms après la dernière frappe.
   const debouncedSearch = useDebouncedValue(search, 300)
-
   const [page, setPage] = React.useState(1)
-  const [invoices, setInvoices] = React.useState<Invoice[]>([])
-  const [totalCount, setTotalCount] = React.useState(0)
-  const [loadingInvoices, setLoadingInvoices] = React.useState(true)
-  const [invoicesError, setInvoicesError] = React.useState<string | null>(null)
 
-  const [mobileInvoices, setMobileInvoices] = React.useState<Invoice[]>([])
-  const [mobilePage, setMobilePage] = React.useState(1)
-  const [mobileTotal, setMobileTotal] = React.useState(0)
-  const [mobileLoading, setMobileLoading] = React.useState(true)
-  const [mobileLoadingMore, setMobileLoadingMore] = React.useState(false)
-
-  const [selectedInvoice, setSelectedInvoice] = React.useState<Invoice | null>(null)
-  const [loadingSelected, setLoadingSelected] = React.useState(false)
   const [statusChanging, setStatusChanging] = React.useState(false)
   const [duplicating, setDuplicating] = React.useState(false)
   const [generatingPdf, setGeneratingPdf] = React.useState(false)
@@ -131,104 +137,78 @@ export default function InvoicesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
 
-  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  // Données servies par le cache TanStack Query (clés keys.invoices.*) :
+  // revenir sur la page affiche aussitôt les dernières données, rafraîchies
+  // en arrière-plan ; invalidateInvoices() suffit après une modification.
+  const statsQuery = useQuery({ queryKey: keys.invoices.dashboard(), queryFn: getInvoiceDashboard })
+  const stats: InvoiceDashboardStats | null = statsQuery.data ?? null
+  const loadingStats = statsQuery.isLoading
 
-  const fetchStats = React.useCallback(async () => {
-    setLoadingStats(true)
-    try {
-      setStats(await getInvoiceDashboard())
-    } finally {
-      setLoadingStats(false)
-    }
-  }, [])
+  const { data: draftStats = { count: 0, total: 0 } } = useQuery({
+    queryKey: [...keys.invoices.all, 'draft-stats'],
+    queryFn: fetchDraftStats,
+  })
 
-  const fetchDraftStats = React.useCallback(async () => {
-    try {
-      let currentPage = 1
-      let count = 0
-      let total = 0
-      for (;;) {
-        const { invoices: drafts, pages } = await getInvoices({ status: 'draft', page: currentPage, per_page: 100 })
-        count += drafts.length
-        total += drafts.reduce((sum, inv) => sum + Number(inv.total), 0)
-        if (currentPage >= pages) break
-        currentPage += 1
-      }
-      setDraftStats({ count, total })
-    } catch {
-      setDraftStats({ count: 0, total: 0 })
-    }
-  }, [])
+  const { data: allCount = 0 } = useQuery({
+    queryKey: [...keys.invoices.all, 'count'],
+    queryFn: async () => (await getInvoices({ per_page: 1 })).total,
+  })
 
-  const fetchAllCount = React.useCallback(async () => {
-    try {
-      const { total } = await getInvoices({ per_page: 1 })
-      setAllCount(total)
-    } catch {
-      setAllCount(0)
-    }
-  }, [])
+  const listParams = {
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    search: debouncedSearch.trim() || undefined,
+    client_id: clientFilter || undefined,
+    page,
+    per_page: PAGE_SIZE,
+  }
+  const invoicesQuery = useQuery({
+    queryKey: keys.invoices.list(listParams),
+    queryFn: () => getInvoices(listParams),
+    // Changement de page ou de filtre : l'ancienne liste reste affichée
+    // jusqu'à l'arrivée de la nouvelle (pas de retour au squelette).
+    placeholderData: keepPreviousData,
+  })
+  const invoices = invoicesQuery.data?.invoices ?? EMPTY_INVOICES
+  const totalCount = invoicesQuery.data?.total ?? 0
+  const loadingInvoices = invoicesQuery.isLoading
+  const invoicesError = invoicesQuery.error
+    ? invoicesQuery.error.message || t('invoices.list.loadInvoicesError')
+    : null
 
-  const fetchInvoices = React.useCallback(async () => {
-    setLoadingInvoices(true)
-    setInvoicesError(null)
-    try {
-      const { invoices: data, total } = await getInvoices({
-        status: statusFilter === 'all' ? undefined : statusFilter,
-        search: debouncedSearch.trim() || undefined,
-        client_id: clientFilter || undefined,
-        page,
-        per_page: PAGE_SIZE,
-      })
-      setInvoices(data)
-      setTotalCount(total)
-    } catch (err: unknown) {
-      setInvoicesError((err as Error).message || t('invoices.list.loadInvoicesError'))
-    } finally {
-      setLoadingInvoices(false)
-    }
-  }, [statusFilter, debouncedSearch, clientFilter, page, t])
-
-  const fetchMobilePage = React.useCallback(
-    async (targetPage: number, append: boolean) => {
-      if (append) setMobileLoadingMore(true)
-      else setMobileLoading(true)
-      try {
-        const { invoices: data, total } = await getInvoices({
-          status: statusFilter === 'all' ? undefined : statusFilter,
-          client_id: clientFilter || undefined,
-          page: targetPage,
-          per_page: PAGE_SIZE,
-        })
-        setMobileInvoices((prev) => (append ? [...prev, ...data] : data))
-        setMobileTotal(total)
-        setMobilePage(targetPage)
-      } finally {
-        setMobileLoading(false)
-        setMobileLoadingMore(false)
-      }
-    },
-    [statusFilter, clientFilter]
+  const mobileParams = {
+    status: statusFilter === 'all' ? undefined : statusFilter,
+    client_id: clientFilter || undefined,
+    per_page: PAGE_SIZE,
+  }
+  const mobileQuery = useInfiniteQuery({
+    queryKey: [...keys.invoices.all, 'mobile', mobileParams],
+    queryFn: ({ pageParam }) => getInvoices({ ...mobileParams, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (last, all) => (all.length < last.pages ? all.length + 1 : undefined),
+  })
+  const mobileInvoices = React.useMemo(
+    () => mobileQuery.data?.pages.flatMap((p) => p.invoices) ?? EMPTY_INVOICES,
+    [mobileQuery.data]
   )
+  const mobileTotal = mobileQuery.data?.pages[0]?.total ?? 0
+  const mobileLoading = mobileQuery.isLoading
+  const mobileLoadingMore = mobileQuery.isFetchingNextPage
 
-  React.useEffect(() => {
-    fetchStats()
-    fetchDraftStats()
-    fetchAllCount()
-  }, [fetchStats, fetchDraftStats, fetchAllCount])
+  const selectedQuery = useQuery({
+    queryKey: keys.invoices.detail(selectedId ?? ''),
+    queryFn: () => getInvoiceById(selectedId as string),
+    enabled: !!selectedId,
+  })
+  const selectedInvoice: Invoice | null = selectedId ? (selectedQuery.data ?? null) : null
+  const loadingSelected = !!selectedId && selectedQuery.isLoading
+  const setSelectedInvoice = (invoice: Invoice) =>
+    queryClient.setQueryData(keys.invoices.detail(invoice.id), invoice)
+
+  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   React.useEffect(() => {
     setPage(1)
   }, [statusFilter, debouncedSearch])
-
-  React.useEffect(() => {
-    fetchInvoices()
-  }, [fetchInvoices])
-
-  React.useEffect(() => {
-    fetchMobilePage(1, false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter])
 
   // Sélection par défaut : la première facture de la page courante, si
   // aucune n'est déjà choisie dans l'URL.
@@ -238,36 +218,11 @@ export default function InvoicesPage() {
     }
   }, [selectedId, invoices, router])
 
-  React.useEffect(() => {
-    if (!selectedId) {
-      setSelectedInvoice(null)
-      return
-    }
-    let cancelled = false
-    setLoadingSelected(true)
-    getInvoiceById(selectedId)
-      .then((inv) => {
-        if (!cancelled) setSelectedInvoice(inv)
-      })
-      .catch(() => {
-        if (!cancelled) setSelectedInvoice(null)
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingSelected(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [selectedId])
-
   const selectInvoice = (id: string) => {
     router.replace(`/invoices?id=${id}`, { scroll: false })
   }
 
-  const refreshAfterMutation = async () => {
-    await Promise.all([fetchStats(), fetchDraftStats(), fetchInvoices()])
-    fetchMobilePage(1, false)
-  }
+  const refreshAfterMutation = () => queryClient.invalidateQueries({ queryKey: keys.invoices.all })
 
   const handleStatusChange = async (newStatus: InvoiceStatus) => {
     if (!selectedInvoice) return
@@ -586,7 +541,7 @@ export default function InvoicesPage() {
             {mobileInvoices.length < mobileTotal ? (
               <button
                 type="button"
-                onClick={() => fetchMobilePage(mobilePage + 1, true)}
+                onClick={() => void mobileQuery.fetchNextPage()}
                 disabled={mobileLoadingMore}
                 className="flex min-h-11 items-center justify-center rounded-full border border-line-strong bg-surface text-sm font-semibold text-ink"
               >
@@ -666,7 +621,7 @@ export default function InvoicesPage() {
               <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <AlertCircle className="size-10 text-subtle" />
                 <p className="text-sm text-subtle">{invoicesError}</p>
-                <Button variant="secondary" onClick={fetchInvoices}>
+                <Button variant="secondary" onClick={() => void invoicesQuery.refetch()}>
                   {t('wallet.list.retry')}
                 </Button>
               </div>
