@@ -365,3 +365,45 @@
     transform: none !important;
   }
 }
+
+/* ============================================================================
+   Accessibilité des matériaux (verre dépoli) et du toucher
+   ========================================================================= */
+
+/* « Réduire la transparence » (iOS/macOS) : le verre devient une surface
+   pleine, sans flou — le texte reste lisible quel que soit le fond. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-panel {
+    background: var(--color-surface) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* « Augmenter le contraste » : surface pleine et bordure nette. */
+@media (prefers-contrast: more) {
+  .glass,
+  .glass-panel {
+    background: var(--color-surface) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: var(--color-ink-3) !important;
+  }
+}
+
+/* Pas de flash gris d'iOS au toucher : chaque élément interactif a déjà son
+   propre retour à l'appui (:active). touch-action: manipulation retire le
+   délai lié au double-tap pour zoomer sur les commandes. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+a,
+button,
+[role="button"],
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
+}
