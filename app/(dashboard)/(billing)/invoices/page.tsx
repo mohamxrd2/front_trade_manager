@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button, Card, FilterChips, Pagination, StatusBadge } from '@/components/waelly'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue'
 import { formatNumber, formatDate } from '@/lib/i18n/format'
 import type { AppLanguage } from '@/lib/i18n/current-language'
 
@@ -106,6 +107,8 @@ export default function InvoicesPage() {
 
   const [statusFilter, setStatusFilter] = React.useState<FilterValue>('all')
   const [search, setSearch] = React.useState('')
+  // La liste n'est rechargée que 300 ms après la dernière frappe.
+  const debouncedSearch = useDebouncedValue(search, 300)
 
   const [page, setPage] = React.useState(1)
   const [invoices, setInvoices] = React.useState<Invoice[]>([])
@@ -172,7 +175,7 @@ export default function InvoicesPage() {
     try {
       const { invoices: data, total } = await getInvoices({
         status: statusFilter === 'all' ? undefined : statusFilter,
-        search: search.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
         client_id: clientFilter || undefined,
         page,
         per_page: PAGE_SIZE,
@@ -184,7 +187,7 @@ export default function InvoicesPage() {
     } finally {
       setLoadingInvoices(false)
     }
-  }, [statusFilter, search, clientFilter, page, t])
+  }, [statusFilter, debouncedSearch, clientFilter, page, t])
 
   const fetchMobilePage = React.useCallback(
     async (targetPage: number, append: boolean) => {
@@ -216,7 +219,7 @@ export default function InvoicesPage() {
 
   React.useEffect(() => {
     setPage(1)
-  }, [statusFilter, search])
+  }, [statusFilter, debouncedSearch])
 
   React.useEffect(() => {
     fetchInvoices()
