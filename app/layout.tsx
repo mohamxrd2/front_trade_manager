@@ -12,6 +12,7 @@ import { Providers } from "@/app/providers";
 import { StaleClientListener } from "@/components/stale-client-listener";
 import { AccountMismatchListener } from "@/components/account-mismatch-listener";
 import { SessionSwitchListener } from "@/components/session-switch-listener";
+import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 
 // Polices auto-hébergées par next/font (WOFF2). Plus Jakarta Sans en
 // version VARIABLE : un seul fichier pour les graisses 400 à 800 au lieu de
@@ -108,6 +109,7 @@ export default async function RootLayout({
                   <StaleClientListener />
                   <AccountMismatchListener />
                   <SessionSwitchListener />
+                  <WebVitalsReporter />
                 </Providers>
               </LanguageProvider>
             </SettingsProvider>
