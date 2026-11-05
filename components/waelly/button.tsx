@@ -8,9 +8,12 @@ import { cn } from "@/lib/utils"
  * Bouton du système de design Waelly (design/DESIGN.md § 7).
  * Distinct de components/ui/button.tsx (shadcn) pour ne pas affecter
  * les pages existantes pendant la migration progressive de l'interface.
+ *
+ * Retour à l'appui (pas au relâchement) : léger enfoncement instantané ;
+ * sous prefers-reduced-motion, un assombrissement à la place.
  */
 const waellyButtonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-bold text-sm transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-[18px] shrink-0 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full font-bold text-sm transition-[transform,filter,background-color,box-shadow,opacity] duration-150 ease-out active:scale-[0.97] active:duration-75 motion-reduce:active:scale-100 motion-reduce:active:brightness-95 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-[18px] shrink-0 [&_svg]:shrink-0",
   {
     variants: {
       variant: {

@@ -36,7 +36,7 @@ function FilterChips({ options, value, onChange, className }: FilterChipsProps) 
             aria-pressed={active}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors",
+              "flex h-11 items-center rounded-full px-4 text-sm font-semibold transition-[transform,background-color,color] duration-150 active:scale-[0.97] motion-reduce:active:scale-100",
               active
                 ? "bg-active text-white"
                 : "border border-line-strong bg-surface text-ink-2"
