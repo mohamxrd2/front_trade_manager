@@ -43,9 +43,7 @@ function PaymentMethodsSection({ data, isLoading, period, startDate, endDate }: 
       <h2 className="text-base font-bold text-ink">{t('analytics.page.paymentMethods.sectionTitle')}</h2>
 
       {isLoading ? (
-        <div className="flex h-[220px] items-center justify-center">
-          <div className="size-8 animate-spin rounded-full border-2 border-line-strong border-t-brand-500" />
-        </div>
+        <div className="h-[220px] animate-pulse rounded-tile bg-surface-soft" aria-hidden="true" />
       ) : rows.length === 0 ? (
         <p className="py-10 text-center text-sm text-subtle">{t('analytics.page.noSalesInPeriod')}</p>
       ) : (

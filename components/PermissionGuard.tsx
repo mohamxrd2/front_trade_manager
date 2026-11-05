@@ -9,7 +9,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { homeRouteForUser } from '@/lib/permissions/home-route'
 import { isRuleSatisfied } from '@/lib/permissions/route-permissions'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
-import { FullPageSpinner } from '@/components/ui/full-page-spinner'
+import { ContentSkeleton } from '@/components/ui/app-shell-skeleton'
 
 interface PermissionGuardProps {
   /** Permission requise pour voir cette page — une liste = au moins l'une d'elles. */
@@ -48,7 +48,7 @@ export function PermissionGuard({ permission, allOf, silent = false, children }:
   }, [loading, user, allowed, silent, router, t])
 
   if (loading || !user || !allowed) {
-    return <FullPageSpinner />
+    return <ContentSkeleton />
   }
 
   return <>{children}</>

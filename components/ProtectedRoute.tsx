@@ -3,7 +3,7 @@
 import { useEffect, ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { FullPageSpinner } from '@/components/ui/full-page-spinner'
+import { AppShellSkeleton } from '@/components/ui/app-shell-skeleton'
 import { MUST_CHANGE_PASSWORD_EVENT, mustChangePasswordRedirect } from '@/lib/permissions/must-change-password'
 
 interface ProtectedRouteProps {
@@ -85,14 +85,14 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return () => window.removeEventListener(MUST_CHANGE_PASSWORD_EVENT, handleMustChangePassword)
   }, [checkAuth])
 
-  // Afficher un loader pendant la vérification de l'authentification
+  // Squelette de l'interface pendant la vérification de l'authentification
   if (loading || changePasswordRedirect) {
-    return <FullPageSpinner />
+    return <AppShellSkeleton />
   }
 
   // Si l'utilisateur n'est pas authentifié, ne rien afficher (redirection en cours)
   if (!isAuthenticated) {
-    return <FullPageSpinner />
+    return <AppShellSkeleton />
   }
 
   // Si l'utilisateur est authentifié, afficher le contenu
