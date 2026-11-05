@@ -202,20 +202,20 @@ function EditMemberForm({ member, remainingShareForEdit, shareAmount }: EditMemb
               <label htmlFor="team-edit-name" className="text-[13px] font-semibold text-ink">
                 {t('team.form.name')}
               </label>
-              <input id="team-edit-name" className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink" {...form.register('name')} />
+              <input id="team-edit-name" className="h-12 rounded-field border border-line-strong px-3.5 text-base md:text-sm text-ink" {...form.register('name')} />
               {form.formState.errors.name ? <p className="text-xs text-danger-strong">{form.formState.errors.name.message}</p> : null}
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="team-edit-phone" className="text-[13px] font-semibold text-ink">
                 {t('team.form.phone')}
               </label>
-              <input id="team-edit-phone" type="tel" className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink" {...form.register('phone')} />
+              <input id="team-edit-phone" type="tel" className="h-12 rounded-field border border-line-strong px-3.5 text-base md:text-sm text-ink" {...form.register('phone')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="team-edit-email" className="text-[13px] font-semibold text-ink">
                 {t('team.form.email')}
               </label>
-              <input id="team-edit-email" type="email" className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink" {...form.register('email')} />
+              <input id="team-edit-email" type="email" className="h-12 rounded-field border border-line-strong px-3.5 text-base md:text-sm text-ink" {...form.register('email')} />
               {form.formState.errors.email ? <p className="text-xs text-danger-strong">{form.formState.errors.email.message}</p> : null}
             </div>
 
@@ -224,7 +224,7 @@ function EditMemberForm({ member, remainingShareForEdit, shareAmount }: EditMemb
                 <label htmlFor="team-edit-share" className="text-[13px] font-semibold text-ink">
                   {t('team.shareLabel')}
                 </label>
-                <input id="team-edit-share" inputMode="numeric" className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink" {...form.register('share')} />
+                <input id="team-edit-share" inputMode="numeric" className="h-12 rounded-field border border-line-strong px-3.5 text-base md:text-sm text-ink" {...form.register('share')} />
                 {form.formState.errors.share ? (
                   <p className="text-xs text-danger-strong">{form.formState.errors.share.message}</p>
                 ) : (

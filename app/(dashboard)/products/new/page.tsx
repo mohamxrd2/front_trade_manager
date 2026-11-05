@@ -397,7 +397,7 @@ export default function NewArticlePage() {
             inputMode="numeric"
             placeholder={t('products.new.defaultPricePlaceholder')}
             {...field}
-            className="h-11 rounded-field border border-line-strong px-3.5 text-sm text-ink placeholder:text-ink-3"
+            className="h-11 rounded-field border border-line-strong px-3.5 text-base md:text-sm text-ink placeholder:text-ink-3"
           />
         )}
       />
@@ -565,7 +565,7 @@ export default function NewArticlePage() {
                           aria-label={t('products.new.variationNameAria')}
                           placeholder={t('products.detail.variationNamePlaceholder')}
                           {...field}
-                          className="h-11 min-w-0 flex-1 rounded-[12px] border border-line-strong px-2.5 text-[15px] text-ink"
+                          className="h-11 min-w-0 flex-1 rounded-[12px] border border-line-strong px-2.5 text-base md:text-[15px] text-ink"
                         />
                       )}
                     />
@@ -598,7 +598,7 @@ export default function NewArticlePage() {
                             inputMode="numeric"
                             aria-label={t('products.new.variationQuantityAria')}
                             {...field}
-                            className="h-9 w-12 rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
+                            className="h-9 w-12 rounded-lg border border-line-strong text-center text-base md:text-sm font-bold text-ink outline-none focus:border-brand-500"
                           />
                         )}
                       />
@@ -620,7 +620,7 @@ export default function NewArticlePage() {
                           aria-label={t('products.new.variationPriceAria')}
                           placeholder={t('products.new.variationPricePlaceholder', { currency })}
                           {...field}
-                          className="h-9 min-w-0 flex-1 rounded-lg border border-line-strong px-2.5 text-sm font-semibold text-ink outline-none focus:border-brand-500"
+                          className="h-9 min-w-0 flex-1 rounded-lg border border-line-strong px-2.5 text-base md:text-sm font-semibold text-ink outline-none focus:border-brand-500"
                         />
                       )}
                     />
@@ -708,7 +708,7 @@ export default function NewArticlePage() {
                         <input
                           id="article-name"
                           {...field}
-                          className="h-[50px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+                          className="h-[50px] rounded-field border border-line-strong px-3.5 text-base md:text-[15px] text-ink"
                         />
                       )}
                     />
@@ -727,7 +727,7 @@ export default function NewArticlePage() {
                             id="article-price"
                             inputMode="numeric"
                             {...field}
-                            className="h-[50px] max-w-[260px] rounded-field border border-line-strong px-3.5 text-[15px] text-ink"
+                            className="h-[50px] max-w-[260px] rounded-field border border-line-strong px-3.5 text-base md:text-[15px] text-ink"
                           />
                         )}
                       />
@@ -849,7 +849,7 @@ export default function NewArticlePage() {
                                       aria-label={t('products.new.variationNameAria')}
                                       placeholder={t('products.detail.variationNamePlaceholder')}
                                       {...field}
-                                      className="h-[42px] w-full min-w-[140px] rounded-[12px] border border-line-strong px-3 text-sm text-ink"
+                                      className="h-[42px] w-full min-w-[140px] rounded-[12px] border border-line-strong px-3 text-base md:text-sm text-ink"
                                     />
                                   )}
                                 />
@@ -881,7 +881,7 @@ export default function NewArticlePage() {
                                         inputMode="numeric"
                                         aria-label={t('products.new.variationQuantityAria')}
                                         {...field}
-                                        className="w-[46px] rounded-lg border border-line-strong text-center text-sm font-bold text-ink outline-none focus:border-brand-500"
+                                        className="w-[46px] rounded-lg border border-line-strong text-center text-base md:text-sm font-bold text-ink outline-none focus:border-brand-500"
                                       />
                                     )}
                                   />
@@ -905,7 +905,7 @@ export default function NewArticlePage() {
                                       aria-label={t('products.new.variationPriceAria')}
                                       placeholder={currency}
                                       {...field}
-                                      className="h-[42px] w-[120px] rounded-[12px] border border-line-strong px-3 text-sm font-semibold text-ink"
+                                      className="h-[42px] w-[120px] rounded-[12px] border border-line-strong px-3 text-base md:text-sm font-semibold text-ink"
                                     />
                                   )}
                                 />

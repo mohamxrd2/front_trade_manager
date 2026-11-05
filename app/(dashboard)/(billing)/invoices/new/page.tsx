@@ -649,7 +649,7 @@ export default function NewInvoicePage() {
                   type="date"
                   value={dayjs().format('YYYY-MM-DD')}
                   disabled
-                  className="h-12 rounded-field border border-line-strong bg-surface-soft px-3 text-sm text-ink-3"
+                  className="h-12 rounded-field border border-line-strong bg-surface-soft px-3 text-base md:text-sm text-ink-3"
                 />
               </div>
               <div className="flex flex-col gap-2">

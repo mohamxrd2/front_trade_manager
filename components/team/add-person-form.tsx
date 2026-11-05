@@ -189,7 +189,7 @@ function AddPersonForm({ remainingShare }: AddPersonFormProps) {
               id="team-add-name"
               autoFocus
               placeholder={t('team.form.namePlaceholder')}
-              className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink"
+              className="h-12 rounded-field border border-line-strong px-3.5 text-base md:text-sm text-ink"
               {...form.register('name')}
             />
             {form.formState.errors.name ? <p className="text-xs text-danger-strong">{form.formState.errors.name.message}</p> : null}
@@ -202,7 +202,7 @@ function AddPersonForm({ remainingShare }: AddPersonFormProps) {
               id="team-add-phone"
               type="tel"
               placeholder={t('team.form.phonePlaceholder')}
-              className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink"
+              className="h-12 rounded-field border border-line-strong px-3.5 text-base md:text-sm text-ink"
               {...form.register('phone')}
             />
           </div>
@@ -228,7 +228,7 @@ function AddPersonForm({ remainingShare }: AddPersonFormProps) {
               <label htmlFor="team-add-share" className="text-[13px] font-semibold text-ink">
                 {t('team.shareLabel')}
               </label>
-              <input id="team-add-share" inputMode="numeric" className="h-12 rounded-field border border-line-strong px-3.5 text-sm text-ink" {...form.register('share')} />
+              <input id="team-add-share" inputMode="numeric" className="h-12 rounded-field border border-line-strong px-3.5 text-base md:text-sm text-ink" {...form.register('share')} />
               {form.formState.errors.share ? (
                 <p className="text-xs text-danger-strong">{form.formState.errors.share.message}</p>
               ) : (

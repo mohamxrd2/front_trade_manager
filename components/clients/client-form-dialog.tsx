@@ -304,7 +304,7 @@ export function ClientFormDialog({
                   {...register('name')}
                   disabled={isSubmitting}
                   aria-invalid={Boolean(errors.name)}
-                  className={`h-[50px] rounded-field px-3.5 text-[15px] text-ink disabled:opacity-60 lg:h-[50px] ${inputErrorClass(Boolean(errors.name))}`}
+                  className={`h-[50px] rounded-field px-3.5 text-base md:text-[15px] text-ink disabled:opacity-60 lg:h-[50px] ${inputErrorClass(Boolean(errors.name))}`}
                 />
                 {errors.name ? (
                   <span className="text-xs font-semibold text-danger-strong">{errors.name.message}</span>
@@ -322,7 +322,7 @@ export function ClientFormDialog({
                     placeholder={t('clients.form.phonePlaceholder')}
                     {...register('phone')}
                     disabled={isSubmitting}
-                    className="h-12 rounded-field border border-line-strong px-3.5 text-[15px] text-ink disabled:opacity-60 lg:h-12"
+                    className="h-12 rounded-field border border-line-strong px-3.5 text-base md:text-[15px] text-ink disabled:opacity-60 lg:h-12"
                   />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -336,7 +336,7 @@ export function ClientFormDialog({
                     {...register('email')}
                     disabled={isSubmitting}
                     aria-invalid={Boolean(errors.email)}
-                    className={`h-12 rounded-field px-3.5 text-[15px] text-ink disabled:opacity-60 lg:h-12 ${inputErrorClass(Boolean(errors.email))}`}
+                    className={`h-12 rounded-field px-3.5 text-base md:text-[15px] text-ink disabled:opacity-60 lg:h-12 ${inputErrorClass(Boolean(errors.email))}`}
                   />
                   {errors.email ? (
                     <span className="text-xs font-semibold text-danger-strong">{errors.email.message}</span>
@@ -370,7 +370,7 @@ export function ClientFormDialog({
                   placeholder={t('clients.form.billingAddressPlaceholder')}
                   {...register('billing_address')}
                   disabled={isSubmitting}
-                  className="rounded-field border border-line-strong px-3.5 py-3 text-[15px] text-ink disabled:opacity-60"
+                  className="rounded-field border border-line-strong px-3.5 py-3 text-base md:text-[15px] text-ink disabled:opacity-60"
                 />
               </div>
 
@@ -396,7 +396,7 @@ export function ClientFormDialog({
                     placeholder={t('clients.form.shippingAddressPlaceholder')}
                     {...register('shipping_address')}
                     disabled={isSubmitting}
-                    className="rounded-field border border-line-strong px-3.5 py-3 text-[15px] text-ink disabled:opacity-60"
+                    className="rounded-field border border-line-strong px-3.5 py-3 text-base md:text-[15px] text-ink disabled:opacity-60"
                   />
                 </div>
               ) : null}

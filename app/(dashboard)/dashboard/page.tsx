@@ -485,7 +485,7 @@ function OwnerDashboardContent() {
             <Search className="pointer-events-none absolute left-4 top-3.5 size-[18px] text-subtle" />
             <input
               placeholder={t('dashboard.searchPlaceholder')}
-              className="glass h-12 w-[300px] max-w-full rounded-full pl-11 pr-4 text-sm text-ink outline-none"
+              className="glass h-12 w-[300px] max-w-full rounded-full pl-11 pr-4 text-base md:text-sm text-ink outline-none"
             />
           </div>
           <AmountVisibilityToggle variant="glass" />
