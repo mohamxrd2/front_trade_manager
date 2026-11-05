@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -13,19 +13,18 @@ import { StaleClientListener } from "@/components/stale-client-listener";
 import { AccountMismatchListener } from "@/components/account-mismatch-listener";
 import { SessionSwitchListener } from "@/components/session-switch-listener";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
+// Polices auto-hébergées par next/font (WOFF2). Plus Jakarta Sans en
+// version VARIABLE : un seul fichier pour les graisses 400 à 800 au lieu de
+// cinq. Geist Mono (montants, codes) n'apparaît que sur quelques écrans :
+// pas de préchargement.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-jakarta",
 });
 
@@ -96,7 +95,7 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${jakarta.variable} antialiased`}
+        className={`${geistMono.variable} ${jakarta.variable} antialiased`}
       >
 
         <ThemeProvider>
