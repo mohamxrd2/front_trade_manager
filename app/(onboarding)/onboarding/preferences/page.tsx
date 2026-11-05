@@ -306,7 +306,7 @@ export default function OnboardingPreferencesPage() {
           <StepsBar current={3} />
 
           <div className="flex flex-col gap-1">
-            <h1 className="text-[28px] font-bold leading-[1.1] text-[#0E0E1A]">{t('onboarding.preferences.title')}</h1>
+            <h1 className="text-[28px] font-bold leading-[1.1] text-[#0E0E1A] tracking-[-0.02em]">{t('onboarding.preferences.title')}</h1>
             <p className="text-[15px] text-[#6B6B7B]">{t('onboarding.preferences.subtitle')}</p>
           </div>
 

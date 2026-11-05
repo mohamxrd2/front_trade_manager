@@ -239,7 +239,7 @@ function LoginPageInner() {
         >
           <AuthLogo size={40} textClassName="text-white" />
           <div className="flex flex-col gap-3">
-            <h1 className="text-[32px] font-bold leading-[1.1]">
+            <h1 className="text-[32px] font-bold leading-[1.1] tracking-[-0.02em]">
               {t('auth.login.heroTitle')}
             </h1>
             <p className="text-[15px] text-[#C8C8F0]">{t('auth.login.heroSubtitleMobile')}</p>

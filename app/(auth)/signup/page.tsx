@@ -225,7 +225,7 @@ function SignupPageInner() {
             <AuthLogo size={36} className="mb-2" textClassName="text-[#0E0E1A]" />
 
             <div className="flex flex-col gap-1">
-              <h1 className="text-[32px] font-extrabold text-[#0E0E1A]">{t('auth.signup.title')}</h1>
+              <h1 className="text-[32px] font-extrabold text-[#0E0E1A] tracking-[-0.02em]">{t('auth.signup.title')}</h1>
               <p className="text-[15px] text-[#6B6B7B]">{t('auth.signup.subtitle')}</p>
             </div>
 
@@ -315,7 +315,7 @@ function SignupPageInner() {
           }}
         >
           <AuthLogo size={40} textClassName="text-white" />
-          <h1 className="text-[28px] font-bold leading-[1.1]">{t('auth.signup.title')}</h1>
+          <h1 className="text-[28px] font-bold leading-[1.1] tracking-[-0.02em]">{t('auth.signup.title')}</h1>
           <AuthStepsCompact current={1} />
         </div>
 

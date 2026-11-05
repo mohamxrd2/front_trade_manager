@@ -172,7 +172,7 @@ function VerifyPageInner() {
             <Mail className="size-8" />
           </div>
 
-          <h1 className="text-[30px] font-extrabold text-[#0E0E1A]">{t('auth.verify.title')}</h1>
+          <h1 className="text-[30px] font-extrabold text-[#0E0E1A] tracking-[-0.02em]">{t('auth.verify.title')}</h1>
           <p className="text-[15px] text-[#4B4B5C]">
             {t('auth.verify.subtitleDesktopPrefix')} <strong className="text-[#0E0E1A]">{email}</strong>
           </p>
@@ -229,7 +229,7 @@ function VerifyPageInner() {
           <div className="flex size-16 items-center justify-center rounded-[20px] bg-[#EEEAFE] text-[#5B3FE6]">
             <Mail className="size-7" />
           </div>
-          <h1 className="text-[30px] font-bold leading-[1.1] text-[#0E0E1A]">{t('auth.verify.title')}</h1>
+          <h1 className="text-[30px] font-bold leading-[1.1] text-[#0E0E1A] tracking-[-0.02em]">{t('auth.verify.title')}</h1>
           <p className="text-[15px] text-[#6B6B7B]">
             {t('auth.verify.subtitleMobilePrefix')} {email}
           </p>
