@@ -67,8 +67,13 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+// Barre d'état / barre d'adresse de la couleur du fond de l'appli (et non
+// un violet fixe) : elle se fond dans la page, en clair comme en sombre.
 export const viewport: Viewport = {
-  themeColor: "#5B3FE6",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F3F3F7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B0B16" },
+  ],
 };
 
 export default async function RootLayout({

@@ -24,6 +24,10 @@ function applyTheme(resolved: ResolvedTheme) {
   const root = document.documentElement
   root.classList.toggle("dark", resolved === "dark")
   root.style.colorScheme = resolved
+  // Thème choisi à la main (≠ système) : la barre d'état suit aussi.
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+    meta.setAttribute("content", resolved === "dark" ? "#0B0B16" : "#F3F3F7")
+  })
 }
 
 /**
