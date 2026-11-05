@@ -539,8 +539,9 @@ export default function WalletPage() {
         [exportColumnAmount]: `${visual.sign}${formatAmount(tx.amount ?? 0, language)} F`,
       }
     })
-    exportToExcel(rows, `waelly-portefeuille-${dayjs().format('YYYY-MM')}`, t('wallet.title'))
-    toast.success(t('wallet.list.exportGenerated'))
+    void exportToExcel(rows, `waelly-portefeuille-${dayjs().format('YYYY-MM')}`, t('wallet.title')).then(() =>
+      toast.success(t('wallet.list.exportGenerated'))
+    )
   }
 
   const selectionBar = selectedIds.size > 0 && (

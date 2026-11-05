@@ -1,12 +1,18 @@
-import * as XLSX from 'xlsx'
-import { saveAs } from 'file-saver'
 import type { ApiTransaction } from '@/lib/services/transactions'
 import type { Article } from '@/lib/services/articles'
 
 /**
+ * xlsx (~400 Ko) et file-saver ne sont chargés qu'au moment de l'export :
+ * les pages Produits, Factures et Opérations ne les téléchargent plus d'office.
+ */
+async function loadSaveAs() {
+  return (await import('file-saver')).saveAs
+}
+
+/**
  * Exporte des données en CSV
  */
-export function exportToCSV(data: Record<string, unknown>[], filename: string) {
+export async function exportToCSV(data: Record<string, unknown>[], filename: string) {
   if (!data || data.length === 0) {
     throw new Error('Aucune donnée à exporter')
   }
@@ -40,16 +46,20 @@ export function exportToCSV(data: Record<string, unknown>[], filename: string) {
   
   // Créer le blob et télécharger
   const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' }) // BOM pour Excel
+  const saveAs = await loadSaveAs()
   saveAs(blob, `${filename}.csv`)
 }
 
 /**
  * Exporte des données en Excel
  */
-export function exportToExcel(data: Record<string, unknown>[], filename: string, sheetName: string = 'Sheet1') {
+export async function exportToExcel(data: Record<string, unknown>[], filename: string, sheetName: string = 'Sheet1') {
   if (!data || data.length === 0) {
     throw new Error('Aucune donnée à exporter')
   }
+
+  const XLSX = await import('xlsx')
+  const saveAs = await loadSaveAs()
 
   // Créer un nouveau workbook
   const workbook = XLSX.utils.book_new()

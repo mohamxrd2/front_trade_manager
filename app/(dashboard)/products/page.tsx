@@ -92,7 +92,7 @@ export default function ProductsPage() {
   const paginatedArticles = filteredArticles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleExport = () => {
-    exportToExcel(formatProductsForExport(articles, currency), 'stock-waelly', 'Stock')
+    void exportToExcel(formatProductsForExport(articles, currency), 'stock-waelly', 'Stock')
   }
 
   if (isLoading) {

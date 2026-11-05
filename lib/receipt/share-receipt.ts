@@ -1,5 +1,6 @@
-import { toCanvas, toPng } from 'html-to-image'
-import { jsPDF } from 'jspdf'
+// html-to-image et jspdf sont chargés à la demande (import()) : ils ne
+// pèsent plus sur le chargement des pages qui affichent un ticket.
+const loadHtmlToImage = () => import('html-to-image')
 
 /**
  * PNG à 2x pour la netteté (spec) — un noeud DOM déjà rendu (l'aperçu à
@@ -13,6 +14,7 @@ import { jsPDF } from 'jspdf'
  * retente sans lui plutôt que de faire échouer tout le partage.
  */
 export async function renderReceiptPng(node: HTMLElement): Promise<string> {
+  const { toPng } = await loadHtmlToImage()
   try {
     return await toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff' })
   } catch {
@@ -30,6 +32,7 @@ export async function renderReceiptPng(node: HTMLElement): Promise<string> {
  * PUR (seuil) — pas de gris ni de couleurs que l'imprimante tramerait mal.
  */
 export async function renderThermalReceiptPng(node: HTMLElement, widthDots?: number): Promise<string> {
+  const { toCanvas } = await loadHtmlToImage()
   const options = { pixelRatio: 2, backgroundColor: '#ffffff', style: { padding: '4px', margin: '0' } }
   const withoutLogo = {
     ...options,
@@ -156,6 +159,7 @@ export async function exportReceiptPdf(node: HTMLElement, code: string, widthMm:
   const rect = node.getBoundingClientRect()
   const heightMm = (rect.height / rect.width) * widthMm
 
+  const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'mm', format: [widthMm, heightMm] })
   doc.addImage(dataUrl, 'PNG', 0, 0, widthMm, heightMm)
   doc.save(`ticket-${code}.pdf`)

@@ -395,7 +395,7 @@ export default function InvoicesPage() {
         [colStatus]: getInvoiceStatusDisplay(inv).label,
         [colAmount]: `${formatAmount(Number(inv.total), language)} F`,
       }))
-      exportToExcel(rows, `waelly-factures-${dayjs().format('YYYY-MM')}`, t('invoices.title'))
+      await exportToExcel(rows, `waelly-factures-${dayjs().format('YYYY-MM')}`, t('invoices.title'))
       toast.success(t('invoices.list.exportGenerated'))
     } catch {
       toast.error(t('invoices.list.exportFailed'))
