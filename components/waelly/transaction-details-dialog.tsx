@@ -151,7 +151,7 @@ function TransactionDetailsDialog({ transaction, onOpenChange, invoiceNumber, in
       ),
     })
   }
-  if (invoiceEntry?.client_name) {
+  if (invoiceEntry?.client_name && !(isSale && operation?.clientName)) {
     rows.push({ label: t('transactions.detail.client'), value: invoiceEntry.client_name })
   }
 
