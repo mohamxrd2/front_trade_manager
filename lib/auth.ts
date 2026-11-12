@@ -350,6 +350,34 @@ export async function resendRegistrationCode(email: string): Promise<PendingRegi
 }
 
 /**
+ * Mot de passe oublié, étape 1 : demande un code par email. Le backend
+ * répond pareil que l'email existe ou non.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const config: NoRetryRequestConfig = { skipRetry: true }
+  await api.post('/api/password/forgot', { email }, config)
+}
+
+export interface ResetPasswordPayload {
+  email: string
+  code: string
+  password: string
+  password_confirmation: string
+}
+
+/**
+ * Mot de passe oublié, étape 2 : code + nouveau mot de passe. Sans retry
+ * automatique : chaque essai compte (5 max côté backend).
+ *
+ * @throws ApiError 422 (code incorrect ou mot de passe refusé), 410 (code
+ * expiré ou aucune demande), 429 (trop d'essais)
+ */
+export async function resetPassword(payload: ResetPasswordPayload): Promise<void> {
+  const config: NoRetryRequestConfig = { skipRetry: true }
+  await api.post('/api/password/reset', payload, config)
+}
+
+/**
  * Déconnexion de l'utilisateur
  * 
  * @throws Erreur si la déconnexion échoue (mais on continue quand même)
