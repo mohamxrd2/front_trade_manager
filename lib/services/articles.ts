@@ -86,6 +86,8 @@ export interface VariationInput {
   quantity: number
   price: number
   cost_price?: number | null
+  /** Photo de la variation, envoyée avant la création. */
+  image_media_id?: string | null
 }
 
 /**
@@ -97,6 +99,8 @@ export interface SimpleArticlePayload {
   sale_price: number
   quantity: number
   image?: string | null
+  /** Photo envoyée avant la création (POST /api/media sans owner_id). */
+  image_media_id?: string | null
 }
 
 /**
@@ -108,6 +112,7 @@ export interface VariableArticlePayload {
   type: 'variable'
   variations: VariationInput[]
   image?: string | null
+  image_media_id?: string | null
 }
 
 export type ArticlePayload = SimpleArticlePayload | VariableArticlePayload

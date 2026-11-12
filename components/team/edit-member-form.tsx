@@ -35,6 +35,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { RolePicker, type RolePickerValue } from '@/components/team/role-picker'
 import { CredentialsScreen } from '@/components/team/credentials-screen'
+import { ImageUploader } from '@/components/media/image-uploader'
+import { initialsOf } from '@/components/media/media-image'
 import type { AssignableRole } from '@/lib/permissions/catalog'
 import { roleLabelKey, roleTone } from '@/lib/permissions/role-labels'
 
@@ -198,6 +200,20 @@ function EditMemberForm({ member, remainingShareForEdit, shareAmount }: EditMemb
         {/* --- Formulaire --- */}
         <Card className="flex min-w-0 flex-[3_1_520px] flex-col gap-4 rounded-panel">
           <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
+            {/* Photo envoyée tout de suite, synchronisée sur l'accès et la fiche associé. */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[13px] font-semibold text-ink">{t('team.form.photo')}</span>
+              <ImageUploader
+                kind="avatar"
+                ownerId={member.id}
+                value={member.photo}
+                onChange={() => void queryClient.invalidateQueries({ queryKey: keys.team.all })}
+                alt={member.name}
+                shape="circle"
+                previewClassName="size-16"
+                fallback={<span className="text-base font-extrabold text-ink-2">{initialsOf(member.name)}</span>}
+              />
+            </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="team-edit-name" className="text-[13px] font-semibold text-ink">
                 {t('team.form.name')}

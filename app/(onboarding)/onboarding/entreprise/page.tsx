@@ -8,7 +8,9 @@ import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { getCompany, updateCompany, uploadCompanyLogo } from '@/lib/services/company'
+import { getCompany, updateCompany } from '@/lib/services/company'
+import { compressImage, type CompressedImage } from '@/lib/media/compress'
+import { uploadMedia, type MediaUploadError } from '@/lib/media/upload'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { SubmitButton } from '@/components/auth'
 import {
@@ -112,7 +114,10 @@ export default function OnboardingCompanyPage() {
   const { t } = useTranslation()
   const h1Ref = React.useRef<HTMLHeadingElement>(null)
 
-  const [logoFile, setLogoFile] = React.useState<File | null>(null)
+  // Logo déjà compressé (512 px, WebP) : envoyé après l'enregistrement de
+  // l'entreprise, qui n'existe pas encore au premier passage.
+  const [logoImage, setLogoImage] = React.useState<CompressedImage | null>(null)
+  const [logoUploadError, setLogoUploadError] = React.useState<MediaUploadError | null>(null)
   const [logoPreview, setLogoPreview] = React.useState<string | null>(null)
   const [logoError, setLogoError] = React.useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = React.useState<number | null>(null)
@@ -186,12 +191,40 @@ export default function OnboardingCompanyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(values), loadingExisting])
 
-  const handleLogoSelect = (file: File) => {
+  const handleLogoSelect = async (file: File) => {
     setLogoError(null)
-    setLogoFile(file)
-    const reader = new FileReader()
-    reader.onload = () => setLogoPreview(reader.result as string)
-    reader.readAsDataURL(file)
+    setLogoUploadError(null)
+    try {
+      const image = await compressImage(file, 'logo')
+      setLogoImage(image)
+      setLogoPreview(URL.createObjectURL(image.blob))
+    } catch {
+      setLogoError(t('media.errors.unreadable'))
+    }
+  }
+
+  /** Envoie le logo ; en cas d'échec, l'entreprise reste enregistrée et « Réessayer » s'affiche. */
+  const sendLogo = async (): Promise<boolean> => {
+    if (!logoImage) return true
+    setLogoUploadError(null)
+    setUploadProgress(0)
+    try {
+      await uploadMedia({ blob: logoImage.blob, kind: 'logo', onProgress: setUploadProgress })
+      setLogoImage(null)
+      return true
+    } catch (error) {
+      setLogoUploadError(error as MediaUploadError)
+      return false
+    } finally {
+      setUploadProgress(null)
+    }
+  }
+
+  const retryLogo = async () => {
+    if (await sendLogo()) {
+      clearDraft()
+      router.push('/onboarding/preferences')
+    }
   }
 
   const onSubmit = async (data: CompanyFormValues) => {
@@ -206,14 +239,7 @@ export default function OnboardingCompanyPage() {
         bank_account_number: data.iban ? data.iban.replace(/\s/g, '') : null,
       })
 
-      if (logoFile) {
-        setUploadProgress(0)
-        try {
-          await uploadCompanyLogo(logoFile, setUploadProgress)
-        } finally {
-          setUploadProgress(null)
-        }
-      }
+      if (!(await sendLogo())) return
 
       clearDraft()
       router.push('/onboarding/preferences')
@@ -242,7 +268,12 @@ export default function OnboardingCompanyPage() {
   const legalStatusErrorMsg = errors.legalStatus?.message
 
   const logoButton = (
-    <LogoUploadButton previewUrl={logoPreview} onSelect={handleLogoSelect} error={logoError} />
+    <LogoUploadButton
+      previewUrl={logoPreview}
+      onSelect={(file) => void handleLogoSelect(file)}
+      error={logoError ?? (logoUploadError ? t(logoUploadError.messageKey) : null)}
+      onRetry={logoUploadError?.retryable ? () => void retryLogo() : undefined}
+    />
   )
 
   const sectorField = (variant: 'ink' | 'violet') => (

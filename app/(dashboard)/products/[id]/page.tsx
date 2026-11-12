@@ -46,6 +46,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { EditVariationDialog } from '@/components/products/edit-variation-dialog'
+import { ImageUploader } from '@/components/media/image-uploader'
+import { MediaImage } from '@/components/media/media-image'
 import { StockHistoryList } from '@/components/products/stock-history-list'
 import { Button, Card, CardHeader, CardTitle, StatusBadge, SegmentedControl } from '@/components/waelly'
 
@@ -73,8 +75,8 @@ function buildTypeOptions(t: ReturnType<typeof useTranslation>['t']) {
  *   backend renvoie une 400 si on tente de le changer) : le SegmentedControl
  *   est affiché mais son activation signale juste pourquoi ce n'est pas
  *   possible, il ne soumet rien.
- * - Pas de téléversement d'image d'article dans l'API actuelle : le bloc
- *   photo reste un espace réservé statique.
+ * - Photo de l'article et de chaque variation : ImageUploader, envoyée et
+ *   rattachée dès qu'elle est choisie (stock.edit) ; lecture seule sinon.
  * - "Vendus (30 j)" / "CA généré (30 j)" viennent de l'article lui-même
  *   (last_30_days, GET /api/articles/{id}) — plus de GET /api/transactions,
  *   refusé au gestionnaire de stock ; le CA est null sans accès aux finances.
@@ -373,6 +375,32 @@ export default function ProductDetailPage() {
     )
   }
 
+  const handlePhotoChange = () => {
+    void mutateArticle()
+    void invalidateArticles()
+  }
+
+  // Photo d'une variation : modifiable avec stock.edit, sinon simple vignette.
+  const variationThumb = (variation: Variation, sizeClass: string) => {
+    const initials = <span className="text-[13px] font-bold text-ink">{variation.name.slice(0, 2).toUpperCase()}</span>
+    return canEditStock ? (
+      <ImageUploader
+        kind="variation"
+        variant="compact"
+        ownerId={variation.id}
+        value={variation.image}
+        onChange={(media) =>
+          setVariations((prev) => prev.map((v) => (v.id === variation.id ? { ...v, image: media?.url ?? null } : v)))
+        }
+        alt={variation.name}
+        previewClassName={sizeClass}
+        fallback={initials}
+      />
+    ) : (
+      <MediaImage src={variation.image} alt={variation.name} sizes="48px" className={`${sizeClass} shrink-0 rounded-[10px] bg-surface-soft`} fallback={initials} />
+    )
+  }
+
   const sellHref = `/wallet/new?type=sale&article=${article.id}`
 
   return (
@@ -380,8 +408,19 @@ export default function ProductDetailPage() {
       {/* --- Mobile (< 1024px) --- */}
       <div className="-mx-4 -mt-5 flex flex-col pb-28 lg:hidden">
         <div className="relative flex h-[290px] flex-col items-center justify-center gap-2 bg-brand-100 text-[13px] font-semibold text-brand-700">
-          <ImageIcon className="size-10" strokeWidth={1.5} />
-          {t('products.detail.photoPlaceholder')}
+          <MediaImage
+            src={article.image}
+            alt={article.name}
+            sizes="100vw"
+            priority
+            className="absolute inset-0"
+            fallback={
+              <span className="flex flex-col items-center gap-2">
+                <ImageIcon className="size-10" strokeWidth={1.5} aria-hidden="true" />
+                {t('products.detail.photoPlaceholder')}
+              </span>
+            }
+          />
           <Link
             href="/products"
             aria-label={t('products.detail.backToStock')}
@@ -400,8 +439,17 @@ export default function ProductDetailPage() {
             </button>
           ) : null}
         </div>
-
         <div className="-mt-6 flex flex-col gap-5 rounded-t-3xl bg-canvas p-5">
+          {canEditStock ? (
+            <ImageUploader
+              kind="product"
+              ownerId={String(article.id)}
+              value={article.image}
+              onChange={handlePhotoChange}
+              alt={article.name}
+              previewClassName="size-14"
+            />
+          ) : null}
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-bold uppercase tracking-wide text-brand-500">
               {article.type === 'simple' ? t('products.detail.simpleArticleBadge') : t('products.detail.variableArticleBadge')}
@@ -453,9 +501,7 @@ export default function ProductDetailPage() {
                       key={variation.id}
                       className={`flex items-center gap-3 p-3.5 ${i > 0 ? 'border-t border-divider' : ''}`}
                     >
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-surface-soft text-[13px] font-bold text-ink">
-                        {variation.name.slice(0, 2).toUpperCase()}
-                      </span>
+                      {variationThumb(variation, 'size-11')}
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate text-sm font-semibold text-ink">{variation.name}</span>
                         <span className="text-xs text-subtle">{formatAmount(variation.price, language)} {currency}</span>
@@ -567,17 +613,29 @@ export default function ProductDetailPage() {
       <div className="flex flex-wrap items-start gap-5">
         {/* --- Panneau article (photo + champs éditables) --- */}
         <Card className="flex flex-[1_1_360px] flex-col gap-4 rounded-panel">
-          <div className="flex h-[240px] flex-col items-center justify-center gap-2 rounded-tile bg-gradient-to-br from-brand-100 to-brand-200 text-[13px] font-semibold text-brand-700">
-            <ImageIcon className="size-10" strokeWidth={1.5} />
-            {t('products.detail.photoPlaceholder')}
-            <button
-              type="button"
-              onClick={() => toast(t('products.detail.photoUploadSoon'))}
-              className="flex min-h-10 items-center rounded-full bg-surface px-3.5 text-[13px] font-bold text-brand-700"
-            >
-              {t('products.detail.changeImage')}
-            </button>
-          </div>
+          {(() => {
+            const placeholder = (
+              <span className="flex size-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-brand-100 to-brand-200 text-[13px] font-semibold text-brand-700">
+                <ImageIcon className="size-10" strokeWidth={1.5} aria-hidden="true" />
+                {t('products.detail.photoPlaceholder')}
+              </span>
+            )
+            return canEditStock ? (
+              <ImageUploader
+                kind="product"
+                ownerId={String(article.id)}
+                value={article.image}
+                onChange={handlePhotoChange}
+                alt={article.name}
+                layout="column"
+                previewClassName="h-[240px] w-full"
+                fallback={placeholder}
+                className="w-full"
+              />
+            ) : (
+              <MediaImage src={article.image} alt={article.name} sizes="400px" className="h-[240px] w-full rounded-tile" fallback={placeholder} />
+            )
+          })()}
           <div className="flex flex-col gap-2">
             <Label htmlFor="article-name" className="text-[13px] font-semibold text-ink">
               {t('products.detail.nameLabel')}
@@ -679,9 +737,7 @@ export default function ProductDetailPage() {
                         <tr key={variation.id} className="border-t border-divider">
                           <td className="px-2 py-2.5">
                             <span className="flex items-center gap-2.5">
-                              <span className="flex size-9 shrink-0 items-center justify-center rounded-tile bg-surface-soft text-[13px] font-bold text-ink">
-                                {variation.name.slice(0, 2).toUpperCase()}
-                              </span>
+                              {variationThumb(variation, 'size-11')}
                               {variation.name}
                             </span>
                           </td>

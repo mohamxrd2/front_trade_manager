@@ -2,7 +2,9 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import { ImageUploader } from '@/components/media/image-uploader'
+import { MediaImage } from '@/components/media/media-image'
+import type { UploadedMedia } from '@/lib/media/upload'
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -113,10 +115,9 @@ type NewArticleFormValues = z.infer<ReturnType<typeof buildNewArticleSchema>>
  * invention) :
  * - "Catégorie" n'existe pas sur le modèle Article (ni colonne, ni
  *   validation côté API) : le select est entièrement masqué, comme demandé.
- * - Aucun endpoint d'upload d'image n'existe (ni pour l'article, ni pour une
- *   variation) : les zones photo restent cliquables/glissables et affichent
- *   un aperçu local (URL objet navigateur), mais rien n'est envoyé au
- *   serveur — un toast le signale au premier choix de fichier.
+ * - Photos (article et variations) : compressées puis envoyées dès qu'elles
+ *   sont choisies (ImageUploader, sans rattachement), puis passées à la
+ *   création dans image_media_id.
  * - Le "seuil d'alerte" n'est pas un champ par article (réglage global,
  *   user_settings.low_stock_threshold) : affiché en lecture seule avec un
  *   lien vers /settings, sans stepper, comme demandé.
@@ -131,10 +132,11 @@ export default function NewArticlePage() {
   const { t, language } = useTranslation()
   const typeOptions = React.useMemo(() => buildTypeOptions(t), [t])
 
-  const [photoPreview, setPhotoPreview] = React.useState<string | null>(null)
+  // Photos envoyées dès leur choix (sans rattachement), puis passées à la
+  // création : image_media_id de l'article et de chaque variation.
+  const [photo, setPhoto] = React.useState<UploadedMedia | null>(null)
+  const [variationPhotos, setVariationPhotos] = React.useState<Record<string, UploadedMedia>>({})
   const [quickAddValue, setQuickAddValue] = React.useState('')
-  const photoWarnedRef = React.useRef(false)
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const newArticleSchema = React.useMemo(() => buildNewArticleSchema(t), [t])
   const {
@@ -192,23 +194,13 @@ export default function NewArticlePage() {
         ? `${formatAmount(priceMin, language)} F`
         : `${formatAmount(priceMin, language)} – ${formatAmount(priceMax, language)} F`
 
-  const warnPhotoUnavailable = () => {
-    if (!photoWarnedRef.current) {
-      toast(t('products.new.photoNotAvailable'))
-      photoWarnedRef.current = true
-    }
-  }
-
-  const handlePhotoFile = (file: File | null | undefined) => {
-    if (!file) return
-    setPhotoPreview(URL.createObjectURL(file))
-    warnPhotoUnavailable()
-  }
-
-  const handlePhotoDrop = (e: React.DragEvent<HTMLButtonElement>) => {
-    e.preventDefault()
-    handlePhotoFile(e.dataTransfer.files?.[0])
-  }
+  const setVariationPhoto = (fieldId: string, media: UploadedMedia | null) =>
+    setVariationPhotos((prev) => {
+      const next = { ...prev }
+      if (media) next[fieldId] = media
+      else delete next[fieldId]
+      return next
+    })
 
   const handleTypeChange = (next: string) => {
     setValue('type', next as 'simple' | 'variable')
@@ -245,6 +237,7 @@ export default function NewArticlePage() {
           sale_price: parseFloat(data.sale_price),
           quantity: qty,
           image: null,
+          image_media_id: photo?.id ?? null,
         })
         toast.success(t('products.new.toastArticleAdded'))
         await Promise.all([invalidateArticles(), invalidateUserStats()])
@@ -258,12 +251,14 @@ export default function NewArticlePage() {
       const article = await addArticle({
         name: data.name.trim(),
         type: 'variable',
-        variations: data.variations.map((v) => ({
+        variations: data.variations.map((v, i) => ({
           name: v.name.trim(),
           quantity: parseInt(v.quantity, 10) || 0,
           price: parseFloat(v.price),
+          image_media_id: variationPhotos[fields[i]?.id]?.id ?? null,
         })),
         image: null,
+        image_media_id: photo?.id ?? null,
       })
 
       toast.success(t('products.new.toastArticleAdded'))
@@ -274,39 +269,38 @@ export default function NewArticlePage() {
     }
   }
 
-  const photoButton = (sizeClass: string, helpText: string) => (
-    <button
-      type="button"
-      onClick={() => fileInputRef.current?.click()}
-      onDrop={handlePhotoDrop}
-      onDragOver={(e) => e.preventDefault()}
-      className={`relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-tile border-[1.5px] border-dashed border-brand-200 bg-brand-50 text-center text-brand-700 ${sizeClass}`}
-    >
-      {photoPreview ? (
-        <>
-          <Image src={photoPreview} alt="" fill className="object-cover" unoptimized />
-          <span className="absolute bottom-2 rounded-full bg-surface px-3 py-1 text-xs font-bold text-brand-700">
-            {t('products.new.changePhoto')}
-          </span>
-        </>
-      ) : (
-        <>
-          <span className="flex size-12 items-center justify-center rounded-full bg-surface">
-            <ImageIcon className="size-6" strokeWidth={1.8} />
-          </span>
+  const photoButton = (previewClassName: string) => (
+    <ImageUploader
+      kind="product"
+      value={photo?.url ?? null}
+      onChange={setPhoto}
+      alt={name.trim() || t('products.new.articleNamePlaceholder')}
+      layout="column"
+      previewClassName={previewClassName}
+      fallback={
+        <span className="flex flex-col items-center gap-1 text-brand-700">
+          <ImageIcon className="size-6" strokeWidth={1.8} aria-hidden="true" />
           <span className="text-sm font-bold">{t('products.new.addPhoto')}</span>
-          <span className="px-2 text-xs text-ink-3">{helpText}</span>
-        </>
-      )}
-    </button>
+        </span>
+      }
+    />
+  )
+
+  const variationPhoto = (fieldId: string, index: number, sizeClass: string) => (
+    <ImageUploader
+      kind="variation"
+      variant="compact"
+      value={variationPhotos[fieldId]?.url ?? null}
+      onChange={(media) => setVariationPhoto(fieldId, media)}
+      alt={variationsWatch[index]?.name?.trim() || t('products.new.variationPhotoAria', { index: index + 1 })}
+      previewClassName={sizeClass}
+    />
   )
 
   const previewCard = (
     <div className="flex flex-col gap-3 rounded-tile bg-surface p-3 shadow-card">
-      {photoPreview ? (
-        <span className="relative block h-[150px] overflow-hidden rounded-tile">
-          <Image src={photoPreview} alt="" fill className="object-cover" unoptimized />
-        </span>
+      {photo ? (
+        <MediaImage src={photo.url} alt="" sizes="320px" className="block h-[150px] rounded-tile" />
       ) : (
         <span className="flex h-[150px] items-center justify-center rounded-tile bg-gradient-to-br from-brand-100 to-brand-200 text-2xl font-extrabold text-brand-700">
           {initials(name)}
@@ -406,13 +400,6 @@ export default function NewArticlePage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp"
-        className="hidden"
-        onChange={(e) => handlePhotoFile(e.target.files?.[0])}
-      />
 
       {/* --- Mobile (< 1024px) --- */}
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 pb-32 lg:hidden">
@@ -430,7 +417,7 @@ export default function NewArticlePage() {
           </Link>
         </div>
 
-        {photoButton('h-[150px] w-full', t('products.new.photoHelpMobile'))}
+        {photoButton('h-[150px] w-full')}
 
         <div className="flex flex-col gap-2">
           <label htmlFor="m-article-name" className="text-[13px] font-semibold text-ink">
@@ -549,14 +536,7 @@ export default function NewArticlePage() {
                   className="flex flex-col gap-2 rounded-tile border border-line bg-surface p-2.5"
                 >
                   <div className="flex items-center gap-2.5">
-                    <button
-                      type="button"
-                      aria-label={t('products.new.variationPhotoAria', { index: index + 1 })}
-                      onClick={warnPhotoUnavailable}
-                      className="flex size-11 shrink-0 items-center justify-center rounded-tile border border-dashed border-brand-200 bg-brand-50 text-brand-500"
-                    >
-                      <Plus className="size-[18px]" strokeWidth={1.9} />
-                    </button>
+                    {variationPhoto(field.id, index, 'size-11')}
                     <Controller
                       control={control}
                       name={`variations.${index}.name`}
@@ -695,7 +675,7 @@ export default function NewArticlePage() {
             <Card className="flex flex-col gap-4.5 rounded-panel p-6">
               <h2 className="text-lg font-bold text-ink">{t('products.new.informationsTitle')}</h2>
               <div className="flex flex-wrap items-stretch gap-4.5">
-                {photoButton('min-h-[180px] flex-[0_0_180px] p-3', t('products.new.photoHelpDesktop'))}
+                {photoButton('size-[180px]')}
                 <div className="flex min-w-[280px] flex-1 flex-col gap-3.5">
                   <div className="flex flex-col gap-2">
                     <label htmlFor="article-name" className="text-[13px] font-semibold text-ink">
@@ -831,14 +811,7 @@ export default function NewArticlePage() {
                           return (
                             <tr key={field.id} className="border-t border-divider align-top">
                               <td className="px-3 py-2.5">
-                                <button
-                                  type="button"
-                                  aria-label={t('products.new.variationPhotoAria', { index: index + 1 })}
-                                  onClick={warnPhotoUnavailable}
-                                  className="flex size-10 items-center justify-center rounded-tile border border-dashed border-brand-200 bg-brand-50 font-bold text-brand-500"
-                                >
-                                  <Plus className="size-[18px]" />
-                                </button>
+                                {variationPhoto(field.id, index, 'size-11')}
                               </td>
                               <td className="px-3 py-2.5">
                                 <Controller

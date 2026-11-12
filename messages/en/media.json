@@ -1,0 +1,27 @@
+{
+  "choose": "Choose an image",
+  "takePhoto": "Take a photo",
+  "gallery": "Choose from gallery",
+  "change": "Change",
+  "remove": "Remove",
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "preparing": "Preparing image…",
+  "uploading": "Uploading… {{progress}}%",
+  "progressLabel": "Image upload",
+  "squareCrop": "Crop to square",
+  "dropHint": "or drop an image here",
+  "formats": "JPEG, PNG or WebP",
+  "noImage": "No image",
+  "removed": "Image removed",
+  "errors": {
+    "network": "Connection lost. Check your network, then try again.",
+    "too_large": "Image too large (5 MB maximum).",
+    "invalid": "This file isn't a JPEG, PNG or WebP image.",
+    "unreadable": "This image can't be read. Try another photo.",
+    "forbidden": "You're not allowed to change this image.",
+    "not_found": "Item not found. Reload the page.",
+    "quota": "Image limit reached for this account.",
+    "server": "The image couldn't be saved. Try again."
+  }
+}

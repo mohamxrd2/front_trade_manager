@@ -1,18 +1,22 @@
 'use client'
 
 import * as React from 'react'
-import { Image as ImageIcon } from 'lucide-react'
+import { Image as ImageIcon, RotateCcw } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { ACCEPTED_INPUT_TYPES } from '@/lib/media/compress'
 
-const MAX_SIZE_BYTES = 2 * 1024 * 1024
-const ACCEPTED_TYPES = ['image/png', 'image/jpeg']
+// Fichier d'origine : il est compressé dans le navigateur (512 px, WebP)
+// avant l'envoi, une photo de téléphone de plusieurs Mo passe donc.
+const MAX_SIZE_BYTES = 25 * 1024 * 1024
 
 interface LogoUploadButtonProps {
   previewUrl: string | null
   onSelect: (file: File) => void
   error: string | null
+  /** Bouton « Réessayer » après un échec réseau de l'envoi. */
+  onRetry?: () => void
   className?: string
 }
 
@@ -22,7 +26,7 @@ interface LogoUploadButtonProps {
  * 2 Mo) à la sélection ; l'upload réel n'a lieu qu'au clic sur Continuer
  * (voir page onboarding/entreprise).
  */
-export function LogoUploadButton({ previewUrl, onSelect, error, className }: LogoUploadButtonProps) {
+export function LogoUploadButton({ previewUrl, onSelect, error, onRetry, className }: LogoUploadButtonProps) {
   const { t } = useTranslation()
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [localError, setLocalError] = React.useState<string | null>(null)
@@ -31,7 +35,7 @@ export function LogoUploadButton({ previewUrl, onSelect, error, className }: Log
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!ACCEPTED_TYPES.includes(file.type)) {
+    if (file.type && !ACCEPTED_INPUT_TYPES.split(',').includes(file.type)) {
       setLocalError(t('onboarding.logoUpload.unsupportedFormat'))
       e.target.value = ''
       return
@@ -73,11 +77,25 @@ export function LogoUploadButton({ previewUrl, onSelect, error, className }: Log
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg"
+        accept={ACCEPTED_INPUT_TYPES}
         className="hidden"
         onChange={handleChange}
       />
-      {shownError ? <p className="text-xs font-semibold text-[#A3213A]">{shownError}</p> : null}
+      {shownError ? (
+        <div role="alert" className="flex flex-wrap items-center gap-2 text-xs font-semibold text-[#A3213A]">
+          <span>{shownError}</span>
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#E2E2EA] bg-white px-3.5 text-[13px] text-[#0E0E1A]"
+            >
+              <RotateCcw className="size-3.5" aria-hidden="true" />
+              {t('media.retry')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

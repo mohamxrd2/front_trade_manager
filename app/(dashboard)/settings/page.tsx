@@ -25,7 +25,8 @@ import { useNotifications } from '@/hooks/useNotifications'
 import { usePermissions } from '@/hooks/usePermissions'
 import { homeRouteForUser } from '@/lib/permissions/home-route'
 import { updateUserProfile, updateUserPassword } from '@/lib/auth'
-import { getCompany, updateCompany, uploadCompanyLogo, type Company } from '@/lib/services/company'
+import { getCompany, updateCompany, type Company } from '@/lib/services/company'
+import { ImageUploader } from '@/components/media/image-uploader'
 import {
   getReceiptSettings,
   updateReceiptSettings,
@@ -192,8 +193,8 @@ function ProfileFields({
   email,
   onEmailChange,
   avatarLabel,
-  photoPreview,
-  onPickPhoto,
+  photoUrl,
+  onPhotoChange,
   idPrefix,
   t,
 }: {
@@ -202,50 +203,31 @@ function ProfileFields({
   email: string
   onEmailChange: (v: string) => void
   avatarLabel: string
-  photoPreview: string | null
-  onPickPhoto: (file: File) => void
+  photoUrl: string | null
+  onPhotoChange: () => void
   idPrefix: string
   t: ReturnType<typeof useTranslation>['t']
 }) {
-  const fileRef = React.useRef<HTMLInputElement>(null)
   return (
     <div className="flex flex-col gap-4.5">
-      <div className="flex items-center gap-4">
-        {photoPreview ? (
-          // eslint-disable-next-line @next/next/no-img-element -- aperçu local (data URL), jamais persisté côté serveur.
-          <img
-            src={photoPreview}
-            alt=""
-            className="size-18 rounded-full object-cover"
-            style={{ width: 72, height: 72 }}
-          />
-        ) : (
+      {/* Envoyée tout de suite (pas besoin d'« Enregistrer ») — voir ImageUploader. */}
+      <ImageUploader
+        kind="avatar"
+        ownerId="me"
+        value={photoUrl}
+        onChange={onPhotoChange}
+        alt={fullName}
+        shape="circle"
+        previewClassName="size-[72px]"
+        fallback={
           <span
-            className="flex size-18 items-center justify-center rounded-full text-[22px] font-extrabold text-white"
-            style={{ width: 72, height: 72, background: 'linear-gradient(135deg, #6A4CF0, #2B2BD9)' }}
+            className="flex size-full items-center justify-center text-[22px] font-extrabold text-white"
+            style={{ background: 'linear-gradient(135deg, #6A4CF0, #2B2BD9)' }}
           >
             {avatarLabel}
           </span>
-        )}
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-[42px] px-4 text-[13px]"
-          onClick={() => fileRef.current?.click()}
-        >
-          {t('settings.profile.changePhoto')}
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) onPickPhoto(file)
-          }}
-        />
-      </div>
+        }
+      />
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))' }}>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-name`} className="text-[13px] font-semibold text-ink">
@@ -279,19 +261,20 @@ function ProfileFields({
 function CompanyFields({
   draft,
   onChange,
-  logoPreview,
-  onPickLogo,
+  logoUrl,
+  onLogoChange,
+  canEditLogo,
   idPrefix,
   t,
 }: {
   draft: CompanyDraft
   onChange: (next: CompanyDraft) => void
-  logoPreview: string | null
-  onPickLogo: (file: File) => void
+  logoUrl: string | null
+  onLogoChange: () => void
+  canEditLogo: boolean
   idPrefix: string
   t: ReturnType<typeof useTranslation>['t']
 }) {
-  const fileRef = React.useRef<HTMLInputElement>(null)
   const sectorOptions = draft.sector && !SECTOR_OPTIONS.includes(draft.sector) ? [draft.sector, ...SECTOR_OPTIONS] : SECTOR_OPTIONS
   const legalOptions =
     draft.legal_status && !LEGAL_STATUS_OPTIONS.includes(draft.legal_status)
@@ -300,47 +283,24 @@ function CompanyFields({
 
   return (
     <div className="flex flex-col gap-4.5">
-      <div className="flex items-center gap-4">
-        {logoPreview ? (
-          // eslint-disable-next-line @next/next/no-img-element -- aperçu local avant envoi à POST /api/company/logo.
-          <img
-            src={logoPreview}
-            alt=""
-            className="object-cover"
-            style={{ width: 72, height: 72, borderRadius: 20 }}
-          />
-        ) : (
+      {/* Logo envoyé tout de suite (menu, tickets, factures) — voir ImageUploader. */}
+      <ImageUploader
+        kind="logo"
+        ownerId="company"
+        value={logoUrl}
+        onChange={onLogoChange}
+        alt={draft.name || t('settings.company.title')}
+        previewClassName="size-[72px] rounded-[20px]"
+        disabled={!canEditLogo}
+        fallback={
           <span
-            className="flex items-center justify-center text-[22px] font-extrabold text-white"
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 20,
-              background: 'radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8)',
-            }}
+            className="flex size-full items-center justify-center text-[22px] font-extrabold text-white"
+            style={{ background: 'radial-gradient(100% 100% at 30% 20%, #8C74FF, #3420B8)' }}
           >
             {getInitials(draft.name || 'AC')}
           </span>
-        )}
-        <Button
-          type="button"
-          variant="secondary"
-          className="h-[42px] px-4 text-[13px]"
-          onClick={() => fileRef.current?.click()}
-        >
-          {t('settings.company.changeLogo')}
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) onPickLogo(file)
-          }}
-        />
-      </div>
+        }
+      />
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))' }}>
         <div className="flex flex-col gap-2">
           <label htmlFor={`${idPrefix}-name`} className="text-[13px] font-semibold text-ink">
@@ -1185,8 +1145,6 @@ export default function SettingsPage() {
   // ---- Brouillon Profil ----
   const [fullName, setFullName] = React.useState('')
   const [email, setEmail] = React.useState('')
-  const [photoPreview, setPhotoPreview] = React.useState<string | null>(null)
-  const [photoPicked, setPhotoPicked] = React.useState(false)
   React.useEffect(() => {
     if (user) {
       setFullName(`${user.first_name} ${user.last_name}`.trim())
@@ -1194,23 +1152,15 @@ export default function SettingsPage() {
     }
   }, [user])
   const sourceFullName = user ? `${user.first_name} ${user.last_name}`.trim() : ''
-  const profileDirty = fullName !== sourceFullName || email !== (user?.email ?? '') || photoPicked
+  const profileDirty = fullName !== sourceFullName || email !== (user?.email ?? '')
 
   // ---- Brouillon Entreprise ----
   const [companyDraft, setCompanyDraft] = React.useState<CompanyDraft>(companyToDraft(undefined))
-  const [logoFile, setLogoFile] = React.useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = React.useState<string | null>(null)
   React.useEffect(() => {
     if (company) setCompanyDraft(companyToDraft(company))
   }, [company])
-  // Affiche le logo déjà enregistré côté serveur tant qu'aucun nouveau
-  // fichier n'a été sélectionné localement (sinon on écraserait l'aperçu en
-  // cours avec l'ancienne valeur serveur à chaque refetch).
-  React.useEffect(() => {
-    if (company?.logo_url && !logoFile) setLogoPreview(company.logo_url)
-  }, [company, logoFile])
   const sourceCompanyDraft = companyToDraft(company)
-  const companyDirty = JSON.stringify(companyDraft) !== JSON.stringify(sourceCompanyDraft) || logoFile !== null
+  const companyDirty = JSON.stringify(companyDraft) !== JSON.stringify(sourceCompanyDraft)
 
   // ---- Brouillon Préférences ----
   // La langue n'est PAS un brouillon : elle s'applique immédiatement (voir
@@ -1255,17 +1205,10 @@ export default function SettingsPage() {
             ? receiptDirty
             : false
 
-  const handlePickPhoto = (file: File) => {
-    setPhotoPicked(true)
-    const reader = new FileReader()
-    reader.onload = () => setPhotoPreview(reader.result as string)
-    reader.readAsDataURL(file)
-  }
-
-  const handlePickLogo = (file: File) => {
-    setLogoFile(file)
-    setLogoPreview(URL.createObjectURL(file))
-  }
+  // Photo et logo sont envoyés dès qu'ils sont choisis : on rafraîchit
+  // l'utilisateur (menu, avatar) ou l'entreprise (menu, ticket).
+  const handlePhotoChange = () => void checkAuth()
+  const handleLogoChange = () => void queryClient.invalidateQueries({ queryKey: keys.settings.company() })
 
   const handleSave = async () => {
     setSaving(true)
@@ -1277,10 +1220,6 @@ export default function SettingsPage() {
         await checkAuth()
         toast.success(t('settings.saveSuccess'))
       } else if (activeTab === 'entreprise') {
-        if (logoFile) {
-          await uploadCompanyLogo(logoFile)
-          setLogoFile(null)
-        }
         await updateCompany(companyDraft)
         await queryClient.invalidateQueries({ queryKey: keys.settings.company() })
         toast.success(t('settings.saveSuccess'))
@@ -1386,8 +1325,8 @@ export default function SettingsPage() {
                 email={email}
                 onEmailChange={setEmail}
                 avatarLabel={avatarInitials}
-                photoPreview={photoPreview}
-                onPickPhoto={handlePickPhoto}
+                photoUrl={user?.profile_image ?? null}
+                onPhotoChange={handlePhotoChange}
                 idPrefix="profil-desktop"
                 t={t}
               />
@@ -1444,8 +1383,9 @@ export default function SettingsPage() {
             <CompanyFields
               draft={companyDraft}
               onChange={setCompanyDraft}
-              logoPreview={logoPreview}
-              onPickLogo={handlePickLogo}
+              logoUrl={company?.logo_url ?? null}
+              onLogoChange={handleLogoChange}
+              canEditLogo={can('settings.manage')}
               idPrefix="entreprise-desktop"
               t={t}
             />
@@ -1893,8 +1833,8 @@ export default function SettingsPage() {
               email={email}
               onEmailChange={setEmail}
               avatarLabel={avatarInitials}
-              photoPreview={photoPreview}
-              onPickPhoto={handlePickPhoto}
+              photoUrl={user?.profile_image ?? null}
+              onPhotoChange={handlePhotoChange}
               idPrefix="profil-mobile"
               t={t}
             />
@@ -1924,8 +1864,9 @@ export default function SettingsPage() {
             <CompanyFields
               draft={companyDraft}
               onChange={setCompanyDraft}
-              logoPreview={logoPreview}
-              onPickLogo={handlePickLogo}
+              logoUrl={company?.logo_url ?? null}
+              onLogoChange={handleLogoChange}
+              canEditLogo={can('settings.manage')}
               idPrefix="entreprise-mobile"
               t={t}
             />
@@ -1938,10 +1879,6 @@ export default function SettingsPage() {
             onClick={async () => {
               setSaving(true)
               try {
-                if (logoFile) {
-                  await uploadCompanyLogo(logoFile)
-                  setLogoFile(null)
-                }
                 await updateCompany(companyDraft)
                 await queryClient.invalidateQueries({ queryKey: keys.settings.company() })
                 toast.success(t('settings.saveSuccess'))

@@ -1,0 +1,27 @@
+{
+  "choose": "Choisir une image",
+  "takePhoto": "Prendre une photo",
+  "gallery": "Choisir dans la galerie",
+  "change": "Changer",
+  "remove": "Retirer",
+  "retry": "Réessayer",
+  "cancel": "Annuler",
+  "preparing": "Préparation de l'image…",
+  "uploading": "Envoi… {{progress}} %",
+  "progressLabel": "Envoi de l'image",
+  "squareCrop": "Recadrer en carré",
+  "dropHint": "ou glissez une image ici",
+  "formats": "JPEG, PNG ou WebP",
+  "noImage": "Aucune image",
+  "removed": "Image retirée",
+  "errors": {
+    "network": "Connexion interrompue. Vérifiez votre réseau, puis réessayez.",
+    "too_large": "Image trop lourde (5 Mo maximum).",
+    "invalid": "Ce fichier n'est pas une image JPEG, PNG ou WebP.",
+    "unreadable": "Impossible de lire cette image. Essayez une autre photo.",
+    "forbidden": "Vous n'avez pas le droit de modifier cette image.",
+    "not_found": "Élément introuvable. Rechargez la page.",
+    "quota": "Limite d'images atteinte pour ce compte.",
+    "server": "L'image n'a pas pu être enregistrée. Réessayez."
+  }
+}

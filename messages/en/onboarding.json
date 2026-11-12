@@ -97,11 +97,11 @@
     "step3Subtitle": "Currency, language, stock threshold"
   },
   "logoUpload": {
-    "unsupportedFormat": "Unsupported format (PNG or JPG only).",
-    "tooLarge": "Image too large (2 MB max)",
+    "unsupportedFormat": "Unsupported format (JPEG, PNG or WebP).",
+    "tooLarge": "Image too large (25 MB max).",
     "change": "Change logo",
     "add": "Add your logo",
-    "hint": "PNG or JPG, square preferred"
+    "hint": "JPEG, PNG or WebP, square if possible"
   },
   "sectorFieldLabel": "Business sector",
   "thresholdDecrease": "Decrease threshold",
