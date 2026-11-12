@@ -8,7 +8,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import {
   AuthLogo,
@@ -20,7 +19,9 @@ import {
   AuthError,
   AuthSteps,
   AuthStepsCompact,
+  PasswordStrengthGauge,
 } from '@/components/auth'
+import { missingPasswordRequirements, PASSWORD_REQUIREMENT_KEYS } from '@/lib/password-rules'
 
 /**
  * Inscription — design/maquettes/ordinateur/Web-Inscription.dc.html
@@ -65,26 +66,12 @@ function deriveUsername(fullName: string): string {
   return `${base}.${suffix}`
 }
 
-function passwordScore(pw: string): number {
-  let score = 0
-  if (pw.length >= 8) score++
-  if (/[A-Z]/.test(pw)) score++
-  if (/[0-9]/.test(pw)) score++
-  if (/[^A-Za-z0-9]/.test(pw)) score++
-  return score
-}
-
 function buildSignupSchema(t: ReturnType<typeof useTranslation>['t']) {
   return z.object({
     fullName: z.string().min(2, t('auth.signup.validationNameMin')),
     email: z.string().email(t('auth.signup.validationEmailInvalid')),
     password: z.string().superRefine((val, ctx) => {
-      const missing: string[] = []
-      if (val.length < 8) missing.push(t('auth.signup.passwordReq8'))
-      if (!/[A-Z]/.test(val)) missing.push(t('auth.signup.passwordReqUpper'))
-      if (!/[a-z]/.test(val)) missing.push(t('auth.signup.passwordReqLower'))
-      if (!/[0-9]/.test(val)) missing.push(t('auth.signup.passwordReqDigit'))
-      if (!/[^A-Za-z0-9]/.test(val)) missing.push(t('auth.signup.passwordReqSpecial'))
+      const missing = missingPasswordRequirements(val).map((req) => t(PASSWORD_REQUIREMENT_KEYS[req]))
       if (missing.length > 0) {
         ctx.addIssue({ code: 'custom', message: `${t('auth.signup.passwordMissingPrefix')}${missing.join(', ')}.` })
       }
@@ -94,35 +81,6 @@ function buildSignupSchema(t: ReturnType<typeof useTranslation>['t']) {
 }
 
 type SignupFormValues = z.infer<ReturnType<typeof buildSignupSchema>>
-
-function PasswordStrengthGauge({
-  password,
-  t,
-}: {
-  password: string
-  t: ReturnType<typeof useTranslation>['t']
-}) {
-  const score = passwordScore(password)
-  const scoreLabels: Record<number, string> = {
-    0: t('auth.signup.scoreTooWeak'),
-    1: t('auth.signup.scoreTooWeak'),
-    2: t('auth.signup.scoreMedium'),
-    3: t('auth.signup.scoreGood'),
-    4: t('auth.signup.scoreExcellent'),
-  }
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
-        {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={cn('h-[5px] rounded-[3px]', i < score ? 'bg-[#5B3FE6]' : 'bg-[#E2E2EA]')} />
-        ))}
-      </div>
-      <p className="text-xs text-[#4B4B5C]" aria-live="polite">
-        {scoreLabels[score]} · {t('auth.signup.passwordHint')}
-      </p>
-    </div>
-  )
-}
 
 function SignupPageInner() {
   const router = useRouter()
@@ -278,7 +236,7 @@ function SignupPageInner() {
                   />
                 )}
               />
-              <PasswordStrengthGauge password={password} t={t} />
+              <PasswordStrengthGauge password={password} />
             </div>
 
             {termsCheckbox('signup-desktop')}
@@ -366,7 +324,7 @@ function SignupPageInner() {
                 />
               )}
             />
-            <PasswordStrengthGauge password={password} t={t} />
+            <PasswordStrengthGauge password={password} />
           </div>
 
           {termsCheckbox('signup-mobile')}

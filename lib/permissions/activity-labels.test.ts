@@ -18,7 +18,7 @@ describe('describeActivity — phrases du journal d’un membre', () => {
       'team.member_login', 'operation.deleted', 'operation.restored', 'transaction.deleted', 'transaction.restored',
       'article.price_changed', 'variation.price_changed', 'team.person_added', 'team.person_updated',
       'team.access_granted', 'team.member_suspended', 'team.member_reactivated', 'team.member_code_reset',
-      'team.person_removed', 'team.member_deleted',
+      'team.person_removed', 'team.member_deleted', 'auth.password_reset',
     ]
     for (const language of ['fr', 'en'] as const) {
       const tl = (key: string, params?: Record<string, string | number>) => translate(key, language, params)

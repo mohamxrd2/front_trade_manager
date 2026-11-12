@@ -6,6 +6,8 @@ import {
   login as loginApi,
   register as registerApi,
   verifyRegistrationCode as verifyRegistrationCodeApi,
+  resetPassword as resetPasswordApi,
+  type ResetPasswordPayload,
   resendRegistrationCode as resendRegistrationCodeApi,
   logout as logoutApi,
   getUser,
@@ -63,6 +65,20 @@ export interface RegisterInitResult {
  * `status` permet à l'UI de distinguer 422 (code incorrect) / 404 (inscription
  * introuvable) / 410 (expiré) / 429 (trop de tentatives).
  */
+/**
+ * Résultat de « Mot de passe oublié », étape 3. En cas d'échec, `code` est le
+ * code métier du backend (TOKEN_INVALID…) et `passwordRejected` signale un
+ * mot de passe refusé par la validation (422).
+ */
+export interface PasswordResetResult {
+  success: boolean
+  onboardingComplete?: boolean
+  status?: number
+  code?: string
+  network?: boolean
+  passwordRejected?: boolean
+}
+
 export interface VerifyRegistrationResult {
   success: boolean
   user?: User
@@ -90,6 +106,7 @@ export interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<LoginResult>
   register: (data: RegisterData) => Promise<RegisterInitResult>
   verifyRegistration: (payload: VerifyRegistrationPayload) => Promise<VerifyRegistrationResult>
+  completePasswordReset: (payload: ResetPasswordPayload) => Promise<PasswordResetResult>
   resendRegistrationCode: (email: string) => Promise<ResendRegistrationResult>
   logout: () => Promise<void>
   checkAuth: () => Promise<boolean>
@@ -612,6 +629,50 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }, [router])
 
+  /**
+   * « Mot de passe oublié », étape 3 : le backend change le mot de passe,
+   * ferme les autres sessions et connecte cet appareil — même mise en place
+   * qu'après l'inscription (verifyRegistration). Ne redirige pas : la page
+   * décide (/onboarding ou tableau de bord).
+   */
+  const completePasswordReset = useCallback(async (payload: ResetPasswordPayload): Promise<PasswordResetResult> => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('analytics:reset'))
+      }
+
+      const userData = await resetPasswordApi(payload)
+
+      ensureQueryCacheForUser(userData.id)
+      setDisplayedAccountId(displayedAccountIdOf(userData))
+      announceSessionChange()
+      setUser(userData)
+      setIsAuthenticated(true)
+
+      let onboardingComplete = true
+      try {
+        const onboardingStatus = await checkOnboardingService()
+        onboardingComplete = onboardingStatus.is_complete
+      } catch (onboardingError) {
+        const axiosError = onboardingError as { response?: { status?: number } }
+        onboardingComplete = axiosError?.response?.status !== 404
+      }
+
+      return { success: true, onboardingComplete }
+    } catch (error: unknown) {
+      if (isApiError(error)) {
+        return {
+          success: false,
+          status: error.status,
+          code: error.code,
+          network: error.type === ApiErrorType.NETWORK || error.type === ApiErrorType.TIMEOUT,
+          passwordRejected: error.status === 422 && !error.code,
+        }
+      }
+      return { success: false }
+    }
+  }, [])
+
   // Valeur du contexte
   const value: AuthContextType = {
     user,
@@ -620,6 +681,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     login,
     register,
     verifyRegistration,
+    completePasswordReset,
     resendRegistrationCode,
     logout,
     checkAuth,
@@ -633,5 +695,5 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 }
 
 // Exporter les types pour utilisation ailleurs
-export type { User, LoginCredentials, RegisterData, VerifyRegistrationPayload }
+export type { User, LoginCredentials, RegisterData, VerifyRegistrationPayload, ResetPasswordPayload }
 

@@ -7,6 +7,7 @@ interface SubmitButtonProps {
   idleLabel: string
   busyLabel: string
   className?: string
+  disabled?: boolean
 }
 
 /**
@@ -15,11 +16,11 @@ interface SubmitButtonProps {
  * <button type="submit"> (les <a> de la maquette ne sont que des liens de
  * démonstration).
  */
-export function SubmitButton({ isSubmitting, idleLabel, busyLabel, className }: SubmitButtonProps) {
+export function SubmitButton({ isSubmitting, idleLabel, busyLabel, className, disabled = false }: SubmitButtonProps) {
   return (
     <button
       type="submit"
-      disabled={isSubmitting}
+      disabled={isSubmitting || disabled}
       aria-busy={isSubmitting}
       className={cn(
         'flex h-[54px] items-center justify-center gap-2 rounded-full text-[16px] font-bold text-white transition-[filter] disabled:cursor-not-allowed disabled:opacity-80',

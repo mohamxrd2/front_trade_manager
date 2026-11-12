@@ -288,7 +288,8 @@
       "team_member_reactivated": "A réactivé {{subject}}",
       "team_member_code_reset": "A régénéré le code de {{subject}}",
       "team_person_removed": "A retiré {{subject}} de l’équipe",
-      "team_member_deleted": "A supprimé le compte de {{subject}}"
+      "team_member_deleted": "A supprimé le compte de {{subject}}",
+      "auth_password_reset": "A réinitialisé son mot de passe"
     },
     "received": {
       "team_person_added": "Ajout à l’équipe par {{actor}}",

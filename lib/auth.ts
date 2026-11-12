@@ -350,31 +350,36 @@ export async function resendRegistrationCode(email: string): Promise<PendingRegi
 }
 
 /**
- * Mot de passe oublié, étape 1 : demande un code par email. Le backend
- * répond pareil que l'email existe ou non.
+ * Mot de passe oublié (voir lib/password-reset/flow.ts). Aucun retry
+ * automatique : chaque essai de code compte (5 max côté backend), et une
+ * demande de code est limitée à 3 par heure.
  */
+
+/** Étape 1 : envoie un code. Réponse identique que le compte existe ou non. */
 export async function requestPasswordReset(email: string): Promise<void> {
   const config: NoRetryRequestConfig = { skipRetry: true }
   await api.post('/api/password/forgot', { email }, config)
 }
 
+/** Étape 2 : échange le code contre un jeton à usage unique (15 min). */
+export async function verifyPasswordResetCode(email: string, code: string): Promise<{ token: string; expiresIn: number }> {
+  const config: NoRetryRequestConfig = { skipRetry: true }
+  const response = await api.post<{ reset_token: string; expires_in: number }>('/api/password/verify', { email, code }, config)
+  return { token: response.data.reset_token, expiresIn: response.data.expires_in }
+}
+
 export interface ResetPasswordPayload {
   email: string
-  code: string
+  reset_token: string
   password: string
   password_confirmation: string
 }
 
-/**
- * Mot de passe oublié, étape 2 : code + nouveau mot de passe. Sans retry
- * automatique : chaque essai compte (5 max côté backend).
- *
- * @throws ApiError 422 (code incorrect ou mot de passe refusé), 410 (code
- * expiré ou aucune demande), 429 (trop d'essais)
- */
-export async function resetPassword(payload: ResetPasswordPayload): Promise<void> {
+/** Étape 3 : nouveau mot de passe. Le backend connecte l'utilisateur et renvoie le même objet que /api/user. */
+export async function resetPassword(payload: ResetPasswordPayload): Promise<User> {
   const config: NoRetryRequestConfig = { skipRetry: true }
-  await api.post('/api/password/reset', payload, config)
+  const response = await api.post<User>('/api/password/reset', payload, config)
+  return response.data
 }
 
 /**

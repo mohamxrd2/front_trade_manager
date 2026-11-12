@@ -129,7 +129,8 @@
     "deleteAccountConfirmDescription": "Deleting permanently erases your items, sales, invoices and clients. Type \"{{name}}\" to confirm.",
     "deleteAccountPlaceholder": "Company name",
     "deleteAccountConfirmButton": "Delete permanently",
-    "deleteAccountNotAvailable": "Account deletion isn't available yet."
+    "deleteAccountNotAvailable": "Account deletion isn't available yet.",
+    "forgotPassword": "Forgot password?"
   },
   "mobile": {
     "backAria": "Back",

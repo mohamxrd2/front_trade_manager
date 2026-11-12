@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getSocialAuthErrorMessage } from '@/lib/services/social-auth'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { homeRouteForUser } from '@/lib/permissions/home-route'
+import { forgotLinkTarget } from '@/lib/password-reset/flow'
 import {
   AuthLogo,
   AuthInput,
@@ -51,6 +52,7 @@ function LoginPageInner() {
   const { login } = useAuth()
   const { t } = useTranslation()
   const [authError, setAuthError] = React.useState<string | null>(null)
+  const [memberHint, setMemberHint] = React.useState(false)
 
   const prefillLogin = searchParams.get('email') ?? ''
   const socialError = getSocialAuthErrorMessage(searchParams.get('error'), searchParams.get('provider'))
@@ -124,16 +126,33 @@ function LoginPageInner() {
     }
   }
 
+  // « Mot de passe oublié ? » reprend l'e-mail saisi ; un identifiant de
+  // membre (sans e-mail) affiche directement « Demandez à votre responsable ».
+  const forgotTarget = forgotLinkTarget(loginFieldValue ?? '')
+  const forgotHref = forgotTarget.kind === 'link' ? forgotTarget.href : '/forgot-password'
+  const handleForgotClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (forgotTarget.kind === 'member') {
+      e.preventDefault()
+      setMemberHint(true)
+    }
+  }
+  const forgotLinkClass = 'relative text-[13px] font-semibold text-[#4B2FD6] after:absolute after:-inset-x-2 after:-inset-y-3'
   const forgotPasswordDesktop = (
-    <Link href="/forgot-password" className="text-[13px] font-semibold text-[#4B2FD6]">
+    <Link href={forgotHref} onClick={handleForgotClick} className={forgotLinkClass}>
       {t('auth.login.forgotPassword')}
     </Link>
   )
   const forgotPasswordMobile = (
-    <Link href="/forgot-password" className="text-[13px] font-semibold text-[#4B2FD6]">
+    <Link href={forgotHref} onClick={handleForgotClick} className={forgotLinkClass}>
       {t('auth.login.forgotPasswordShort')}
     </Link>
   )
+  // Le message disparaît dès que le champ contient un e-mail (ou est vidé).
+  const memberHintBox = memberHint && forgotTarget.kind === 'member' ? (
+    <p role="status" className="rounded-[14px] bg-[#F4F1FF] px-3.5 py-3 text-sm font-semibold text-[#3A20B8]">
+      {t('auth.forgot.memberHintShort')}
+    </p>
+  ) : null
 
   return (
     <>
@@ -177,6 +196,7 @@ function LoginPageInner() {
             </div>
 
             <AuthError>{authError}</AuthError>
+            {memberHintBox}
 
             <SocialButtons onBeforeNavigate={blockSocialForMemberIdentifier} />
             <Divider>{t('auth.login.orWithEmail')}</Divider>
@@ -248,6 +268,7 @@ function LoginPageInner() {
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-1 flex-col gap-4 px-6 pb-8 pt-7">
           <AuthError>{authError}</AuthError>
+            {memberHintBox}
 
           <Controller
             control={control}

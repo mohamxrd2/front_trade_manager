@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { FORGOT_PATH, withEmail } from '@/lib/password-reset/flow'
 import { useSettings } from '@/contexts/SettingsContext'
 import { useLanguage } from '@/lib/i18n/context/LanguageContext'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
@@ -1010,6 +1011,10 @@ function BluetoothPrinterSection({
 
 /** Formulaire de changement de mot de passe — entièrement autonome (son propre bouton « Mettre à jour »), réutilisé carte ordinateur / bottom sheet mobile. */
 function PasswordForm({ idPrefix, onSuccess, t }: { idPrefix: string; onSuccess?: () => void; t: ReturnType<typeof useTranslation>['t'] }) {
+  const { user } = useAuth()
+  // Ancien mot de passe oublié : même parcours que depuis la connexion
+  // (propriétaire uniquement, un membre n'a pas d'e-mail).
+  const forgotHref = user?.is_owner !== false && user?.email ? withEmail(FORGOT_PATH, user.email) : null
   const [current, setCurrent] = React.useState('')
   const [next, setNext] = React.useState('')
   const [confirm, setConfirm] = React.useState('')
@@ -1116,6 +1121,11 @@ function PasswordForm({ idPrefix, onSuccess, t }: { idPrefix: string; onSuccess?
         {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
         {t('common.update')}
       </Button>
+      {forgotHref ? (
+        <Link href={forgotHref} className="flex min-h-11 items-center self-start text-sm font-semibold text-brand-700">
+          {t('settings.security.forgotPassword')}
+        </Link>
+      ) : null}
     </div>
   )
 }

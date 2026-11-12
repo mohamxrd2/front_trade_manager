@@ -24,6 +24,7 @@ const KNOWN_ACTIONS = new Set([
   'team.member_code_reset',
   'team.person_removed',
   'team.member_deleted',
+  'auth.password_reset',
 ])
 
 /** Actions dont la personne affichée peut être le SUJET (« Suspension par Awa »). */

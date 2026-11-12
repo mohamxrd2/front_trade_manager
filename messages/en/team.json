@@ -288,7 +288,8 @@
       "team_member_reactivated": "Reactivated {{subject}}",
       "team_member_code_reset": "Regenerated {{subject}}’s code",
       "team_person_removed": "Removed {{subject}} from the team",
-      "team_member_deleted": "Deleted {{subject}}’s account"
+      "team_member_deleted": "Deleted {{subject}}’s account",
+      "auth_password_reset": "Reset their password"
     },
     "received": {
       "team_person_added": "Added to the team by {{actor}}",

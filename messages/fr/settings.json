@@ -129,7 +129,8 @@
     "deleteAccountConfirmDescription": "La suppression efface définitivement vos articles, ventes, factures et clients. Tapez « {{name}} » pour confirmer.",
     "deleteAccountPlaceholder": "Nom de l'entreprise",
     "deleteAccountConfirmButton": "Supprimer définitivement",
-    "deleteAccountNotAvailable": "La suppression de compte n'est pas encore disponible."
+    "deleteAccountNotAvailable": "La suppression de compte n'est pas encore disponible.",
+    "forgotPassword": "Mot de passe oublié ?"
   },
   "mobile": {
     "backAria": "Retour",
