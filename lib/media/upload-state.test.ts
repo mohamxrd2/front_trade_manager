@@ -31,6 +31,22 @@ describe('classifyUploadError', () => {
     expect(classifyUploadError(apiError(ApiErrorType.VALIDATION, 422)).retryable).toBe(false)
   })
 
+  test('image trop lourde : 413 de Nginx ou 422 de Laravel, en fr comme en en → « Image trop lourde »', () => {
+    // 413 renvoyé par Nginx (avec les en-têtes CORS depuis fix/cors) : axios reçoit bien la réponse.
+    const nginx = classifyUploadError(apiError(ApiErrorType.UNKNOWN, 413))
+    expect(nginx.kind).toBe('too_large')
+    expect(nginx.retryable).toBe(false)
+    expect(classifyUploadError(apiError(ApiErrorType.VALIDATION, 422, { file: ['The image must not exceed 5 MB.'] })).kind).toBe('too_large')
+    expect(translate(nginx.messageKey, 'fr')).toBe('Image trop lourde (5 Mo maximum).')
+    expect(translate(nginx.messageKey, 'fr')).not.toMatch(/CORS/i)
+  })
+
+  test('aucune réponse du serveur → message réseau, jamais « CORS »', () => {
+    const error = classifyUploadError(apiError(ApiErrorType.TIMEOUT))
+    expect(error.kind).toBe('network')
+    for (const language of ['fr', 'en'] as const) expect(translate(error.messageKey, language)).not.toMatch(/CORS/i)
+  })
+
   test('erreur serveur passagère → « Réessayer »', () => {
     expect(classifyUploadError(apiError(ApiErrorType.SERVER, 500)).retryable).toBe(true)
   })
