@@ -216,7 +216,9 @@ export async function login(credentials: LoginCredentials): Promise<User> {
     // (8/min) ; un retry automatique sur un 429 consommerait une tentative
     // supplémentaire pour rien et retarderait l'affichage du message
     // "Trop de tentatives" de plusieurs secondes.
-    const config: NoRetryRequestConfig = { skipRetry: true }
+    // retryOnceWhenUnavailable : si le serveur ne répond pas (réveil, 502…),
+    // UN nouvel essai 3 s plus tard — jamais sur un 429 ou un refus.
+    const config: NoRetryRequestConfig = { skipRetry: true, retryOnceWhenUnavailable: true }
     const response = await api.post<User>('/api/login', credentials, config)
     return response.data
   } catch (error: unknown) {
