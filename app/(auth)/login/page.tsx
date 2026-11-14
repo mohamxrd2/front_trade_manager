@@ -12,6 +12,7 @@ import { getSocialAuthErrorMessage } from '@/lib/services/social-auth'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { homeRouteForUser } from '@/lib/permissions/home-route'
 import { forgotLinkTarget } from '@/lib/password-reset/flow'
+import { wakeServer } from '@/lib/services/health'
 import {
   AuthLogo,
   AuthInput,
@@ -86,6 +87,11 @@ function LoginPageInner() {
     if (socialError) setAuthError(socialError)
   }, [socialError])
 
+  // Réveille le serveur pendant que l'utilisateur tape (voir wakeServer).
+  React.useEffect(() => {
+    wakeServer()
+  }, [])
+
   const onSubmit = async (values: LoginFormValues) => {
     setAuthError(null)
 
@@ -119,8 +125,9 @@ function LoginPageInner() {
       setAuthError(
         minutes ? t('auth.login.errorTooManyAttempts', { minutes }) : t('auth.login.errorTooManyAttemptsGeneric')
       )
-    } else if (result.errorType === 'NETWORK_ERROR' || result.errorType === 'TIMEOUT_ERROR') {
-      setAuthError(t('auth.login.errorNetwork'))
+    } else if (result.errorType === 'NETWORK_ERROR' || result.errorType === 'TIMEOUT_ERROR' || result.errorType === 'CORS_ERROR') {
+      // Message précis (hors ligne / serveur lent / CORS en dev) + référence de la requête.
+      setAuthError(result.error || t('auth.login.errorNetwork'))
     } else {
       setAuthError(result.error || t('auth.login.errorGeneric'))
     }

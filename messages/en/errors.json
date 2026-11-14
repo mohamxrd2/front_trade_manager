@@ -7,5 +7,18 @@
   "notFound": "Not found",
   "serverError": "Server error",
   "networkError": "Network error",
-  "unknown": "An unexpected error occurred"
+  "unknown": "An unexpected error occurred",
+  "api": {
+    "offline": "No internet connection. Check your network, then try again.",
+    "slow": "The server is taking a while to respond. Try again in a moment.",
+    "server": "The service is having a problem. Try again in a few minutes.",
+    "cors": "Request blocked by the browser (CORS): the API doesn't allow the origin {{origin}}. Add it to CORS_ALLOWED_ORIGINS on the backend.",
+    "unauthorized": "Session expired. Please sign in again.",
+    "forbidden": "Access denied. You don't have the required permissions.",
+    "notFound": "Resource not found.",
+    "validation": "Invalid data.",
+    "csrf": "Security token expired. Refresh the page.",
+    "unknown": "An unexpected error occurred.",
+    "reference": "(ref. {{id}})"
+  }
 }

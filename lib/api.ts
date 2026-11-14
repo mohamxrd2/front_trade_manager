@@ -6,6 +6,18 @@ import axios, {
   type AxiosResponse,
 } from 'axios'
 import { getCurrentLanguage } from '@/lib/i18n/current-language'
+import { translate } from '@/lib/i18n/translate'
+import {
+  API_ERROR_MESSAGE_KEYS,
+  ApiErrorType,
+  AUTO_RETRY_DELAY_MS,
+  classifyFailure,
+  GENERIC_MESSAGE_TYPES,
+  newRequestId,
+  REFERENCE_TYPES,
+  shortRequestId,
+  shouldAutoRetry,
+} from '@/lib/api-errors'
 import { getDisplayedAccountId, isAccountMismatch } from '@/lib/session-sync'
 import {
   MUST_CHANGE_PASSWORD_ERROR_CODE,
@@ -16,21 +28,8 @@ import {
 // TYPES ET INTERFACES
 // ============================================================================
 
-/**
- * Types d'erreurs API possibles
- */
-export enum ApiErrorType {
-  NETWORK = 'NETWORK_ERROR',
-  TIMEOUT = 'TIMEOUT_ERROR',
-  CORS = 'CORS_ERROR',
-  UNAUTHORIZED = 'UNAUTHORIZED',
-  FORBIDDEN = 'FORBIDDEN',
-  NOT_FOUND = 'NOT_FOUND',
-  VALIDATION = 'VALIDATION_ERROR',
-  SERVER = 'SERVER_ERROR',
-  CSRF = 'CSRF_ERROR',
-  UNKNOWN = 'UNKNOWN_ERROR',
-}
+// Défini dans lib/api-errors.ts (logique pure, testée), ré-exporté ici.
+export { ApiErrorType }
 
 /**
  * Interface pour une erreur API structurée
@@ -48,6 +47,8 @@ export interface ApiError extends Error {
   data?: unknown
   /** Détail des erreurs renvoyé par le backend (ex: tableau de messages de stock insuffisant par article, ou objet de validation par champ) */
   errors?: unknown
+  /** Identifiant de la requête (X-Request-Id) : à retrouver dans les logs du serveur. */
+  requestId?: string
 }
 
 /**
@@ -68,6 +69,11 @@ interface RetryConfig {
  */
 export interface NoRetryRequestConfig extends AxiosRequestConfig {
   skipRetry?: boolean
+  /**
+   * Rejouer UNE fois si le serveur n'a pas répondu (délai, 502/503/504),
+   * même pour un POST : réservé à la connexion, sans danger à rejouer.
+   */
+  retryOnceWhenUnavailable?: boolean
 }
 
 // ============================================================================
@@ -158,13 +164,6 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * Calcule le délai de retry avec backoff exponentiel
- */
-function getRetryDelay(attempt: number): number {
-  return RETRY_CONFIG.retryDelay * Math.pow(2, attempt - 1)
-}
-
-/**
  * Vérifie si l'erreur est une erreur réseau
  */
 function isNetworkError(error: AxiosError): boolean {
@@ -175,18 +174,6 @@ function isNetworkError(error: AxiosError): boolean {
       error.message.includes('Network Error') ||
       error.code === 'ERR_NETWORK')
   )
-}
-
-/**
- * Vérifie si l'erreur est une erreur CORS
- */
-function isCorsError(error: AxiosError): boolean {
-  // CORS errors typically don't have a response and may show specific patterns
-  if (!error.response && error.message === 'Network Error') {
-    // Check if it's likely CORS (browser blocks the response entirely)
-    return typeof window !== 'undefined' && !navigator.onLine === false
-  }
-  return false
 }
 
 /**
@@ -252,6 +239,7 @@ function createApiError(
     code?: string
     data?: unknown
     errors?: unknown
+    requestId?: string
   } = {}
 ): ApiError {
   const error = new Error(message) as ApiError
@@ -264,62 +252,48 @@ function createApiError(
   error.code = options.code
   error.data = options.data
   error.errors = options.errors
+  error.requestId = options.requestId
   return error
 }
 
 /**
- * Détermine le type d'erreur à partir d'une erreur Axios
+ * Détermine le type d'erreur à partir d'une erreur Axios (voir classifyFailure).
  */
 function getErrorType(error: AxiosError): ApiErrorType {
-  if (isTimeoutError(error)) return ApiErrorType.TIMEOUT
-  if (isCorsError(error)) return ApiErrorType.CORS
-  if (isNetworkError(error)) return ApiErrorType.NETWORK
+  return classifyFailure({
+    hasResponse: !!error.response,
+    status: error.response?.status,
+    timedOut: isTimeoutError(error),
+    online: typeof navigator === 'undefined' || navigator.onLine !== false,
+    isDev: process.env.NODE_ENV !== 'production',
+  })
+}
 
-  const status = error.response?.status
-
-  switch (status) {
-    case 401:
-      return ApiErrorType.UNAUTHORIZED
-    case 403:
-      return ApiErrorType.FORBIDDEN
-    case 404:
-      return ApiErrorType.NOT_FOUND
-    case 419:
-      return ApiErrorType.CSRF
-    case 422:
-      return ApiErrorType.VALIDATION
-    case 500:
-    case 502:
-    case 503:
-    case 504:
-      return ApiErrorType.SERVER
-    default:
-      return ApiErrorType.UNKNOWN
-  }
+/** Identifiant de la requête : celui renvoyé par le serveur, sinon celui envoyé. */
+function requestIdOf(error: AxiosError): string | undefined {
+  const fromResponse = error.response?.headers?.['x-request-id'] as string | undefined
+  const sent = error.config?.headers?.['X-Request-Id'] as string | undefined
+  return fromResponse || sent || undefined
 }
 
 /**
- * Génère un message d'erreur lisible
+ * Message d'erreur lisible, dans la langue de l'appli. Pour une erreur
+ * réseau ou serveur, notre message (le serveur n'a souvent rien dit
+ * d'utile) suivi de la référence de la requête, à donner au support.
  */
 function getErrorMessage(error: AxiosError, type: ApiErrorType): string {
-  const defaultMessages: Record<ApiErrorType, string> = {
-    [ApiErrorType.NETWORK]: 'Erreur de connexion réseau. Vérifiez votre connexion internet.',
-    [ApiErrorType.TIMEOUT]: 'La requête a expiré. Le serveur met trop de temps à répondre.',
-    [ApiErrorType.CORS]: 'Erreur CORS. Le serveur n\'autorise pas cette origine.',
-    [ApiErrorType.UNAUTHORIZED]: 'Session expirée. Veuillez vous reconnecter.',
-    [ApiErrorType.FORBIDDEN]: 'Accès refusé. Vous n\'avez pas les permissions nécessaires.',
-    [ApiErrorType.NOT_FOUND]: 'Ressource introuvable.',
-    [ApiErrorType.VALIDATION]: 'Données invalides.',
-    [ApiErrorType.SERVER]: 'Erreur serveur. Veuillez réessayer plus tard.',
-    [ApiErrorType.CSRF]: 'Token de sécurité expiré. Veuillez rafraîchir la page.',
-    [ApiErrorType.UNKNOWN]: 'Une erreur inattendue s\'est produite.',
+  const language = getCurrentLanguage()
+  const params: Record<string, string> = {
+    origin: typeof window !== 'undefined' ? window.location.origin : '',
   }
+  const fallback = translate(API_ERROR_MESSAGE_KEYS[type], language, params)
 
-  // Try to extract message from response
   const responseData = error.response?.data as { message?: string; error?: string } | undefined
   const serverMessage = responseData?.message || responseData?.error
+  const message = !GENERIC_MESSAGE_TYPES.has(type) && serverMessage ? serverMessage : fallback
 
-  return serverMessage || defaultMessages[type]
+  const ref = REFERENCE_TYPES.has(type) ? shortRequestId(requestIdOf(error)) : null
+  return ref ? `${message} ${translate('errors.api.reference', language, { id: ref })}` : message
 }
 
 // ============================================================================
@@ -406,6 +380,11 @@ api.interceptors.request.use(
     // traduire ses messages d'erreur/validation et ses notifications.
     if (config.headers) {
       config.headers['Accept-Language'] = getCurrentLanguage()
+      // Identifiant de requête (gardé si la requête est rejouée) : affiché
+      // dans le message d'erreur, retrouvé dans les logs Nginx et Laravel.
+      if (!config.headers['X-Request-Id']) {
+        config.headers['X-Request-Id'] = newRequestId()
+      }
     }
 
     // Skip CSRF for the CSRF cookie request itself
@@ -551,22 +530,23 @@ api.interceptors.response.use(
     const errorDetails = responseBody?.errors
 
     // ========================================================================
-    // RETRY AUTOMATIQUE POUR LES ERREURS RÉSEAU/TIMEOUT
+    // NOUVEL ESSAI AUTOMATIQUE (une fois, 3 s plus tard — voir shouldAutoRetry)
     // ========================================================================
+    const retryRequest = originalRequest as typeof originalRequest & { retryOnceWhenUnavailable?: boolean }
     if (
-      isRetryable(error) &&
       originalRequest &&
-      !originalRequest.skipRetry &&
-      (originalRequest._retryCount ?? 0) < RETRY_CONFIG.maxRetries
+      shouldAutoRetry({
+        method,
+        type: errorType,
+        status,
+        retryCount: originalRequest._retryCount ?? 0,
+        skipRetry: originalRequest.skipRetry,
+        retryOnceWhenUnavailable: retryRequest.retryOnceWhenUnavailable,
+      })
     ) {
       originalRequest._retryCount = (originalRequest._retryCount ?? 0) + 1
-      const retryDelay = getRetryDelay(originalRequest._retryCount)
-
-      logger.info(
-        `🔄 Retry ${originalRequest._retryCount}/${RETRY_CONFIG.maxRetries} dans ${retryDelay}ms pour ${url}`
-      )
-
-      await delay(retryDelay)
+      logger.info(`🔄 Nouvel essai dans ${AUTO_RETRY_DELAY_MS} ms pour ${url}`)
+      await delay(AUTO_RETRY_DELAY_MS)
       return api(originalRequest)
     }
 
@@ -767,6 +747,7 @@ api.interceptors.response.use(
         code: errorCode,
         data: errorData,
         errors: errorDetails,
+        requestId: requestIdOf(error),
       })
     )
   }
