@@ -1,4 +1,7 @@
 import { ApiError, ApiErrorType, isApiError, getApiErrorMessage } from '../api'
+import { API_ERROR_MESSAGE_KEYS } from '../api-errors'
+import { translate } from '../i18n/translate'
+import { getCurrentLanguage } from '../i18n/current-language'
 
 // ============================================================================
 // TYPES
@@ -234,24 +237,11 @@ export function createErrorHandler(
 }
 
 /**
- * Messages d'erreur par défaut par type
- */
-export const DEFAULT_ERROR_MESSAGES: Record<ApiErrorType, string> = {
-  [ApiErrorType.NETWORK]: 'Erreur de connexion réseau. Vérifiez votre connexion internet.',
-  [ApiErrorType.TIMEOUT]: 'La requête a expiré. Le serveur met trop de temps à répondre.',
-  [ApiErrorType.CORS]: "Erreur CORS. Le serveur n'autorise pas cette origine.",
-  [ApiErrorType.UNAUTHORIZED]: 'Session expirée. Veuillez vous reconnecter.',
-  [ApiErrorType.FORBIDDEN]: "Accès refusé. Vous n'avez pas les permissions nécessaires.",
-  [ApiErrorType.NOT_FOUND]: 'Ressource introuvable.',
-  [ApiErrorType.VALIDATION]: 'Données invalides.',
-  [ApiErrorType.SERVER]: 'Erreur serveur. Veuillez réessayer plus tard.',
-  [ApiErrorType.CSRF]: 'Token de sécurité expiré. Veuillez rafraîchir la page.',
-  [ApiErrorType.UNKNOWN]: "Une erreur inattendue s'est produite.",
-}
-
-/**
- * Obtient le message d'erreur par défaut pour un type d'erreur
+ * Message d'erreur par défaut pour un type d'erreur, dans la langue de
+ * l'appli (mêmes messages que lib/api.ts, voir lib/api-errors.ts).
  */
 export function getDefaultErrorMessage(type: ApiErrorType): string {
-  return DEFAULT_ERROR_MESSAGES[type] || DEFAULT_ERROR_MESSAGES[ApiErrorType.UNKNOWN]
+  return translate(API_ERROR_MESSAGE_KEYS[type] ?? API_ERROR_MESSAGE_KEYS[ApiErrorType.UNKNOWN], getCurrentLanguage(), {
+    origin: typeof window !== 'undefined' ? window.location.origin : '',
+  })
 }

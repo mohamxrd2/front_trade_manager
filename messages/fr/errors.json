@@ -7,5 +7,18 @@
   "notFound": "Non trouvé",
   "serverError": "Erreur serveur",
   "networkError": "Erreur réseau",
-  "unknown": "Une erreur inattendue s'est produite"
+  "unknown": "Une erreur inattendue s'est produite",
+  "api": {
+    "offline": "Pas de connexion internet. Vérifiez votre réseau, puis réessayez.",
+    "slow": "Le serveur met du temps à répondre. Réessayez dans un instant.",
+    "server": "Le service rencontre un problème. Réessayez dans quelques minutes.",
+    "cors": "Requête bloquée par le navigateur (CORS) : l'API n'autorise pas l'origine {{origin}}. Ajoutez-la à CORS_ALLOWED_ORIGINS côté backend.",
+    "unauthorized": "Session expirée. Veuillez vous reconnecter.",
+    "forbidden": "Accès refusé. Vous n'avez pas les permissions nécessaires.",
+    "notFound": "Ressource introuvable.",
+    "validation": "Données invalides.",
+    "csrf": "Jeton de sécurité expiré. Rafraîchissez la page.",
+    "unknown": "Une erreur inattendue s'est produite.",
+    "reference": "(réf. {{id}})"
+  }
 }
