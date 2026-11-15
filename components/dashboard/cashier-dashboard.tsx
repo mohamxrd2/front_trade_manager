@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowDownLeft, ArrowUpRight, Bell, FileText, Package, Plus, Printer, Settings } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { MediaImage } from '@/components/media/media-image'
 import { useNotifications } from '@/hooks/useNotifications'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
@@ -110,9 +111,15 @@ function CashierDashboard({ myDay: initialMyDay }: { myDay: MyDay }) {
           <Link
             href="/settings"
             aria-label={t('nav.settings')}
-            className="flex size-11 items-center justify-center rounded-full bg-brand-500 text-[15px] font-bold text-white"
+            className="flex size-11 shrink-0 rounded-full"
           >
-            {initials}
+            <MediaImage
+              src={user?.profile_image}
+              alt=""
+              sizes="44px"
+              className="size-11 rounded-full bg-brand-500 text-[15px] font-bold text-white"
+              fallback={initials}
+            />
           </Link>
           <div className="flex flex-col gap-0.5">
             <span className="text-[13px] text-subtle">{t('dashboard.greeting', { name: user?.first_name ?? '' })}</span>

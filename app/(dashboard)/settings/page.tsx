@@ -27,6 +27,7 @@ import { homeRouteForUser } from '@/lib/permissions/home-route'
 import { updateUserProfile, updateUserPassword } from '@/lib/auth'
 import { getCompany, updateCompany, type Company } from '@/lib/services/company'
 import { ImageUploader } from '@/components/media/image-uploader'
+import { MediaImage } from '@/components/media/media-image'
 import {
   getReceiptSettings,
   updateReceiptSettings,
@@ -1252,7 +1253,7 @@ export default function SettingsPage() {
   // (sa part == user.company_share y est affichée au même titre que les
   // collaborateurs) : ce sous-titre doit refléter le même total.
   const allMembers = user
-    ? [{ id: 'owner', name: `${user.first_name} ${user.last_name}`.trim() }, ...(collaborators ?? [])]
+    ? [{ id: 'owner', name: `${user.first_name} ${user.last_name}`.trim(), image: user.profile_image ?? null }, ...(collaborators ?? [])]
     : (collaborators ?? [])
   const collaboratorAvatars = allMembers.slice(0, 3)
   const collaboratorCount = allMembers.length
@@ -1582,9 +1583,13 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex items-center gap-3.5 rounded-tile border border-line bg-surface p-4">
-          <span className="flex size-14 items-center justify-center rounded-full bg-brand-500 text-lg font-bold text-white">
-            {avatarInitials}
-          </span>
+          <MediaImage
+            src={user?.profile_image}
+            alt=""
+            sizes="56px"
+            className="size-14 shrink-0 rounded-full bg-brand-500 text-lg font-bold text-white"
+            fallback={avatarInitials}
+          />
           <span className="flex flex-1 flex-col gap-0.5">
             <span className="text-base font-bold text-ink">{sourceFullName || user?.username}</span>
             <span className="text-[13px] text-subtle">{user?.email ?? user?.username}</span>
@@ -1629,12 +1634,14 @@ export default function SettingsPage() {
                         {collaboratorAvatars.map((c, i) => {
                           const cycle = AVATAR_CYCLE[i % AVATAR_CYCLE.length]
                           return (
-                            <span
-                              key={c.id}
-                              className={`flex size-7 items-center justify-center rounded-[14px] border-2 border-surface text-[11px] font-bold ${cycle.bg} ${cycle.text}`}
-                              style={i > 0 ? { marginLeft: -8 } : undefined}
-                            >
-                              {getInitials(c.name)}
+                            <span key={c.id} className="flex" style={i > 0 ? { marginLeft: -8 } : undefined}>
+                              <MediaImage
+                                src={c.image}
+                                alt=""
+                                sizes="28px"
+                                className={`size-7 rounded-[14px] border-2 border-surface text-[11px] font-bold ${cycle.bg} ${cycle.text}`}
+                                fallback={getInitials(c.name)}
+                              />
                             </span>
                           )
                         })}

@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Search, X, Plus, Minus, Check, Copy, ScanLine } from 'lucide-react'
 
 import { getArticles, type Article, type Variation } from '@/lib/services/articles'
+import { MediaImage } from '@/components/media/media-image'
 import { getClients } from '@/lib/services/invoices'
 import {
   createOperation,
@@ -288,11 +289,13 @@ function SaleCart() {
                     onClick={() => pickArticle(article)}
                     className="flex flex-col gap-2 rounded-tile border border-line bg-surface p-2.5 text-left disabled:opacity-50"
                   >
-                    <span
-                      className={`flex h-[76px] items-center justify-center rounded-tile text-xl font-extrabold ${THUMB_TINTS[i % THUMB_TINTS.length].bg} ${THUMB_TINTS[i % THUMB_TINTS.length].text}`}
-                    >
-                      {article.name.slice(0, 2).toUpperCase()}
-                    </span>
+                    <MediaImage
+                      src={article.image}
+                      alt=""
+                      sizes="(min-width: 1024px) 180px, 45vw"
+                      className={`h-[76px] w-full rounded-tile text-xl font-extrabold ${THUMB_TINTS[i % THUMB_TINTS.length].bg} ${THUMB_TINTS[i % THUMB_TINTS.length].text}`}
+                      fallback={article.name.slice(0, 2).toUpperCase()}
+                    />
                     <span className="flex flex-col gap-0.5">
                       <span className="truncate text-sm font-bold text-ink">{article.name}</span>
                       <span className="text-xs text-subtle">
