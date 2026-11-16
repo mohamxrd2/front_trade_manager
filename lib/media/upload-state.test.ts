@@ -9,8 +9,8 @@ import { createUploadRunner, type UploadState } from './upload-state'
 const image: CompressedImage = { blob: new Blob(['x'], { type: 'image/webp' }), width: 10, height: 10, type: 'image/webp' }
 const media: UploadedMedia = { id: 'm1', url: 'https://media.example/a.webp', width: 10, height: 10, kind: 'product' }
 
-function apiError(type: ApiErrorType, status?: number, errors?: unknown): ApiError {
-  return Object.assign(new Error('x'), { type, status, errors }) as ApiError
+function apiError(type: ApiErrorType, status?: number, errors?: unknown, code?: string): ApiError {
+  return Object.assign(new Error('x'), { type, status, errors, code }) as ApiError
 }
 
 describe('classifyUploadError', () => {
@@ -47,12 +47,21 @@ describe('classifyUploadError', () => {
     for (const language of ['fr', 'en'] as const) expect(translate(error.messageKey, language)).not.toMatch(/CORS/i)
   })
 
+  test('bucket des images mal configuré (503 media_unavailable) → message dédié, sans « Réessayer »', () => {
+    const error = classifyUploadError(apiError(ApiErrorType.SERVER, 503, undefined, 'media_unavailable'))
+    expect(error.kind).toBe('unavailable')
+    expect(error.retryable).toBe(false)
+    expect(translate(error.messageKey, 'fr')).toMatch(/momentanément indisponible/)
+    // Un 503 ordinaire (redémarrage…) reste une erreur passagère.
+    expect(classifyUploadError(apiError(ApiErrorType.SERVER, 503)).retryable).toBe(true)
+  })
+
   test('erreur serveur passagère → « Réessayer »', () => {
     expect(classifyUploadError(apiError(ApiErrorType.SERVER, 500)).retryable).toBe(true)
   })
 
   test('chaque erreur a son message en fr et en en', () => {
-    for (const kind of ['network', 'too_large', 'invalid', 'forbidden', 'not_found', 'quota', 'server'] as const) {
+    for (const kind of ['network', 'too_large', 'invalid', 'forbidden', 'not_found', 'quota', 'unavailable', 'server'] as const) {
       const key = new MediaUploadError(kind, false).messageKey
       for (const language of ['fr', 'en'] as const) expect(translate(key, language)).not.toBe(key)
     }

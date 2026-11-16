@@ -22,6 +22,7 @@
     "forbidden": "You're not allowed to change this image.",
     "not_found": "Item not found. Reload the page.",
     "quota": "Image limit reached for this account.",
-    "server": "The image couldn't be saved. Try again."
+    "server": "The image couldn't be saved. Try again.",
+    "unavailable": "Image uploads are temporarily unavailable. The rest of the app works normally."
   }
 }

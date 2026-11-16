@@ -22,6 +22,7 @@
     "forbidden": "Vous n'avez pas le droit de modifier cette image.",
     "not_found": "Élément introuvable. Rechargez la page.",
     "quota": "Limite d'images atteinte pour ce compte.",
-    "server": "L'image n'a pas pu être enregistrée. Réessayez."
+    "server": "L'image n'a pas pu être enregistrée. Réessayez.",
+    "unavailable": "L'envoi d'images est momentanément indisponible. Le reste de l'application fonctionne normalement."
   }
 }

@@ -10,7 +10,7 @@ export interface UploadedMedia {
   kind: MediaKind
 }
 
-export type UploadErrorKind = 'network' | 'too_large' | 'invalid' | 'forbidden' | 'not_found' | 'quota' | 'server'
+export type UploadErrorKind = 'network' | 'too_large' | 'invalid' | 'forbidden' | 'not_found' | 'quota' | 'unavailable' | 'server'
 
 /** Erreur d'envoi, avec la clé de traduction et si « Réessayer » a un sens. */
 export class MediaUploadError extends Error {
@@ -47,6 +47,10 @@ export function classifyUploadError(error: unknown): MediaUploadError {
       return new MediaUploadError('invalid', false)
     }
     case 429:
+      return new MediaUploadError('server', true)
+    case 503:
+      // Bucket des images mal configuré (code media_unavailable) : réessayer ne changerait rien.
+      if (error.code === 'media_unavailable') return new MediaUploadError('unavailable', false)
       return new MediaUploadError('server', true)
     default:
       return new MediaUploadError('server', true)
