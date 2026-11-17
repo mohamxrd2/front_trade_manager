@@ -624,7 +624,7 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-start gap-5">
+      <div className="@container flex flex-wrap items-start gap-5">
         {/* --- Panneau article (photo + champs éditables) --- */}
         <Card className="flex flex-[1_1_360px] flex-col gap-4 rounded-panel">
           {(() => {
@@ -653,7 +653,15 @@ export default function ProductDetailPage() {
             }
             return (
               <>
-                <ProductPhoto src={article.image} alt={article.name} sizes="480px" sizing="width" fallback={placeholder} />
+                {/* Même largeur pour toutes les photos : 1/3 de la zone (min. 360 px), même quand la carte passe en pleine largeur. */}
+                <ProductPhoto
+                  src={article.image}
+                  alt={article.name}
+                  sizes="480px"
+                  sizing="width"
+                  className="max-w-[max(33cqw,360px)]"
+                  fallback={placeholder}
+                />
                 {canEditStock ? (
                   <ImageUploader
                     kind="product"
