@@ -634,6 +634,23 @@ export default function ProductDetailPage() {
                 {t('products.detail.photoPlaceholder')}
               </span>
             )
+            // Pas encore de photo : le grand cadre est la zone d'ajout (clic ou dépôt).
+            if (canEditStock && !article.image) {
+              return (
+                <ImageUploader
+                  kind="product"
+                  ownerId={String(article.id)}
+                  value={article.image}
+                  onChange={handlePhotoChange}
+                  alt={article.name}
+                  layout="column"
+                  previewClassName="h-[200px] w-full"
+                  previewFit="contain"
+                  fallback={placeholder}
+                  className="w-full"
+                />
+              )
+            }
             return (
               <>
                 <ProductPhoto src={article.image} alt={article.name} sizes="480px" className="h-[200px] w-full" fallback={placeholder} />

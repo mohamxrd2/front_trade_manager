@@ -28,6 +28,8 @@ interface ImageUploaderProps {
   shape?: 'rounded' | 'circle'
   /** Classes de la vignette (taille). */
   previewClassName?: string
+  /** Aperçu recadré (cover, défaut) ou image entière (contain). */
+  previewFit?: 'cover' | 'contain'
   /** Mise en page : vignette à gauche (row) ou au-dessus (column). */
   layout?: 'row' | 'column'
   disabled?: boolean
@@ -58,6 +60,7 @@ export function ImageUploader({
   fallback,
   shape = 'rounded',
   previewClassName = 'size-24',
+  previewFit = 'cover',
   layout = 'row',
   disabled = false,
   className,
@@ -254,6 +257,7 @@ export function ImageUploader({
           src={shown}
           alt={alt}
           sizes="160px"
+          fit={previewFit}
           className="size-full"
           fallback={fallback ?? <ImageIcon className="size-6" aria-hidden="true" />}
         />
