@@ -24,5 +24,11 @@
     "quota": "Image limit reached for this account.",
     "server": "The image couldn't be saved. Try again.",
     "unavailable": "Image uploads are temporarily unavailable. The rest of the app works normally."
+  },
+  "viewer": {
+    "open": "View photo full size: {{name}}",
+    "viewerTitle": "Photo: {{name}}",
+    "viewerHint": "Tap outside the photo, swipe down or press Escape to close.",
+    "close": "Close photo"
   }
 }

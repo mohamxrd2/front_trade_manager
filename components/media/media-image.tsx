@@ -16,6 +16,9 @@ interface MediaImageProps {
   className?: string
   imageClassName?: string
   priority?: boolean
+  /** « cover » (défaut) : recadrée pour remplir la boîte ; « contain » : image entière, sans recadrage. */
+  fit?: 'cover' | 'contain'
+  onLoad?: (event: React.SyntheticEvent<HTMLImageElement>) => void
 }
 
 /** Initiales d'un nom (« Awa Koné » → « AK »), repli des photos et logos. */
@@ -52,11 +55,12 @@ class NextImageBoundary extends React.Component<{ fallback: React.ReactNode; chi
  * tout autre domaine — une adresse inconnue ne fait jamais planter la page.
  * Valeur vide ou invalide, ou image qui ne charge pas → repli (initiales).
  */
-export function MediaImage({ src, alt, fallback, sizes = '96px', className, imageClassName, priority }: MediaImageProps) {
+export function MediaImage({ src, alt, fallback, sizes = '96px', className, imageClassName, priority, fit = 'cover', onLoad }: MediaImageProps) {
   const renderer = imageRenderer(src)
   const url = renderer.kind === 'none' ? null : renderer.url
   const [failedUrl, setFailedUrl] = React.useState<string | null>(null)
   const onError = () => setFailedUrl(url)
+  const fitClass = fit === 'contain' ? 'object-contain' : 'object-cover'
 
   const plainImg = url ? (
     // eslint-disable-next-line @next/next/no-img-element -- domaine non déclaré pour next/image : affichée telle quelle.
@@ -66,8 +70,9 @@ export function MediaImage({ src, alt, fallback, sizes = '96px', className, imag
       loading={priority ? 'eager' : 'lazy'}
       decoding="async"
       referrerPolicy="no-referrer"
+      onLoad={onLoad}
       onError={onError}
-      className={cn('absolute inset-0 size-full object-cover', imageClassName)}
+      className={cn('absolute inset-0 size-full', fitClass, imageClassName)}
     />
   ) : null
 
@@ -76,7 +81,7 @@ export function MediaImage({ src, alt, fallback, sizes = '96px', className, imag
     content =
       renderer.kind === 'next' ? (
         <NextImageBoundary key={url} fallback={plainImg}>
-          <Image src={url} alt={alt} fill sizes={sizes} priority={priority} onError={onError} className={cn('object-cover', imageClassName)} />
+          <Image src={url} alt={alt} fill sizes={sizes} priority={priority} onLoad={onLoad} onError={onError} className={cn(fitClass, imageClassName)} />
         </NextImageBoundary>
       ) : (
         plainImg
