@@ -149,16 +149,28 @@ interface ProductPhotoProps {
   className?: string
   sizes?: string
   priority?: boolean
+  /**
+   * « frame » (défaut) : cadre de taille fixe (className), photo centrée.
+   * « width » : largeur du parent, hauteur selon les proportions de la photo
+   * (toutes les photos ont la même largeur) — plafonnée à 80 % de l'écran.
+   */
+  sizing?: 'frame' | 'width'
 }
+
+/** Proportions avant le chargement de la photo (« width ») : évite un cadre vide aplati. */
+const DEFAULT_RATIO = 4 / 3
 
 /**
  * Photo d'un article dans un cadre fixe : image entière (aucun recadrage),
  * centrée sur un fond neutre. Un clic ou un tap l'ouvre en plein écran.
  */
-export function ProductPhoto({ src, alt, fallback, className, sizes = '480px', priority }: ProductPhotoProps) {
+export function ProductPhoto({ src, alt, fallback, className, sizes = '480px', priority, sizing = 'frame' }: ProductPhotoProps) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
+  const [ratio, setRatio] = React.useState<number | null>(null)
   const url = displayableImage(src)
+  React.useEffect(() => setRatio(null), [url])
+  const byWidth = sizing === 'width'
   const frame = 'relative overflow-hidden rounded-tile border border-line bg-surface-soft'
 
   if (!url) return <div className={cn(frame, className)}>{fallback}</div>
@@ -169,9 +181,31 @@ export function ProductPhoto({ src, alt, fallback, className, sizes = '480px', p
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t('media.viewer.open', { name: alt })}
-        className={cn(frame, 'block cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500', className)}
+        className={cn(
+          frame,
+          'block cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500',
+          byWidth && 'max-h-[80vh] w-full',
+          className
+        )}
+        style={byWidth ? { aspectRatio: String(ratio ?? DEFAULT_RATIO) } : undefined}
       >
-        <MediaImage src={url} alt={alt} fit="contain" sizes={sizes} priority={priority} className="absolute inset-2" fallback={fallback} />
+        <MediaImage
+          src={url}
+          alt={alt}
+          fit="contain"
+          sizes={sizes}
+          priority={priority}
+          className={byWidth ? 'absolute inset-0' : 'absolute inset-2'}
+          fallback={fallback}
+          onLoad={
+            byWidth
+              ? (e) => {
+                  const img = e.currentTarget
+                  if (img.naturalWidth && img.naturalHeight) setRatio(img.naturalWidth / img.naturalHeight)
+                }
+              : undefined
+          }
+        />
         <span aria-hidden="true" className="absolute bottom-2.5 right-2.5 flex size-8 items-center justify-center rounded-full bg-black/45 text-white">
           <Maximize2 className="size-4" strokeWidth={2} />
         </span>
