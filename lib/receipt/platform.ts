@@ -35,6 +35,16 @@ export function choosePrintMode(platform: PlatformInfo, defaultMode: 'bluetooth'
 }
 
 /**
+ * Mode d'impression au moment même d'imprimer : appareil et choix
+ * (Paramètres → Imprimante) lus à l'appel, jamais un état React initialisé
+ * « sans Bluetooth » le temps du premier affichage — sinon l'impression
+ * automatique après une vente partait en impression classique.
+ */
+export function currentPrintMode(defaultMode: 'bluetooth' | 'classic', platform: PlatformInfo = getPlatformInfo()): ReceiptPrintMode {
+  return choosePrintMode(platform, defaultMode)
+}
+
+/**
  * Interface « partage d'image » réservée à l'iPhone SANS Bluetooth (Safari,
  * Chrome iOS…). Avec Bluetooth (navigateur Bluefy, qui ajoute Web Bluetooth
  * sur iOS), on garde l'impression directe comme sur Android.

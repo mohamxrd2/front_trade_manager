@@ -43,7 +43,9 @@ interface BluetoothPrinterState {
   print: (blocks: Uint8Array[]) => Promise<PrintResult>
 }
 
-let initStarted = false
+// Reconnexion silencieuse en cours ou terminée : la même promesse pour tous
+// (une impression lancée juste après le chargement peut l'attendre).
+let initPromise: Promise<void> | null = null
 
 function attachDisconnectListener(set: (partial: Partial<BluetoothPrinterState>) => void, device: BluetoothDevice) {
   device.addEventListener(
@@ -55,6 +57,31 @@ function attachDisconnectListener(set: (partial: Partial<BluetoothPrinterState>)
   )
 }
 
+/** Reconnexion silencieuse à l'imprimante mémorisée sur cet appareil (sans demande à l'utilisateur). */
+async function silentReconnect(set: (partial: Partial<BluetoothPrinterState>) => void): Promise<void> {
+  if (!isWebBluetoothSupported()) {
+    set({ status: 'unsupported' })
+    return
+  }
+
+  const remembered = readRememberedPrinter()
+  if (!remembered) return
+
+  set({ deviceId: remembered.id, deviceName: remembered.name })
+
+  const device = await findKnownDevice(remembered.id)
+  if (!device) return // Pas de reconnexion silencieuse possible — l'utilisateur devra toucher "Reconnecter".
+
+  try {
+    const connection = await connectToPrinter(device)
+    attachDisconnectListener(set, device)
+    const batteryLevel = await readBatteryLevel(device)
+    set({ status: 'connected', connection, deviceId: device.id, deviceName: device.name ?? remembered.name, batteryLevel })
+  } catch {
+    // Reconnexion silencieuse échouée (imprimante éteinte, hors de portée…) — reste "disconnected", pas une erreur affichée au chargement.
+  }
+}
+
 export const useBluetoothPrinterStore = create<BluetoothPrinterState>()((set, get) => ({
   status: 'disconnected',
   deviceId: null,
@@ -62,34 +89,12 @@ export const useBluetoothPrinterStore = create<BluetoothPrinterState>()((set, ge
   batteryLevel: null,
   connection: null,
 
-  init: async () => {
+  init: () => {
     // Idempotent : appelé depuis plusieurs points d'entrée possibles
     // (Paramètres, écran de confirmation…) sans savoir lequel monte en
     // premier — une seule tentative de reconnexion silencieuse par session.
-    if (initStarted) return
-    initStarted = true
-
-    if (!isWebBluetoothSupported()) {
-      set({ status: 'unsupported' })
-      return
-    }
-
-    const remembered = readRememberedPrinter()
-    if (!remembered) return
-
-    set({ deviceId: remembered.id, deviceName: remembered.name })
-
-    const device = await findKnownDevice(remembered.id)
-    if (!device) return // Pas de reconnexion silencieuse possible — l'utilisateur devra toucher "Reconnecter".
-
-    try {
-      const connection = await connectToPrinter(device)
-      attachDisconnectListener(set, device)
-      const batteryLevel = await readBatteryLevel(device)
-      set({ status: 'connected', connection, deviceId: device.id, deviceName: device.name ?? remembered.name, batteryLevel })
-    } catch {
-      // Reconnexion silencieuse échouée (imprimante éteinte, hors de portée…) — reste "disconnected", pas une erreur affichée au chargement.
-    }
+    initPromise ??= silentReconnect(set)
+    return initPromise
   },
 
   connect: async (showAllDevices = false) => {

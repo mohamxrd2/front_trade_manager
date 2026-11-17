@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 
-import { canAutoPrint, canUseAirPrint, choosePrintMode, detectIOS, isShareOnlyPlatform } from './platform'
+import { canAutoPrint, canUseAirPrint, choosePrintMode, currentPrintMode, detectIOS, isShareOnlyPlatform } from './platform'
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
 const IPAD_AS_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15'
@@ -48,5 +48,22 @@ describe('choix du mode d’impression', () => {
     expect(isShareOnlyPlatform(bluefy)).toBe(false)
     expect(canAutoPrint(bluefy)).toBe(true)
     expect(isShareOnlyPlatform(ios)).toBe(true)
+  })
+})
+
+describe('mode d’impression lu au moment d’imprimer', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  test('Android avec Bluetooth choisi : Bluetooth direct, même juste après le chargement de la page', () => {
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) })
+    vi.stubGlobal('navigator', { userAgent: ANDROID, platform: 'Linux armv8l', maxTouchPoints: 5, bluetooth: {} })
+    expect(currentPrintMode('bluetooth')).toBe('bluetooth')
+    expect(currentPrintMode('classic')).toBe('classic')
+  })
+
+  test('navigateur sans Bluetooth (Firefox, Safari ordinateur) : impression classique', () => {
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) })
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0', platform: 'Linux x86_64', maxTouchPoints: 0 })
+    expect(currentPrintMode('bluetooth')).toBe('classic')
   })
 })

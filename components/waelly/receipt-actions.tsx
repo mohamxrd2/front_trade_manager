@@ -28,7 +28,7 @@ import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import { readDefaultPrintMode, readCutPaper, readPrintLogo, readPrintQr, readPrinterCharset, readAutoPrintPreference, resolveAutoPrint } from '@/lib/receipt/printer-preferences'
 import { useAuth } from '@/contexts/AuthContext'
-import { canAutoPrint, canUseAirPrint, choosePrintMode, getPlatformInfo, isShareOnlyPlatform, type PlatformInfo } from '@/lib/receipt/platform'
+import { canAutoPrint, canUseAirPrint, currentPrintMode, getPlatformInfo, isShareOnlyPlatform, type PlatformInfo } from '@/lib/receipt/platform'
 import { ReceiptView } from './receipt-view'
 import { IosReceiptShare } from './ios-receipt-share'
 import { Button } from './button'
@@ -163,7 +163,6 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     }
   }, [operation.code, settings.showQr])
 
-  const bluetoothStatus = useBluetoothPrinterStore((s) => s.status)
   const bluetoothInit = useBluetoothPrinterStore((s) => s.init)
   const bluetoothReconnect = useBluetoothPrinterStore((s) => s.reconnect)
   const bluetoothPrint = useBluetoothPrinterStore((s) => s.print)
@@ -221,13 +220,16 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
   }, [model, settings.showLogo, settings.showQr, receiptCompany.logoUrl, receiptCompany.name, bluetoothPrint])
 
   const handlePrint = React.useCallback(async () => {
-    const mode = choosePrintMode(platform, readDefaultPrintMode())
+    const mode = currentPrintMode(readDefaultPrintMode())
     if (mode === 'share') return
     if (mode === 'classic') {
       printClassic()
       return
     }
-    if (bluetoothStatus !== 'connected') {
+    // Juste après le chargement, la reconnexion silencieuse à l'imprimante
+    // peut être encore en cours : on l'attend, puis on lit l'état réel.
+    await bluetoothInit()
+    if (useBluetoothPrinterStore.getState().status !== 'connected') {
       showDisconnectedToast()
       return
     }
@@ -237,7 +239,7 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     } else {
       showDisconnectedToast()
     }
-  }, [platform, bluetoothStatus, printBluetooth, printClassic, showDisconnectedToast, t])
+  }, [bluetoothInit, printBluetooth, printClassic, showDisconnectedToast, t])
 
   React.useEffect(() => {
     if (!autoPrintOnSuccess || autoPrintedRef.current || !canAutoPrint(getPlatformInfo())) return
