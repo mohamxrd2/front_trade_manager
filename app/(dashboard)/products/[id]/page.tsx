@@ -719,7 +719,10 @@ export default function ProductDetailPage() {
           </div>
         </Card>
 
-        <div className="flex flex-[2_1_480px] flex-col gap-5">
+        {/* min-w-0 : le tableau des variations (min. 560 px) défile dans sa carte
+            au lieu d'élargir la colonne — sinon elle passait sous la carte
+            article, qui prenait alors toute la largeur. */}
+        <div className="flex min-w-0 flex-[2_1_480px] flex-col gap-5">
           {/* --- KPI --- */}
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
             <div className="flex flex-col gap-1.5 rounded-card bg-hero p-[18px] text-white">
