@@ -4,7 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 
 import { cn } from '@/lib/utils'
-import { displayableImage, isOptimizable } from '@/lib/media/remote-hosts'
+import { imageRenderer } from '@/lib/media/remote-hosts'
 
 interface MediaImageProps {
   src: string | null | undefined
@@ -25,31 +25,63 @@ export function initialsOf(name: string | null | undefined): string {
 }
 
 /**
- * Image d'article, de logo ou de profil : next/image (chargement différé,
- * taille adaptée) dans une boîte que le parent dimensionne. Valeur vide ou
- * invalide, ou image qui ne charge pas → repli (initiales).
+ * Filet de sécurité : si next/image refuse quand même l'adresse (domaine
+ * absent de la config chargée), on affiche une simple <img> au lieu de
+ * faire planter toute la page.
+ */
+class NextImageBoundary extends React.Component<{ fallback: React.ReactNode; children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  componentDidCatch() {
+    // Rien à signaler à l'utilisateur : l'image s'affiche quand même, sans optimisation.
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
+
+/**
+ * Image d'article, de logo ou de profil, dans une boîte que le parent
+ * dimensionne. next/image (taille adaptée, chargement différé) pour un
+ * chemin du site ou un domaine déclaré dans next.config ; simple <img> pour
+ * tout autre domaine — une adresse inconnue ne fait jamais planter la page.
+ * Valeur vide ou invalide, ou image qui ne charge pas → repli (initiales).
  */
 export function MediaImage({ src, alt, fallback, sizes = '96px', className, imageClassName, priority }: MediaImageProps) {
-  const url = displayableImage(src)
+  const renderer = imageRenderer(src)
+  const url = renderer.kind === 'none' ? null : renderer.url
   const [failedUrl, setFailedUrl] = React.useState<string | null>(null)
-  const showImage = url && failedUrl !== url
+  const onError = () => setFailedUrl(url)
 
-  return (
-    <span className={cn('relative flex items-center justify-center overflow-hidden', className)}>
-      {showImage ? (
-        <Image
-          src={url}
-          alt={alt}
-          fill
-          sizes={sizes}
-          priority={priority}
-          unoptimized={!isOptimizable(url)}
-          onError={() => setFailedUrl(url)}
-          className={cn('object-cover', imageClassName)}
-        />
+  const plainImg = url ? (
+    // eslint-disable-next-line @next/next/no-img-element -- domaine non déclaré pour next/image : affichée telle quelle.
+    <img
+      src={url}
+      alt={alt}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={onError}
+      className={cn('absolute inset-0 size-full object-cover', imageClassName)}
+    />
+  ) : null
+
+  let content: React.ReactNode = fallback
+  if (url && failedUrl !== url) {
+    content =
+      renderer.kind === 'next' ? (
+        <NextImageBoundary key={url} fallback={plainImg}>
+          <Image src={url} alt={alt} fill sizes={sizes} priority={priority} onError={onError} className={cn('object-cover', imageClassName)} />
+        </NextImageBoundary>
       ) : (
-        fallback
-      )}
-    </span>
-  )
+        plainImg
+      )
+  }
+
+  return <span className={cn('relative flex items-center justify-center overflow-hidden', className)}>{content}</span>
 }
