@@ -1,7 +1,7 @@
 /**
  * Hôtes d'images servies par next/image (optimisées, chargement différé).
  * Utilisé par next.config.ts (images.remotePatterns) et par MediaImage, qui
- * affiche tout autre hôte tel quel (unoptimized) plutôt que de planter.
+ * affiche tout autre hôte dans une simple <img> plutôt que de planter.
  */
 
 export interface RemotePattern {
@@ -26,7 +26,15 @@ function patternFor(url: string | undefined, pathname: string): RemotePattern | 
   }
 }
 
-export function mediaRemotePatterns(env: Record<string, string | undefined> = process.env): RemotePattern[] {
+// Accès direct à process.env.NEXT_PUBLIC_* : c'est la seule forme que Next
+// remplace par sa valeur dans le code du navigateur. Avec `process.env` passé
+// tel quel, MediaImage ne verrait pas ces domaines côté navigateur.
+const PUBLIC_ENV = {
+  NEXT_PUBLIC_MEDIA_URL: process.env.NEXT_PUBLIC_MEDIA_URL,
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+}
+
+export function mediaRemotePatterns(env: Record<string, string | undefined> = PUBLIC_ENV): RemotePattern[] {
   return [
     { protocol: 'https', hostname: 'ik.imagekit.io', port: '', pathname: '/**' },
     // Bucket Cloudflare R2 (adresse publique r2.dev)…
@@ -35,8 +43,9 @@ export function mediaRemotePatterns(env: Record<string, string | undefined> = pr
     patternFor(env.NEXT_PUBLIC_MEDIA_URL, '/**'),
     // Images servies par l'API elle-même (développement local, anciens logos).
     patternFor(env.NEXT_PUBLIC_API_URL || 'http://localhost:8000', '/storage/**'),
-    // Photos de profil des comptes Google / Facebook.
+    // Photos de profil des comptes Google (lh3, lh4…) / Facebook.
     { protocol: 'https', hostname: 'lh3.googleusercontent.com', port: '', pathname: '/**' },
+    { protocol: 'https', hostname: '*.googleusercontent.com', port: '', pathname: '/**' },
     { protocol: 'https', hostname: 'platform-lookaside.fbsbx.com', port: '', pathname: '/**' },
   ].filter((p): p is RemotePattern => p !== null)
 }
@@ -65,15 +74,30 @@ export function isOptimizable(src: string, patterns: RemotePattern[] = mediaRemo
   )
 }
 
-/** URL affichable : http(s) ou aperçu local ; le reste (chaîne vide, nom de fichier…) est ignoré. */
+/** URL affichable : http(s), chemin du site (/…) ou aperçu local ; le reste (chaîne vide, nom de fichier…) est ignoré. */
 export function displayableImage(value: string | null | undefined): string | null {
   const v = value?.trim()
   if (!v) return null
   if (v.startsWith('blob:') || v.startsWith('data:image/')) return v
+  if (v.startsWith('/') && !v.startsWith('//')) return v
   try {
     const url = new URL(v)
     return url.protocol === 'https:' || url.protocol === 'http:' ? v : null
   } catch {
     return null
   }
+}
+
+export type ImageRenderer = { kind: 'none' } | { kind: 'next'; url: string } | { kind: 'img'; url: string }
+
+/**
+ * Comment afficher une image : next/image seulement pour un chemin du site ou
+ * un domaine déclaré dans next.config (sinon next/image plante la page) ;
+ * simple <img> pour tout le reste (domaine inconnu, adresse locale, aperçu).
+ */
+export function imageRenderer(value: string | null | undefined, patterns: RemotePattern[] = mediaRemotePatterns()): ImageRenderer {
+  const url = displayableImage(value)
+  if (!url) return { kind: 'none' }
+  if (url.startsWith('/')) return { kind: 'next', url }
+  return isOptimizable(url, patterns) ? { kind: 'next', url } : { kind: 'img', url }
 }
