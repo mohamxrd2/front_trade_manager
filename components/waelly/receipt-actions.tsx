@@ -12,13 +12,8 @@ import { getReceiptSettings, DEFAULT_RECEIPT_SETTINGS } from '@/lib/services/rec
 import { keys } from '@/lib/query-keys'
 import { paymentMethodLabelKey } from '@/lib/transactions/transaction-visual'
 import type { Operation } from '@/lib/services/operations'
-import {
-  buildReceipt,
-  type ReceiptCompanyInfo,
-  type ReceiptDisplaySettings,
-  type ReceiptLabels,
-  type ReceiptOperationInput,
-} from '@/lib/receipt/build-receipt'
+import { buildReceipt, type ReceiptDisplaySettings, type ReceiptOperationInput } from '@/lib/receipt/build-receipt'
+import { receiptCompanyInfo, receiptDisplaySettings, receiptLabels } from '@/lib/receipt/receipt-context'
 import { generateReceiptQrDataUrl } from '@/lib/receipt/qr'
 import { printReceiptModel } from '@/lib/receipt/print-receipt'
 import { shareReceiptImage } from '@/lib/receipt/share-receipt'
@@ -28,7 +23,7 @@ import { loadLogoImageData } from '@/lib/receipt/load-logo-canvas'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import { readDefaultPrintMode, readCutPaper, readPrintLogo, readPrintQr, readPrinterCharset, readAutoPrintPreference, resolveAutoPrint } from '@/lib/receipt/printer-preferences'
 import { useAuth } from '@/contexts/AuthContext'
-import { canAutoPrint, canUseAirPrint, choosePrintMode, getPlatformInfo, isShareOnlyPlatform, type PlatformInfo } from '@/lib/receipt/platform'
+import { canAutoPrint, canUseAirPrint, currentPrintMode, getPlatformInfo, isShareOnlyPlatform, type PlatformInfo } from '@/lib/receipt/platform'
 import { ReceiptView } from './receipt-view'
 import { IosReceiptShare } from './ios-receipt-share'
 import { Button } from './button'
@@ -75,27 +70,9 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     staleTime: 10 * 60 * 1000,
   })
 
-  const apiSettings = receiptSettings ?? DEFAULT_RECEIPT_SETTINGS
-  const settings: ReceiptDisplaySettings = {
-    width: apiSettings.width,
-    showLogo: apiSettings.show_logo,
-    showAddress: apiSettings.show_address,
-    showPhone: apiSettings.show_phone,
-    showTaxId: apiSettings.show_tax_id,
-    footerMessage: apiSettings.footer_message,
-    showQr: apiSettings.show_qr,
-    showWaellyMention: apiSettings.show_waelly_mention,
-  }
-
-  // Nom de l'entreprise vide : nom du compte, puis la marque en dernier recours.
+  const settings: ReceiptDisplaySettings = receiptDisplaySettings(receiptSettings ?? DEFAULT_RECEIPT_SETTINGS)
   const accountName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()
-  const receiptCompany: ReceiptCompanyInfo = {
-    name: company?.name || accountName || 'Waelly', // i18n:allow — nom de secours uniquement si ni l'entreprise ni le compte n'ont de nom
-    logoUrl: company?.logo_url ?? null,
-    address: company?.headquarters ?? null,
-    phone: company?.phone ?? null,
-    taxId: company?.tax_id ?? null,
-  }
+  const receiptCompany = receiptCompanyInfo(company, accountName)
 
   const paymentMethodLabel = operation.paymentMethod
     ? (() => {
@@ -123,19 +100,7 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     })),
   }
 
-  const labels: ReceiptLabels = {
-    ticketNumber: t('wallet.receipt.ticketNumber'),
-    cashier: t('wallet.receipt.cashier'),
-    client: t('wallet.checkout.clientLabel'),
-    total: t('wallet.receipt.total'),
-    paidBy: t('wallet.receipt.paidBy'),
-    received: t('wallet.receipt.received'),
-    changeGiven: t('wallet.checkout.changeLabel'),
-    duplicate: t('wallet.receipt.duplicate'),
-    paymentMethodUnknown: t('wallet.detail.paymentMethodUnknown'),
-    defaultFooter: t('wallet.receipt.defaultFooter'),
-    waellyMention: 'Waelly', // i18n:allow — nom de marque, jamais traduit
-  }
+  const labels = receiptLabels(t)
 
   const model = React.useMemo(
     () =>
@@ -163,7 +128,6 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     }
   }, [operation.code, settings.showQr])
 
-  const bluetoothStatus = useBluetoothPrinterStore((s) => s.status)
   const bluetoothInit = useBluetoothPrinterStore((s) => s.init)
   const bluetoothReconnect = useBluetoothPrinterStore((s) => s.reconnect)
   const bluetoothPrint = useBluetoothPrinterStore((s) => s.print)
@@ -178,21 +142,6 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
       toast.error(t('wallet.receipt.printFailed'))
     }
   }, [model, qrDataUrl, t])
-
-  const showDisconnectedToast = React.useCallback(() => {
-    toast.error(t('wallet.receipt.bluetoothPrinterDisconnected'), {
-      action: {
-        label: t('settings.receipt.bluetoothReconnectButton'),
-        onClick: () => {
-          bluetoothReconnect().catch(() => toast.error(t('settings.receipt.bluetoothConnectFailed')))
-        },
-      },
-      cancel: {
-        label: t('wallet.receipt.printClassicAction'),
-        onClick: printClassic,
-      },
-    })
-  }, [t, bluetoothReconnect, printClassic])
 
   const printBluetooth = React.useCallback(async (): Promise<boolean> => {
     try {
@@ -220,38 +169,7 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     }
   }, [model, settings.showLogo, settings.showQr, receiptCompany.logoUrl, receiptCompany.name, bluetoothPrint])
 
-  const handlePrint = React.useCallback(async () => {
-    const mode = choosePrintMode(platform, readDefaultPrintMode())
-    if (mode === 'share') return
-    if (mode === 'classic') {
-      printClassic()
-      return
-    }
-    if (bluetoothStatus !== 'connected') {
-      showDisconnectedToast()
-      return
-    }
-    const ok = await printBluetooth()
-    if (ok) {
-      toast.success(t('wallet.receipt.printed'))
-    } else {
-      showDisconnectedToast()
-    }
-  }, [platform, bluetoothStatus, printBluetooth, printClassic, showDisconnectedToast, t])
-
-  React.useEffect(() => {
-    if (!autoPrintOnSuccess || autoPrintedRef.current || !canAutoPrint(getPlatformInfo())) return
-    // Choix de cet appareil (réglable par le caissier) sinon réglage de
-    // l'entreprise — on attend ce dernier seulement s'il est nécessaire.
-    const devicePreference = readAutoPrintPreference()
-    if (devicePreference === null && receiptSettings === undefined) return
-    if (!resolveAutoPrint(devicePreference, receiptSettings?.auto_print)) return
-    autoPrintedRef.current = true
-    handlePrint()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPrintOnSuccess, receiptSettings])
-
-  const handleShare = async () => {
+  const handleShare = React.useCallback(async () => {
     if (!previewRef.current) return
     setSharing(true)
     try {
@@ -267,7 +185,68 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
     } finally {
       setSharing(false)
     }
-  }
+  }, [operation.code, t])
+
+  // Imprimante pas connectée (Bluetooth choisi sur un appareil compatible) :
+  // la vente est déjà enregistrée — on propose de connecter l'imprimante
+  // (puis d'imprimer) ou de partager le ticket, sans rien bloquer.
+  const showDisconnectedToast = React.useCallback(() => {
+    toast.error(t('wallet.printerStatus.notConnected'), {
+      id: 'receipt-printer-not-connected',
+      description: t('wallet.printerStatus.notConnectedDescription'),
+      action: {
+        label: t('wallet.printerStatus.connectAction'),
+        onClick: () => {
+          // Directement dans le clic : la fenêtre Bluetooth exige un geste de l'utilisateur.
+          bluetoothReconnect()
+            .then(async () => {
+              if (useBluetoothPrinterStore.getState().status !== 'connected') return
+              if (await printBluetooth()) toast.success(t('wallet.receipt.printed'))
+              else toast.error(t('wallet.printerStatus.printFailed'))
+            })
+            .catch(() => toast.error(t('wallet.printerStatus.connectFailed')))
+        },
+      },
+      cancel: {
+        label: t('wallet.printerStatus.shareAction'),
+        onClick: () => void handleShare(),
+      },
+    })
+  }, [t, bluetoothReconnect, printBluetooth, handleShare])
+
+  const handlePrint = React.useCallback(async () => {
+    const mode = currentPrintMode(readDefaultPrintMode())
+    if (mode === 'share') return
+    if (mode === 'classic') {
+      printClassic()
+      return
+    }
+    // Juste après le chargement, la reconnexion silencieuse à l'imprimante
+    // peut être encore en cours : on l'attend, puis on lit l'état réel.
+    await bluetoothInit()
+    if (useBluetoothPrinterStore.getState().status !== 'connected') {
+      showDisconnectedToast()
+      return
+    }
+    const ok = await printBluetooth()
+    if (ok) {
+      toast.success(t('wallet.receipt.printed'))
+    } else {
+      showDisconnectedToast()
+    }
+  }, [bluetoothInit, printBluetooth, printClassic, showDisconnectedToast, t])
+
+  React.useEffect(() => {
+    if (!autoPrintOnSuccess || autoPrintedRef.current || !canAutoPrint(getPlatformInfo())) return
+    // Choix de cet appareil (réglable par le caissier) sinon réglage de
+    // l'entreprise — on attend ce dernier seulement s'il est nécessaire.
+    const devicePreference = readAutoPrintPreference()
+    if (devicePreference === null && receiptSettings === undefined) return
+    if (!resolveAutoPrint(devicePreference, receiptSettings?.auto_print)) return
+    autoPrintedRef.current = true
+    handlePrint()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrintOnSuccess, receiptSettings])
 
   return (
     <div className="flex w-full flex-col gap-3">
