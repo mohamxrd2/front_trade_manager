@@ -1,5 +1,6 @@
 "use client"
 
+import { MediaImage } from '@/components/media/media-image'
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -92,7 +93,9 @@ interface GlassSidebarUser {
   initials: string
   name: string
   company?: string
-  /** Logo entreprise (Paramètres > Entreprise ou onboarding, étape 2) — affiché à la place des initiales quand présent. */
+  /** Photo de profil de l'utilisateur connecté — prioritaire sur le logo. */
+  photoUrl?: string | null
+  /** Logo entreprise (Paramètres > Entreprise ou onboarding, étape 2) — affiché à la place des initiales quand il n'y a pas de photo. */
   logoUrl?: string | null
   /** Rôle du membre connecté — `null`/absent pour le propriétaire (badge "role" masqué, voir plus bas). */
   role?: string | null
@@ -218,14 +221,13 @@ function GlassSidebar({
       </nav>
 
       <div className="glass flex items-center gap-2.5 rounded-tile p-3">
-        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-sm font-bold text-white">
-          {user.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- logo servi par le backend (storage/public), pas next/image
-            <img src={user.logoUrl} alt="" className="size-full object-cover" />
-          ) : (
-            user.initials
-          )}
-        </span>
+        <MediaImage
+          src={user.photoUrl || user.logoUrl}
+          alt=""
+          sizes="40px"
+          className="size-10 shrink-0 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-sm font-bold text-white"
+          fallback={user.initials}
+        />
         <span className="flex min-w-0 flex-1 flex-col gap-px">
           <span className="flex items-center gap-1.5 truncate text-sm font-bold text-ink">
             <span className="truncate">{user.name}</span>

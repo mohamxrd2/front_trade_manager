@@ -2,14 +2,15 @@
 
 import { useAuth } from '@/contexts/AuthContext'
 import { useCollaboratorShares } from '@/lib/hooks/useCollaboratorShares'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ImageUploader } from '@/components/media/image-uploader'
+import { initialsOf } from '@/components/media/media-image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { formatDate } from '@/lib/i18n/format'
 
 export default function AccountPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, checkAuth } = useAuth()
   const { t, language } = useTranslation()
   // Part toujours recalculée (100 − somme des parts actives des
   // collaborateurs), jamais lue de l'ancienne colonne user.company_share
@@ -49,18 +50,22 @@ export default function AccountPage() {
           <CardTitle>{t('account.personalInfoTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage src={user.profile_image ?? undefined} alt={fullName} />
-              <AvatarFallback className="text-lg">
-                {user.first_name?.[0]}
-                {user.last_name?.[0]}
-              </AvatarFallback>
-            </Avatar>
+          <div className="flex flex-col gap-4">
             <div>
               <p className="font-medium">{fullName}</p>
               <p className="text-sm text-muted-foreground">@{user.username}</p>
             </div>
+            {/* Sa propre photo de profil : chacun peut la changer. */}
+            <ImageUploader
+              kind="avatar"
+              ownerId="me"
+              value={user.profile_image}
+              onChange={() => void checkAuth()}
+              alt={fullName}
+              shape="circle"
+              previewClassName="size-20"
+              fallback={<span className="text-lg font-semibold text-ink-2">{initialsOf(fullName)}</span>}
+            />
           </div>
 
           <Separator />

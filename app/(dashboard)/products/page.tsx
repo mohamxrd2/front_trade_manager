@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AlertCircle, ChevronRight, Download, Plus, Search } from 'lucide-react'
 
 import { useUserStats, useArticles } from '@/lib/hooks/useArticles'
+import { MediaImage } from '@/components/media/media-image'
 import { exportToExcel, formatProductsForExport } from '@/lib/utils/export'
 import { useCurrency } from '@/lib/utils/currency'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
@@ -228,11 +229,13 @@ export default function ProductsPage() {
               href={`/products/${article.id}`}
               className="flex items-center gap-3 rounded-tile border border-line bg-surface p-3"
             >
-              <span
-                className={`flex size-[52px] shrink-0 items-center justify-center rounded-tile text-base font-bold ${THUMB_TINTS[i % THUMB_TINTS.length].bg} ${THUMB_TINTS[i % THUMB_TINTS.length].text}`}
-              >
-                {initials(article.name)}
-              </span>
+              <MediaImage
+                src={article.image}
+                alt=""
+                sizes="52px"
+                className={`size-[52px] shrink-0 rounded-tile text-base font-bold ${THUMB_TINTS[i % THUMB_TINTS.length].bg} ${THUMB_TINTS[i % THUMB_TINTS.length].text}`}
+                fallback={initials(article.name)}
+              />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="truncate text-[15px] font-bold text-ink">{article.name}</span>
                 <span className="text-[13px] text-subtle">
@@ -313,11 +316,13 @@ export default function ProductsPage() {
                     <tr key={article.id} className="border-t border-divider">
                       <td className="px-2 py-2.5">
                         <Link href={`/products/${article.id}`} className="flex items-center gap-3 text-ink">
-                          <span
-                            className={`flex size-11 shrink-0 items-center justify-center rounded-tile text-sm font-extrabold ${THUMB_TINTS[i % THUMB_TINTS.length].bg} ${THUMB_TINTS[i % THUMB_TINTS.length].text}`}
-                          >
-                            {initials(article.name)}
-                          </span>
+                          <MediaImage
+                            src={article.image}
+                            alt=""
+                            sizes="44px"
+                            className={`size-11 shrink-0 rounded-tile text-sm font-extrabold ${THUMB_TINTS[i % THUMB_TINTS.length].bg} ${THUMB_TINTS[i % THUMB_TINTS.length].text}`}
+                            fallback={initials(article.name)}
+                          />
                           <span className="font-bold">{article.name}</span>
                         </Link>
                       </td>

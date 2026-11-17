@@ -78,6 +78,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
                 name: user ? `${user.first_name} ${user.last_name}` : "",
                 // Membre sans e-mail : son identifiant de connexion.
                 company: user?.email ?? user?.username,
+                photoUrl: user?.profile_image,
                 logoUrl: company?.logo_url,
                 role: user?.is_owner ? null : (user?.role ?? null),
               }}

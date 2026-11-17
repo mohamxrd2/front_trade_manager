@@ -196,7 +196,8 @@
     "phone": "Phone",
     "phonePlaceholder": "+225 …",
     "email": "Email",
-    "emailPlaceholder": "name@example.com"
+    "emailPlaceholder": "name@example.com",
+    "photo": "Photo"
   },
   "isPartnerToggle": "Partner",
   "isPartnerHint": "Has a share of the company's profits",

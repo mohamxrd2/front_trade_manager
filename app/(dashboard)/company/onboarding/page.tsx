@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useRef, useEffect, type ChangeEvent } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
-import { Loader2, Building2, Mail, Image as ImageIcon, X, CheckCircle } from 'lucide-react'
+import { Loader2, Building2, Mail, Image as ImageIcon, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useCompanyOnboarding, completeOnboarding, type MissingField } from '@/hooks/useCompanyOnboarding'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
 import { Button, Card } from '@/components/waelly'
+import { ImageUploader } from '@/components/media/image-uploader'
 
 /**
  * Entreprise incomplète — s'affiche (via BillingLayout) quand l'utilisateur
@@ -28,9 +28,8 @@ export default function CompanyOnboardingPage() {
 
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
-  const [logoFile, setLogoFile] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // Le logo est envoyé dès qu'il est choisi (l'entreprise existe déjà ici).
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isLoadingStatus && status && !status.needs_onboarding) {
@@ -41,29 +40,6 @@ export default function CompanyOnboardingPage() {
   const isMissing = (field: MissingField) => status?.missing_fields.includes(field) ?? false
   const needsLogo = isMissing('logo')
   const needsEmail = isMissing('email')
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error(t('onboarding.companyGate.logoTooLarge'))
-      return
-    }
-    if (!file.type.startsWith('image/')) {
-      toast.error(t('onboarding.companyGate.logoMustBeImage'))
-      return
-    }
-
-    setLogoFile(file)
-    setLogoPreview(URL.createObjectURL(file))
-  }
-
-  const removeLogo = () => {
-    setLogoFile(null)
-    setLogoPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
 
   const validateEmail = (value: string) => {
     if (!value.trim()) {
@@ -83,7 +59,7 @@ export default function CompanyOnboardingPage() {
 
     let isValid = true
     if (needsEmail && !validateEmail(email)) isValid = false
-    if (needsLogo && !logoFile) {
+    if (needsLogo && !logoUrl) {
       toast.error(t('onboarding.companyGate.logoRequired'))
       isValid = false
     }
@@ -93,7 +69,6 @@ export default function CompanyOnboardingPage() {
     try {
       await completeOnboarding({
         email: needsEmail ? email : undefined,
-        logo: needsLogo ? logoFile || undefined : undefined,
       })
       toast.success(t('onboarding.companyGate.successToast'))
       await refresh()
@@ -148,40 +123,16 @@ export default function CompanyOnboardingPage() {
                 {t('onboarding.companyGate.logoLabel')}
               </label>
 
-              {logoPreview ? (
-                <div className="relative inline-flex size-28 items-center justify-center rounded-tile border-2 border-brand-500 bg-brand-50 p-2">
-                  <Image src={logoPreview} alt={t('onboarding.companyGate.logoPreviewAlt')} fill className="object-contain p-2" unoptimized />
-                  <button
-                    type="button"
-                    onClick={removeLogo}
-                    disabled={isSubmitting}
-                    className="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full bg-danger text-white disabled:opacity-50 after:absolute after:-inset-2.5"
-                  >
-                    <X className="size-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => !isSubmitting && fileInputRef.current?.click()}
-                  disabled={isSubmitting}
-                  className="flex flex-col items-center justify-center gap-2 rounded-tile border-[1.5px] border-dashed border-brand-200 bg-brand-50 p-6 text-center text-brand-700 disabled:opacity-50"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/gif,image/webp"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    disabled={isSubmitting}
-                  />
-                  <span className="flex size-11 items-center justify-center rounded-full bg-surface">
-                    <ImageIcon className="size-5" strokeWidth={1.8} />
-                  </span>
-                  <span className="text-sm font-bold">{t('onboarding.companyGate.addLogo')}</span>
-                  <span className="text-xs text-ink-3">{t('onboarding.companyGate.logoHint')}</span>
-                </button>
-              )}
+              <ImageUploader
+                kind="logo"
+                ownerId="company"
+                value={logoUrl}
+                onChange={(media) => setLogoUrl(media?.url ?? null)}
+                alt={t('onboarding.companyGate.logoPreviewAlt')}
+                previewClassName="size-28"
+                disabled={isSubmitting}
+              />
+              <p className="text-xs text-ink-3">{t('onboarding.companyGate.logoHint')}</p>
             </div>
           ) : null}
 

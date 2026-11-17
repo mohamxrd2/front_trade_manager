@@ -97,11 +97,11 @@
     "step3Subtitle": "Devise, langue, seuil de stock"
   },
   "logoUpload": {
-    "unsupportedFormat": "Format non supporté (PNG ou JPG uniquement).",
-    "tooLarge": "Image trop lourde (2 Mo max)",
+    "unsupportedFormat": "Format non supporté (JPEG, PNG ou WebP).",
+    "tooLarge": "Image trop lourde (25 Mo max).",
     "change": "Changer le logo",
     "add": "Ajouter votre logo",
-    "hint": "PNG ou JPG, carré de préférence"
+    "hint": "JPEG, PNG ou WebP, carré de préférence"
   },
   "sectorFieldLabel": "Secteur d'activité",
   "thresholdDecrease": "Diminuer le seuil",

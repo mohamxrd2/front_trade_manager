@@ -1,5 +1,6 @@
 'use client'
 
+import { MediaImage } from '@/components/media/media-image'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -246,13 +247,14 @@ function TeamPageContent() {
   const Avatar = ({ member, index, large }: { member: TeamMember; index: number; large?: boolean }) => {
     const cycle = AVATAR_CYCLE[index % AVATAR_CYCLE.length]
     const size = large ? 'size-14 text-[18px]' : 'size-10 text-[14px] lg:size-12 lg:text-[15px]'
-    return member.photo ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={member.photo} alt="" className={`${size} shrink-0 rounded-full object-cover`} />
-    ) : (
-      <span className={`flex ${size} shrink-0 items-center justify-center rounded-full font-extrabold ${cycle.bg} ${cycle.text}`}>
-        {getInitials(member.name)}
-      </span>
+    return (
+      <MediaImage
+        src={member.photo}
+        alt=""
+        sizes="56px"
+        className={`${size} shrink-0 rounded-full font-extrabold ${cycle.bg} ${cycle.text}`}
+        fallback={getInitials(member.name)}
+      />
     )
   }
 
@@ -351,15 +353,14 @@ function TeamPageContent() {
         : t('team.partnerRole')
     const amountClass = amount < 0 ? '' : 'text-success'
     const amountStyle = amount < 0 ? { color: '#A3213A' } : undefined
-    const avatar = member.photo ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={member.photo} alt="" className={`${mobile ? 'size-12' : 'size-[52px]'} shrink-0 rounded-full object-cover`} />
-    ) : (
-      <span
-        className={`flex ${mobile ? 'size-12 text-[15px]' : 'size-[52px] text-base'} shrink-0 items-center justify-center rounded-full font-extrabold ${cycle.bg} ${cycle.text}`}
-      >
-        {getInitials(member.name)}
-      </span>
+    const avatar = (
+      <MediaImage
+        src={member.photo}
+        alt=""
+        sizes="56px"
+        className={`${mobile ? 'size-12 text-[15px]' : 'size-[52px] text-base'} shrink-0 rounded-full font-extrabold ${cycle.bg} ${cycle.text}`}
+        fallback={getInitials(member.name)}
+      />
     )
     const extraMenu = !member.is_owner && member.access !== 'none' ? <ActionsMenu member={member} /> : null
 
