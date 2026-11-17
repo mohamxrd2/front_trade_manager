@@ -9,6 +9,7 @@ import { PermissionGuard } from "@/components/PermissionGuard"
 import { routeRuleFor } from "@/lib/permissions/route-permissions"
 import { OnboardingGuard } from "@/components/onboarding/onboarding-guard"
 import { ConnectionIndicator } from "@/components/connection-indicator"
+import { PrinterConnectionWatcher } from "@/components/printer/printer-connection-watcher"
 import { GlassSidebar } from "@/components/waelly"
 import { BottomTabBar } from "@/components/navigation/BottomTabBar"
 import { TabPageTransition } from "@/components/navigation/TabPageTransition"
@@ -102,6 +103,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      {/* Imprimante de tickets : reconnexion au chargement, toast si elle est perdue (toutes les pages). */}
+      <PrinterConnectionWatcher />
       <BottomTabBar />
       <ConnectionIndicator />
     </OnboardingGuard>

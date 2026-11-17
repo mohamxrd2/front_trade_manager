@@ -30,6 +30,7 @@ import { readLastPaymentMethod, writeLastPaymentMethod } from '@/lib/wallet/last
 import { Amount, Button, Card, SegmentedControl } from '@/components/waelly'
 import { CheckoutFields } from '@/components/waelly/checkout-fields'
 import { ReceiptActions } from '@/components/waelly/receipt-actions'
+import { PrinterStatus } from '@/components/printer/printer-status'
 import { PaymentMethodChips } from '@/components/waelly/payment-method-chips'
 import { VariationPicker } from '@/components/products'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -95,6 +96,13 @@ export default function NewTransactionPage() {
             {mode === 'sale' ? t('wallet.new.pageTitleSale') : t('wallet.new.pageTitle')}
           </h1>
         </div>
+        {/* Imprimante : à côté du titre sur ordinateur ; sur mobile, sa propre
+            ligne alignée à droite (le bouton Fermer, fixe, occupe la gauche). */}
+        {mode === 'sale' ? (
+          <div className="order-last flex w-full justify-end lg:order-none lg:mr-auto lg:w-auto lg:self-end">
+            <PrinterStatus />
+          </div>
+        ) : null}
         <SegmentedControl options={modeOptions} value={mode} onChange={(v) => setMode(v as 'sale' | 'expense')} />
       </div>
 

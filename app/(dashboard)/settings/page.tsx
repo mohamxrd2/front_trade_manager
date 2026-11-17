@@ -35,7 +35,7 @@ import {
   type ReceiptSettings,
   type ReceiptWidth,
 } from '@/lib/services/receipt-settings'
-import { buildReceipt, type ReceiptOperationInput, type ReceiptModel } from '@/lib/receipt/build-receipt'
+import { buildReceipt, type ReceiptModel } from '@/lib/receipt/build-receipt'
 import { generateReceiptQrDataUrl } from '@/lib/receipt/qr'
 import { printReceiptModel } from '@/lib/receipt/print-receipt'
 import { encodeCharsetTestPage, encodeReceiptEscPosBlocks } from '@/lib/receipt/escpos-encoder'
@@ -47,6 +47,7 @@ import { isWebBluetoothSupported } from '@/lib/receipt/bluetooth-transport'
 import { getPlatformInfo, isShareOnlyPlatform } from '@/lib/receipt/platform'
 import { IosReceiptShare } from '@/components/waelly/ios-receipt-share'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
+import { receiptLabels, sampleReceiptOperation } from '@/lib/receipt/receipt-context'
 import {
   readDefaultPrintMode,
   writeDefaultPrintMode,
@@ -401,21 +402,6 @@ function CompanyFields({
   )
 }
 
-/** Un seul exemple, jamais envoyé au serveur — juste de quoi faire vivre l'aperçu en direct des réglages du ticket. */
-function sampleReceiptOperation(t: ReturnType<typeof useTranslation>['t']): ReceiptOperationInput {
-  return {
-    code: 'V-261028-0042',
-    date: '2026-10-28T14:32:00Z',
-    paymentMethodLabel: t('wallet.deposit.paymentMethodCash'),
-    totalAmount: 24000,
-    amountReceived: 25000,
-    changeGiven: 1000,
-    clientName: null,
-    authorName: null,
-    lines: [{ name: t('settings.receipt.sampleArticle'), quantity: 2, unitPrice: 12000, amount: 24000 }],
-  }
-}
-
 const RECEIPT_TOGGLES: { key: keyof ReceiptSettings; labelKey: string }[] = [
   { key: 'show_logo', labelKey: 'settings.receipt.showLogo' },
   { key: 'show_address', labelKey: 'settings.receipt.showAddress' },
@@ -476,19 +462,7 @@ function ReceiptSettingsFields({
         {
           language,
           currency,
-          labels: {
-            ticketNumber: t('wallet.receipt.ticketNumber'),
-            cashier: t('wallet.receipt.cashier'),
-            client: t('wallet.checkout.clientLabel'),
-            total: t('wallet.receipt.total'),
-            paidBy: t('wallet.receipt.paidBy'),
-            received: t('wallet.receipt.received'),
-            changeGiven: t('wallet.checkout.changeLabel'),
-            duplicate: t('wallet.receipt.duplicate'),
-            paymentMethodUnknown: t('wallet.detail.paymentMethodUnknown'),
-            defaultFooter: t('wallet.receipt.defaultFooter'),
-            waellyMention: 'Waelly', // i18n:allow — nom de marque, jamais traduit
-          },
+          labels: receiptLabels(t),
         }
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps

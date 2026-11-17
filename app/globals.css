@@ -407,3 +407,14 @@ textarea,
 label {
   touch-action: manipulation;
 }
+
+/* Indicateur d'imprimante (components/printer/printer-status.tsx) : le point
+   vert pulse une fois quand la connexion réussit — rien sous reduced-motion. */
+@keyframes printer-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 55%, transparent); }
+  100% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--color-success) 0%, transparent); }
+}
+.printer-pulse { animation: printer-pulse 1.2s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .printer-pulse { animation: none; }
+}
