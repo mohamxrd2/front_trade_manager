@@ -636,7 +636,7 @@ export default function ProductDetailPage() {
             )
             return (
               <>
-                <ProductPhoto src={article.image} alt={article.name} sizes="480px" className="aspect-[4/3] w-full" fallback={placeholder} />
+                <ProductPhoto src={article.image} alt={article.name} sizes="480px" className="h-[200px] w-full" fallback={placeholder} />
                 {canEditStock ? (
                   <ImageUploader
                     kind="product"
