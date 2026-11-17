@@ -163,6 +163,38 @@ describe('reconnexion silencieuse au chargement', () => {
   })
 })
 
+describe('mode d’impression par défaut', () => {
+  test('imprimante reconnectée au chargement : « Bluetooth direct » même si « Impression classique » était choisie', async () => {
+    const printer = fakePrinter()
+    remember('imp-1', 'PT-210')
+    localStorage.setItem('waelly-print-mode', 'classic')
+    stubBluetooth({ known: [printer] })
+    await store().init()
+    expect(store().status).toBe('connected')
+    expect(localStorage.getItem('waelly-print-mode')).toBe('bluetooth')
+  })
+
+  test('reconnexion automatique après une coupure : « Bluetooth direct » aussi', async () => {
+    vi.useFakeTimers()
+    const printer = fakePrinter()
+    stubBluetooth({ chosen: printer, known: [printer] })
+    await store().connect()
+    localStorage.setItem('waelly-print-mode', 'classic') // choisi entre-temps dans les Paramètres
+    printer.powerOff()
+    printer.powerOn()
+    await vi.advanceTimersByTimeAsync(RECONNECT_DELAYS[0])
+    expect(store().status).toBe('connected')
+    expect(localStorage.getItem('waelly-print-mode')).toBe('bluetooth')
+  })
+
+  test('aucune imprimante connectée : le choix reste inchangé', async () => {
+    localStorage.setItem('waelly-print-mode', 'classic')
+    stubBluetooth({ chosen: null })
+    await store().connect() // fenêtre fermée
+    expect(localStorage.getItem('waelly-print-mode')).toBe('classic')
+  })
+})
+
 describe('impression', () => {
   test('connectée : les blocs partent à l’imprimante ; non connectée : refus clair', async () => {
     const printer = fakePrinter()

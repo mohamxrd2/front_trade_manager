@@ -706,6 +706,12 @@ function BluetoothPrinterSection({
     init()
   }, [init])
 
+  // Imprimante connectée (ici, depuis la Nouvelle vente ou reconnexion
+  // automatique) : le store a mis « Bluetooth direct » par défaut — on l'affiche.
+  React.useEffect(() => {
+    if (status === 'connected') setDefaultModeState(readDefaultPrintMode())
+  }, [status])
+
   if (!supported) {
     return (
       <div className="flex flex-col gap-2 border-t border-divider pt-4.5">

@@ -103,8 +103,13 @@ function watchDisconnect(set: SetState, get: GetState, device: BluetoothDevice) 
   )
 }
 
-/** Connexion établie à `device` : état, écoute de la déconnexion, batterie. */
+/**
+ * Connexion établie à `device` (à la main, au chargement ou reconnexion
+ * automatique) : état, écoute de la déconnexion, batterie — et « Bluetooth
+ * direct » devient le mode d'impression de cet appareil.
+ */
 async function adoptConnection(set: SetState, get: GetState, device: BluetoothDevice, connection: PrinterConnection, fallbackName: string | null) {
+  writeDefaultPrintMode('bluetooth')
   set({ status: 'connected', connection, deviceId: device.id, deviceName: device.name ?? fallbackName, batteryLevel: null })
   watchDisconnect(set, get, device)
   const batteryLevel = await readBatteryLevel(device)
@@ -190,8 +195,6 @@ export const useBluetoothPrinterStore = create<BluetoothPrinterState>()((set, ge
       const device = await requestPrinterDevice(showAllDevices)
       const connection = await connectToPrinter(device)
       writeRememberedPrinter({ id: device.id, name: device.name ?? 'Imprimante' }) // i18n:allow — nom de secours mémorisé, pas affiché tel quel
-      // Une imprimante qu'on vient de choisir devient le mode d'impression de cet appareil.
-      writeDefaultPrintMode('bluetooth')
       await adoptConnection(set, get, device, connection, null)
       // Changement d'imprimante : l'ancienne n'est plus la courante, sa déconnexion est ignorée.
       if (previous && previous.device !== device) disconnectPrinter(previous)
@@ -223,7 +226,6 @@ export const useBluetoothPrinterStore = create<BluetoothPrinterState>()((set, ge
 
     try {
       const connection = await connectWithTimeout(device)
-      writeDefaultPrintMode('bluetooth')
       await adoptConnection(set, get, device, connection, remembered.name)
     } catch (error) {
       set({ status: 'error' })
