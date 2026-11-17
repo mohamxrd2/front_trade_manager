@@ -48,6 +48,7 @@ import { Label } from '@/components/ui/label'
 import { EditVariationDialog } from '@/components/products/edit-variation-dialog'
 import { ImageUploader } from '@/components/media/image-uploader'
 import { MediaImage } from '@/components/media/media-image'
+import { PhotoViewer, ProductPhoto } from '@/components/media/product-photo'
 import { StockHistoryList } from '@/components/products/stock-history-list'
 import { Button, Card, CardHeader, CardTitle, StatusBadge, SegmentedControl } from '@/components/waelly'
 
@@ -119,6 +120,8 @@ export default function ProductDetailPage() {
   const [deletingVariation, setDeletingVariation] = React.useState(false)
 
   const [restockingVariation, setRestockingVariation] = React.useState<Variation | null>(null)
+  // Photo de variation ouverte en plein écran (lecture seule).
+  const [viewedVariation, setViewedVariation] = React.useState<Variation | null>(null)
   const [variationRestockQty, setVariationRestockQty] = React.useState(10)
   const [restockingVariationBusy, setRestockingVariationBusy] = React.useState(false)
 
@@ -380,7 +383,8 @@ export default function ProductDetailPage() {
     void invalidateArticles()
   }
 
-  // Photo d'une variation : modifiable avec stock.edit, sinon simple vignette.
+  // Photo d'une variation : modifiable avec stock.edit, sinon vignette (recadrée)
+  // qui s'ouvre en plein écran, image entière.
   const variationThumb = (variation: Variation, sizeClass: string) => {
     const initials = <span className="text-[13px] font-bold text-ink">{variation.name.slice(0, 2).toUpperCase()}</span>
     return canEditStock ? (
@@ -396,6 +400,15 @@ export default function ProductDetailPage() {
         previewClassName={sizeClass}
         fallback={initials}
       />
+    ) : variation.image ? (
+      <button
+        type="button"
+        onClick={() => setViewedVariation(variation)}
+        aria-label={t('media.viewer.open', { name: variation.name })}
+        className="shrink-0 cursor-zoom-in rounded-[10px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+      >
+        <MediaImage src={variation.image} alt={variation.name} sizes="48px" className={`${sizeClass} rounded-[10px] bg-surface-soft`} fallback={initials} />
+      </button>
     ) : (
       <MediaImage src={variation.image} alt={variation.name} sizes="48px" className={`${sizeClass} shrink-0 rounded-[10px] bg-surface-soft`} fallback={initials} />
     )
@@ -407,15 +420,16 @@ export default function ProductDetailPage() {
     <div className="flex flex-col gap-5">
       {/* --- Mobile (< 1024px) --- */}
       <div className="-mx-4 -mt-5 flex flex-col pb-28 lg:hidden">
-        <div className="relative flex h-[290px] flex-col items-center justify-center gap-2 bg-brand-100 text-[13px] font-semibold text-brand-700">
-          <MediaImage
+        {/* Photo entière dans un cadre fixe (le bas reste visible au-dessus de la fiche qui le chevauche). */}
+        <div className="relative h-[340px] bg-canvas">
+          <ProductPhoto
             src={article.image}
             alt={article.name}
             sizes="100vw"
             priority
-            className="absolute inset-0"
+            className="absolute inset-x-4 bottom-10 top-4"
             fallback={
-              <span className="flex flex-col items-center gap-2">
+              <span className="flex size-full flex-col items-center justify-center gap-2 bg-brand-100 text-[13px] font-semibold text-brand-700">
                 <ImageIcon className="size-10" strokeWidth={1.5} aria-hidden="true" />
                 {t('products.detail.photoPlaceholder')}
               </span>
@@ -620,20 +634,20 @@ export default function ProductDetailPage() {
                 {t('products.detail.photoPlaceholder')}
               </span>
             )
-            return canEditStock ? (
-              <ImageUploader
-                kind="product"
-                ownerId={String(article.id)}
-                value={article.image}
-                onChange={handlePhotoChange}
-                alt={article.name}
-                layout="column"
-                previewClassName="h-[240px] w-full"
-                fallback={placeholder}
-                className="w-full"
-              />
-            ) : (
-              <MediaImage src={article.image} alt={article.name} sizes="400px" className="h-[240px] w-full rounded-tile" fallback={placeholder} />
+            return (
+              <>
+                <ProductPhoto src={article.image} alt={article.name} sizes="480px" className="aspect-[4/3] w-full" fallback={placeholder} />
+                {canEditStock ? (
+                  <ImageUploader
+                    kind="product"
+                    ownerId={String(article.id)}
+                    value={article.image}
+                    onChange={handlePhotoChange}
+                    alt={article.name}
+                    previewClassName="size-14"
+                  />
+                ) : null}
+              </>
             )
           })()}
           <div className="flex flex-col gap-2">
@@ -1053,6 +1067,15 @@ export default function ProductDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <PhotoViewer
+        src={viewedVariation?.image}
+        alt={viewedVariation?.name ?? ''}
+        open={!!viewedVariation}
+        onOpenChange={(open) => {
+          if (!open) setViewedVariation(null)
+        }}
+      />
 
       {editingVariation ? (
         <EditVariationDialog

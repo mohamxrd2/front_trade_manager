@@ -16,6 +16,9 @@ interface MediaImageProps {
   className?: string
   imageClassName?: string
   priority?: boolean
+  /** « cover » (défaut) : recadrée pour remplir la boîte ; « contain » : image entière, sans recadrage. */
+  fit?: 'cover' | 'contain'
+  onLoad?: (event: React.SyntheticEvent<HTMLImageElement>) => void
 }
 
 /** Initiales d'un nom (« Awa Koné » → « AK »), repli des photos et logos. */
@@ -29,7 +32,7 @@ export function initialsOf(name: string | null | undefined): string {
  * taille adaptée) dans une boîte que le parent dimensionne. Valeur vide ou
  * invalide, ou image qui ne charge pas → repli (initiales).
  */
-export function MediaImage({ src, alt, fallback, sizes = '96px', className, imageClassName, priority }: MediaImageProps) {
+export function MediaImage({ src, alt, fallback, sizes = '96px', className, imageClassName, priority, fit = 'cover', onLoad }: MediaImageProps) {
   const url = displayableImage(src)
   const [failedUrl, setFailedUrl] = React.useState<string | null>(null)
   const showImage = url && failedUrl !== url
@@ -44,8 +47,9 @@ export function MediaImage({ src, alt, fallback, sizes = '96px', className, imag
           sizes={sizes}
           priority={priority}
           unoptimized={!isOptimizable(url)}
+          onLoad={onLoad}
           onError={() => setFailedUrl(url)}
-          className={cn('object-cover', imageClassName)}
+          className={cn(fit === 'contain' ? 'object-contain' : 'object-cover', imageClassName)}
         />
       ) : (
         fallback

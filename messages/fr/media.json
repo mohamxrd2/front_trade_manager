@@ -24,5 +24,11 @@
     "quota": "Limite d'images atteinte pour ce compte.",
     "server": "L'image n'a pas pu être enregistrée. Réessayez.",
     "unavailable": "L'envoi d'images est momentanément indisponible. Le reste de l'application fonctionne normalement."
+  },
+  "viewer": {
+    "open": "Voir la photo en grand : {{name}}",
+    "viewerTitle": "Photo : {{name}}",
+    "viewerHint": "Touchez en dehors de la photo, glissez vers le bas ou appuyez sur Échap pour fermer.",
+    "close": "Fermer la photo"
   }
 }
