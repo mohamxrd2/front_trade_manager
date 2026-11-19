@@ -12,12 +12,20 @@ import { toast } from 'sonner'
 import { updateVariation, type Variation, type UpdateVariationPayload } from '@/lib/services/variations'
 import type { Article } from '@/lib/services/articles'
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
+import { BarcodeField } from '@/components/barcode/barcode-field'
+import { generateVariationBarcode } from '@/lib/services/barcodes'
+import { normalizeBarcode, validateBarcode } from '@/lib/barcode/validate'
 
 function buildVariationSchema(t: ReturnType<typeof useTranslation>['t']) {
   return z.object({
     name: z.string().min(1, t('products.editVariationDialog.validationNameRequired')).max(255, t('products.editVariationDialog.validationNameMax')),
     quantity: z.string().min(1, t('products.editVariationDialog.validationQuantityRequired')),
     price: z.string().min(1, t('products.editVariationDialog.validationPriceRequired')),
+    barcode: z.string().superRefine((value, ctx) => {
+      if (!normalizeBarcode(value)) return
+      const check = validateBarcode(value)
+      if (!check.ok) ctx.addIssue({ code: z.ZodIssueCode.custom, message: t(`barcode.scanner.invalid.${check.error}`) })
+    }),
   })
 }
 
@@ -37,18 +45,21 @@ export function EditVariationDialog({
 }: EditVariationDialogProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   const variationSchema = useMemo(() => buildVariationSchema(t), [t])
   const form = useForm<{
     name: string
     quantity: string
     price: string
+    barcode: string
   }>({
     resolver: zodResolver(variationSchema),
     defaultValues: {
       name: '',
       quantity: '',
       price: '',
+      barcode: '',
     },
   })
 
@@ -58,11 +69,28 @@ export function EditVariationDialog({
         name: variation.name,
         quantity: String(variation.quantity),
         price: String(variation.price),
+        barcode: variation.barcode ?? '',
       })
     }
   }, [variation, open, form])
 
-  const onSubmit = async (data: { name: string; quantity: string; price: string }) => {
+  /** « Générer » : code interne créé tout de suite (variante sans code). */
+  const handleGenerate = async () => {
+    if (!variation) return
+    setGenerating(true)
+    try {
+      const code = await generateVariationBarcode(variation.id)
+      form.setValue('barcode', code)
+      toast.success(t('barcode.detail.generated', { code }))
+      onSuccess({ ...variation, barcode: code })
+    } catch {
+      toast.error(t('barcode.detail.generateFailed'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const onSubmit = async (data: { name: string; quantity: string; price: string; barcode: string }) => {
     if (!variation) return
 
     setLoading(true)
@@ -83,6 +111,7 @@ export function EditVariationDialog({
         name: data.name,
         quantity: quantityNum,
         price: priceNum,
+        barcode: normalizeBarcode(data.barcode) || null,
       }
 
       const updatedVariation = await updateVariation(variation.id, payload)
@@ -94,7 +123,10 @@ export function EditVariationDialog({
     } catch (error: unknown) {
       const errorObj = error as { message?: string; validationErrors?: Record<string, string[]> }
 
-      if (errorObj.validationErrors) {
+      if (errorObj.validationErrors?.barcode?.[0]) {
+        form.setError('barcode', { message: errorObj.validationErrors.barcode[0] })
+        toast.error(errorObj.validationErrors.barcode[0])
+      } else if (errorObj.validationErrors) {
         const firstError = Object.values(errorObj.validationErrors)[0]
         toast.error(firstError?.[0] || t('products.editVariationDialog.errorValidation'))
       } else {
@@ -154,6 +186,18 @@ export function EditVariationDialog({
               <p className="text-sm text-red-500">{form.formState.errors.price.message}</p>
             )}
           </div>
+
+          <BarcodeField
+            id="edit-variation-barcode"
+            value={form.watch('barcode')}
+            onChange={(value) => {
+              form.setValue('barcode', value)
+              form.clearErrors('barcode')
+            }}
+            error={form.formState.errors.barcode?.message}
+            onGenerate={variation.barcode ? undefined : () => void handleGenerate()}
+            generating={generating}
+          />
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>

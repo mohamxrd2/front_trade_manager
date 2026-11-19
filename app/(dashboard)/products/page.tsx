@@ -2,7 +2,9 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { AlertCircle, ChevronRight, Download, Plus, Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { AlertCircle, Barcode, ChevronRight, Download, Plus, ScanLine, Search } from 'lucide-react'
 
 import { useUserStats, useArticles } from '@/lib/hooks/useArticles'
 import { MediaImage } from '@/components/media/media-image'
@@ -14,6 +16,13 @@ import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, Card, FilterChips } from '@/components/waelly'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useBarcodeWedge } from '@/hooks/useBarcodeWedge'
+import { BarcodeScanner } from '@/components/barcode/barcode-scanner'
+import { GenerateMissingDialog } from '@/components/barcode/generate-missing-dialog'
+import { primeScanSound } from '@/lib/barcode/camera'
+import { articleHasBarcode, findByBarcode } from '@/lib/barcode/scan-to-cart'
+import { lookupBarcode } from '@/lib/services/barcodes'
+import { invalidateArticles } from '@/lib/hooks/useCache'
 
 const PAGE_SIZE = 10
 
@@ -67,6 +76,10 @@ export default function ProductsPage() {
   const [search, setSearch] = React.useState('')
   const [filter, setFilter] = React.useState<FilterValue>('all')
   const [page, setPage] = React.useState(1)
+  const router = useRouter()
+  const [scannerOpen, setScannerOpen] = React.useState(false)
+  const [generateOpen, setGenerateOpen] = React.useState(false)
+  const [selected, setSelected] = React.useState<Set<string>>(() => new Set())
 
   const isLoading = isLoadingStats || isLoadingArticles
   const error = statsError || articlesError
@@ -75,7 +88,7 @@ export default function ProductsPage() {
 
   const filteredArticles = React.useMemo(() => {
     return articles.filter((article) => {
-      const matchesSearch = article.name.toLowerCase().includes(search.trim().toLowerCase())
+      const matchesSearch = article.name.toLowerCase().includes(search.trim().toLowerCase()) || articleHasBarcode(article, search)
       const matchesFilter =
         filter === 'all' ||
         (filter === 'low' && isLowStock(article)) ||
@@ -91,6 +104,44 @@ export default function ProductsPage() {
 
   const pageCount = Math.max(1, Math.ceil(filteredArticles.length / PAGE_SIZE))
   const paginatedArticles = filteredArticles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  /** « Ajouter par code-barre » (scanner, douchette) : fiche du produit s'il existe, sinon ajout avec le code rempli. */
+  const openFromBarcode = async (code: string) => {
+    let found = findByBarcode(articles, code)
+    if (!found) {
+      try {
+        found = await lookupBarcode(code)
+      } catch {
+        toast.error(t('barcode.sale.lookupFailed'))
+        return
+      }
+    }
+    if (found) {
+      router.push(`/products/${found.article.id}`)
+    } else if (canEditStock) {
+      router.push(`/products/new?barcode=${encodeURIComponent(code)}`)
+    } else {
+      toast.error(t('barcode.sale.notFoundTitle'), { description: t('barcode.sale.notFoundBody', { code }) })
+    }
+  }
+
+  useBarcodeWedge((code) => void openFromBarcode(code), { enabled: !scannerOpen && !generateOpen })
+
+  const openScanner = () => {
+    primeScanSound()
+    setScannerOpen(true)
+  }
+
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const pageIds = paginatedArticles.map((a) => String(a.id))
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
+  const generateLabel = selected.size > 0 ? t('barcode.stock.generateMissingSelection') : t('barcode.stock.generateMissing')
 
   const handleExport = () => {
     void exportToExcel(formatProductsForExport(articles, currency), 'stock-waelly', 'Stock')
@@ -161,6 +212,16 @@ export default function ProductsPage() {
           <span className="text-sm text-subtle">{t('products.list.subtitleDesktop')}</span>
         </div>
         <div className="flex flex-wrap gap-2.5">
+          <Button variant="secondary" onClick={openScanner} aria-label={t('barcode.stock.addByBarcodeAria')}>
+            <ScanLine className="size-[18px]" aria-hidden="true" />
+            {t('barcode.stock.addByBarcode')}
+          </Button>
+          {canEditStock ? (
+            <Button variant="secondary" onClick={() => setGenerateOpen(true)}>
+              <Barcode className="size-[18px]" aria-hidden="true" />
+              {generateLabel}
+            </Button>
+          ) : null}
           {canExport ? (
             <Button variant="secondary" onClick={handleExport}>
               <Download className="size-[18px]" />
@@ -216,6 +277,27 @@ export default function ProductsPage() {
             { value: 'variable', label: t('products.list.filterVariable') },
           ]}
         />
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={openScanner}
+            aria-label={t('barcode.stock.addByBarcodeAria')}
+            className="inline-flex h-11 items-center gap-2 rounded-full bg-active px-4 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+          >
+            <ScanLine className="size-[18px]" aria-hidden="true" />
+            {t('barcode.stock.addByBarcode')}
+          </button>
+          {canEditStock ? (
+            <button
+              type="button"
+              onClick={() => setGenerateOpen(true)}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 text-sm font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            >
+              <Barcode className="size-[18px]" aria-hidden="true" />
+              {t('barcode.stock.generateMissing')}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {/* --- Liste mobile --- */}
@@ -292,6 +374,23 @@ export default function ProductsPage() {
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
+                {canEditStock ? (
+                  <th className="w-10 px-2 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={() =>
+                        setSelected((prev) => {
+                          const next = new Set(prev)
+                          pageIds.forEach((id) => (allPageSelected ? next.delete(id) : next.add(id)))
+                          return next
+                        })
+                      }
+                      aria-label={t('products.list.selectPageAria')}
+                      className="size-[18px] accent-[var(--color-brand-500)]"
+                    />
+                  </th>
+                ) : null}
                 <th className="px-2 py-2.5">{t('products.list.colArticle')}</th>
                 <th className="px-2 py-2.5">{t('products.type')}</th>
                 <th className="px-2 py-2.5">{t('products.list.colSalePrice')}</th>
@@ -303,7 +402,7 @@ export default function ProductsPage() {
             <tbody>
               {paginatedArticles.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-sm text-subtle">
+                  <td colSpan={canEditStock ? 7 : 6} className="py-10 text-center text-sm text-subtle">
                     {t('products.list.noArticleFound')}
                   </td>
                 </tr>
@@ -314,6 +413,17 @@ export default function ProductsPage() {
                   const lowStock = isLowStock(article)
                   return (
                     <tr key={article.id} className="border-t border-divider">
+                      {canEditStock ? (
+                        <td className="px-2 py-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(String(article.id))}
+                            onChange={() => toggleSelected(String(article.id))}
+                            aria-label={t('products.list.selectArticleAria', { name: article.name })}
+                            className="size-[18px] accent-[var(--color-brand-500)]"
+                          />
+                        </td>
+                      ) : null}
                       <td className="px-2 py-2.5">
                         <Link href={`/products/${article.id}`} className="flex items-center gap-3 text-ink">
                           <MediaImage
@@ -423,6 +533,23 @@ export default function ProductsPage() {
           </Button>
         </div>
       ) : null}
+
+      <BarcodeScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        mode="once"
+        title={t('barcode.stock.addByBarcode')}
+        onDetected={(code) => void openFromBarcode(code)}
+      />
+      <GenerateMissingDialog
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        scope={selected.size > 0 ? { articleIds: [...selected] } : undefined}
+        onGenerated={() => {
+          setSelected(new Set())
+          void invalidateArticles()
+        }}
+      />
     </div>
   )
 }

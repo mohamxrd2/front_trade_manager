@@ -181,7 +181,9 @@
     "statusLowStock": "Stock faible",
     "statusAvailable": "Disponible",
     "shownOfTotal": "{{shown}} article(s) affiché(s) sur {{total}}",
-    "genericLoadError": "Une erreur est survenue."
+    "genericLoadError": "Une erreur est survenue.",
+    "selectPageAria": "Sélectionner les articles de la page",
+    "selectArticleAria": "Sélectionner {{name}}"
   },
   "detail": {
     "variationsLoadError": "Erreur lors du chargement des variations",

@@ -9,7 +9,7 @@
     "torchOn": "Allumer la lampe",
     "torchOff": "Éteindre la lampe",
     "starting": "Ouverture de la caméra…",
-    "read": "Code lu : {code}",
+    "read": "Code lu : {{code}}",
     "manualLabel": "Saisir le code à la main",
     "manualPlaceholder": "Ex. 3017620422003",
     "manualSubmit": "Valider",
@@ -45,15 +45,15 @@
   "sale": {
     "scanButton": "Scanner",
     "scanAria": "Scanner un code-barre pour ajouter un article",
-    "added": "{name} ajouté",
-    "incremented": "{name} : {count} dans le panier",
-    "outOfStock": "{name} : plus de stock",
-    "maxReached": "{name} : tout le stock est déjà dans le panier",
+    "added": "{{name}} ajouté",
+    "incremented": "{{name}} : {{count}} dans le panier",
+    "outOfStock": "{{name}} : plus de stock",
+    "maxReached": "{{name}} : tout le stock est déjà dans le panier",
     "notFoundTitle": "Produit introuvable",
-    "notFoundBody": "Aucun produit ne porte le code {code}.",
+    "notFoundBody": "Aucun produit ne porte le code {{code}}.",
     "createProduct": "Créer ce produit",
     "lookupFailed": "La recherche du code a échoué. Vérifiez la connexion et réessayez.",
-    "createdAndAdded": "{name} créé et ajouté au panier"
+    "createdAndAdded": "{{name}} créé et ajouté au panier"
   },
   "stock": {
     "addByBarcode": "Ajouter par code-barre",
@@ -77,21 +77,21 @@
     "generateAria": "Générer un code-barre interne",
     "willGenerate": "Un code-barre interne sera créé à l'enregistrement.",
     "cancelGenerate": "Annuler",
-    "variantLabel": "Code-barre de {name}",
-    "generatedOnSave": "Code-barre créé : {code}",
-    "duplicate": "Le code {code} est saisi deux fois."
+    "variantLabel": "Code-barre de {{name}}",
+    "generatedOnSave": "Code-barre créé : {{code}}",
+    "duplicate": "Le code {{code}} est saisi deux fois."
   },
   "detail": {
     "title": "Code-barre",
     "none": "Pas encore de code-barre.",
     "generate": "Générer un code-barre",
-    "generated": "Code-barre créé : {code}",
+    "generated": "Code-barre créé : {{code}}",
     "generateFailed": "Le code-barre n'a pas pu être créé. Réessayez.",
     "printLabel": "Imprimer l'étiquette",
-    "printLabelAria": "Imprimer l'étiquette de {name}",
+    "printLabelAria": "Imprimer l'étiquette de {{name}}",
     "generateMissingVariants": "Générer les codes manquants",
     "variantsMissing": "{count, plural, one {# variante sans code} other {# variantes sans code}}",
-    "drawingAria": "Code-barre {code}"
+    "drawingAria": "Code-barre {{code}}"
   },
   "label": {
     "title": "Imprimer l'étiquette",
@@ -99,7 +99,7 @@
     "copies": "Nombre d'exemplaires",
     "copiesDecrease": "Un exemplaire de moins",
     "copiesIncrease": "Un exemplaire de plus",
-    "paper": "Papier {width}",
+    "paper": "Papier {{width}}",
     "print": "{count, plural, one {Imprimer # étiquette} other {Imprimer # étiquettes}}",
     "printing": "Impression…",
     "printed": "{count, plural, one {Étiquette envoyée à l'imprimante} other {# étiquettes envoyées à l'imprimante}}",
