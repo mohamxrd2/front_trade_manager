@@ -142,3 +142,15 @@ describe('resolveAutoPrint — impression automatique après une vente', () => {
   })
 })
 
+
+describe('codes-barres des étiquettes', () => {
+  test('commande native par défaut ; « image » mémorisée sur cet appareil', async () => {
+    const { readLabelBarcodeMode, writeLabelBarcodeMode } = await import('./printer-preferences')
+    localStorage.removeItem('waelly-printer-label-barcode-mode')
+    expect(readLabelBarcodeMode()).toBe('native')
+    writeLabelBarcodeMode('image')
+    expect(readLabelBarcodeMode()).toBe('image')
+    writeLabelBarcodeMode('native')
+    expect(readLabelBarcodeMode()).toBe('native')
+  })
+})
