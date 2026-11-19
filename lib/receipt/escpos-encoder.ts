@@ -49,8 +49,8 @@ const LF = 0x0a
 
 const ALIGN: Record<'left' | 'center' | 'right', number> = { left: 0, center: 1, right: 2 }
 
-/** Une ligne de texte avec sa mise en forme, remise à zéro à la fin : un seul bloc. */
-function textBlock(
+/** Une ligne de texte avec sa mise en forme, remise à zéro à la fin : un seul bloc (aussi utilisé par les étiquettes). */
+export function textBlock(
   text: string,
   charset: PrinterCharset,
   style: { align?: 'left' | 'center' | 'right'; bold?: boolean; doubleHeight?: boolean } = {}

@@ -23,6 +23,7 @@ import frAuth from '@/messages/fr/auth.json'
 import frLanding from '@/messages/fr/landing.json'
 import frAccount from '@/messages/fr/account.json'
 import frMedia from '@/messages/fr/media.json'
+import frBarcode from '@/messages/fr/barcode.json'
 
 import enCommon from '@/messages/en/common.json'
 import enNav from '@/messages/en/nav.json'
@@ -46,6 +47,7 @@ import enAuth from '@/messages/en/auth.json'
 import enLanding from '@/messages/en/landing.json'
 import enAccount from '@/messages/en/account.json'
 import enMedia from '@/messages/en/media.json'
+import enBarcode from '@/messages/en/barcode.json'
 
 export type TranslationKey = string
 export type TranslationValue = string | { [key: string]: TranslationValue }
@@ -81,6 +83,7 @@ export const translations: Record<AppLanguage, TranslationObject> = {
     landing: frLanding,
     account: frAccount,
     media: frMedia,
+    barcode: frBarcode,
   },
   en: {
     common: enCommon,
@@ -105,6 +108,7 @@ export const translations: Record<AppLanguage, TranslationObject> = {
     landing: enLanding,
     account: enAccount,
     media: enMedia,
+    barcode: enBarcode,
   },
 }
 

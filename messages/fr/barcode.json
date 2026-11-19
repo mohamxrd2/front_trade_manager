@@ -1,0 +1,123 @@
+{
+  "scanner": {
+    "title": "Scanner un code-barre",
+    "titleContinuous": "Scanner des articles",
+    "hint": "Placez le code-barre dans le cadre.",
+    "hintContinuous": "Scannez les articles les uns après les autres. Touchez « Terminé » quand c'est fini.",
+    "close": "Fermer le scanner",
+    "done": "Terminé",
+    "torchOn": "Allumer la lampe",
+    "torchOff": "Éteindre la lampe",
+    "starting": "Ouverture de la caméra…",
+    "read": "Code lu : {code}",
+    "manualLabel": "Saisir le code à la main",
+    "manualPlaceholder": "Ex. 3017620422003",
+    "manualSubmit": "Valider",
+    "invalid": {
+      "empty": "Saisissez un code.",
+      "check_digit": "Le dernier chiffre (clé de contrôle) ne correspond pas. Vérifiez le code.",
+      "format": "Code non reconnu : EAN-13, EAN-8, UPC-A ou 4 à 32 caractères (lettres, chiffres, - . /)."
+    },
+    "problem": {
+      "denied": {
+        "title": "Accès à la caméra refusé",
+        "body": "Autorisez la caméra pour ce site : touchez l'icône à gauche de l'adresse (cadenas ou « aA » sur iPhone), puis Caméra → Autoriser. Rechargez ensuite la page. Vous pouvez aussi taper le code ci-dessous."
+      },
+      "no-camera": {
+        "title": "Aucune caméra trouvée",
+        "body": "Cet appareil n'a pas de caméra utilisable. Tapez le code ci-dessous, ou utilisez une douchette."
+      },
+      "in-use": {
+        "title": "Caméra déjà utilisée",
+        "body": "Une autre application utilise la caméra. Fermez-la puis réessayez, ou tapez le code ci-dessous."
+      },
+      "unsupported": {
+        "title": "Caméra indisponible ici",
+        "body": "Le navigateur n'autorise la caméra que sur une page sécurisée (https). Tapez le code ci-dessous, ou utilisez une douchette."
+      },
+      "unknown": {
+        "title": "La caméra n'a pas pu démarrer",
+        "body": "Réessayez, ou tapez le code ci-dessous."
+      }
+    },
+    "retry": "Réessayer"
+  },
+  "sale": {
+    "scanButton": "Scanner",
+    "scanAria": "Scanner un code-barre pour ajouter un article",
+    "added": "{name} ajouté",
+    "incremented": "{name} : {count} dans le panier",
+    "outOfStock": "{name} : plus de stock",
+    "maxReached": "{name} : tout le stock est déjà dans le panier",
+    "notFoundTitle": "Produit introuvable",
+    "notFoundBody": "Aucun produit ne porte le code {code}.",
+    "createProduct": "Créer ce produit",
+    "lookupFailed": "La recherche du code a échoué. Vérifiez la connexion et réessayez.",
+    "createdAndAdded": "{name} créé et ajouté au panier"
+  },
+  "stock": {
+    "addByBarcode": "Ajouter par code-barre",
+    "addByBarcodeAria": "Scanner un code-barre pour ouvrir ou créer un produit",
+    "generateMissing": "Générer les codes manquants",
+    "generateMissingSelection": "Générer les codes de la sélection",
+    "confirmTitle": "Générer les codes-barres ?",
+    "confirmBody": "{count, plural, one {# code-barre sera créé} other {# codes-barres seront créés}} (EAN-13 interne, commençant par 2). Les codes existants ne sont jamais modifiés.",
+    "confirmNone": "Tous les produits ont déjà un code-barre.",
+    "confirmAction": "Générer",
+    "generated": "{count, plural, =0 {Aucun code créé} one {# code-barre créé} other {# codes-barres créés}}",
+    "generateFailed": "Les codes n'ont pas pu être générés. Réessayez.",
+    "counting": "Calcul…"
+  },
+  "field": {
+    "label": "Code-barre",
+    "placeholder": "Scanner, taper ou générer",
+    "hint": "EAN-13, EAN-8, UPC-A ou code interne. Unique dans votre boutique.",
+    "scan": "Scanner le code",
+    "generate": "Générer",
+    "generateAria": "Générer un code-barre interne",
+    "willGenerate": "Un code-barre interne sera créé à l'enregistrement.",
+    "cancelGenerate": "Annuler",
+    "variantLabel": "Code-barre de {name}",
+    "generatedOnSave": "Code-barre créé : {code}"
+  },
+  "detail": {
+    "title": "Code-barre",
+    "none": "Pas encore de code-barre.",
+    "generate": "Générer un code-barre",
+    "generated": "Code-barre créé : {code}",
+    "generateFailed": "Le code-barre n'a pas pu être créé. Réessayez.",
+    "printLabel": "Imprimer l'étiquette",
+    "printLabelAria": "Imprimer l'étiquette de {name}",
+    "generateMissingVariants": "Générer les codes manquants",
+    "variantsMissing": "{count, plural, one {# variante sans code} other {# variantes sans code}}",
+    "drawingAria": "Code-barre {code}"
+  },
+  "label": {
+    "title": "Imprimer l'étiquette",
+    "preview": "Aperçu",
+    "copies": "Nombre d'exemplaires",
+    "copiesDecrease": "Un exemplaire de moins",
+    "copiesIncrease": "Un exemplaire de plus",
+    "paper": "Papier {width}",
+    "print": "{count, plural, one {Imprimer # étiquette} other {Imprimer # étiquettes}}",
+    "printing": "Impression…",
+    "printed": "{count, plural, one {Étiquette envoyée à l'imprimante} other {# étiquettes envoyées à l'imprimante}}",
+    "printFailed": "L'impression a échoué. Vérifiez que l'imprimante est allumée, puis réessayez.",
+    "notConnected": "Aucune imprimante connectée",
+    "notConnectedBody": "Connectez l'imprimante à tickets Bluetooth pour imprimer l'étiquette.",
+    "share": "Partager l'étiquette",
+    "shareHelp": "Ce navigateur ne peut pas parler directement à l'imprimante : partagez l'étiquette en image vers l'application de l'imprimante (ou AirPrint).",
+    "shareFailed": "Le partage a échoué. Réessayez.",
+    "shareRetry": "Touchez à nouveau « Partager l'étiquette ».",
+    "downloaded": "Étiquette enregistrée en image.",
+    "fallbackTitle": "Étiquette",
+    "fallbackHint": "Appuyez longuement sur l'image pour l'enregistrer ou la partager.",
+    "close": "Fermer"
+  },
+  "settings": {
+    "barcodeMode": "Codes-barres des étiquettes",
+    "barcodeModeNative": "Commande de l'imprimante (recommandé)",
+    "barcodeModeImage": "Image",
+    "barcodeModeHelp": "Si l'étiquette sort sans barres ou avec des caractères étranges, choisissez « Image » : le code-barre est alors dessiné puis imprimé comme une image."
+  }
+}

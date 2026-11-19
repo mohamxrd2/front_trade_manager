@@ -418,3 +418,13 @@ label {
 @media (prefers-reduced-motion: reduce) {
   .printer-pulse { animation: none; }
 }
+
+/* Scanner de codes-barres : ligne de visée qui balaie le cadre. */
+@keyframes scanner-laser {
+  0%, 100% { transform: translateY(-2.2rem); opacity: 0.55; }
+  50% { transform: translateY(2.2rem); opacity: 1; }
+}
+.scanner-laser { animation: scanner-laser 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .scanner-laser { animation: none; }
+}
