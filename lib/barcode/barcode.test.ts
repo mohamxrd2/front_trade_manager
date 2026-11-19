@@ -3,7 +3,7 @@ import { BarcodeFormat, BitArray, Code128Reader, DecodeHintType, EAN13Reader, Mu
 
 import { ean13, expandUpcE, gtinCheckDigit, normalizeBarcode, validateBarcode } from './validate'
 import { code128Values, encodeBarcode, type EncodedBarcode } from './symbology'
-import { barcodeBitmap, encodeLabelEscPosBlocks, nativeBarcodeCommand } from './label-escpos'
+import { barcodeBitmap, encodeLabelEscPosBlocks, labelBarcodeGeometry, nativeBarcodeCommand } from './label-escpos'
 
 describe('validation des codes (mêmes règles que le serveur)', () => {
   test.each([
@@ -141,5 +141,40 @@ describe('étiquette ESC/POS', () => {
     const count = (copies: number) => flat(encodeLabelEscPosBlocks(label, { copies })).filter((_, i, a) => a[i] === 0x1d && a[i + 1] === 0x6b).length
     expect(count(0)).toBe(1)
     expect(count(500)).toBe(50)
+  })
+})
+
+describe('taille du code-barre sur l’étiquette', () => {
+  const ean = encodeBarcode('3017620422003')
+  const setupOf = (bytes: number[]) => {
+    const h = bytes.findIndex((_, i) => bytes[i] === 0x1d && bytes[i + 1] === 0x68)
+    const w = bytes.findIndex((_, i) => bytes[i] === 0x1d && bytes[i + 1] === 0x77)
+    return { height: bytes[h + 2], module: bytes[w + 2] }
+  }
+
+  test('commande native : hauteur 6 / 10 / 15 mm, barres plus larges en « grand » si le papier le permet', () => {
+    expect(setupOf(Array.from(nativeBarcodeCommand(ean, 384, 'cp437', 'small')))).toEqual({ height: 48, module: 2 })
+    expect(setupOf(Array.from(nativeBarcodeCommand(ean, 384, 'cp437', 'medium')))).toEqual({ height: 80, module: 3 })
+    // 58 mm : un EAN-13 ne tient pas avec des barres de 4 points → bornées à 3 (le code resterait illisible sinon).
+    expect(setupOf(Array.from(nativeBarcodeCommand(ean, 384, 'cp437', 'large')))).toEqual({ height: 120, module: 3 })
+    expect(setupOf(Array.from(nativeBarcodeCommand(ean, 576, 'cp437', 'large')))).toEqual({ height: 120, module: 4 })
+  })
+
+  test('image : mêmes dimensions que la commande native, jamais plus large que le papier', () => {
+    for (const size of ['small', 'medium', 'large'] as const) {
+      const geometry = labelBarcodeGeometry(ean, 384, size)
+      const bitmap = barcodeBitmap(ean, 384, size)
+      expect([bitmap.width, bitmap.height]).toEqual([geometry.widthDots, geometry.heightDots])
+      expect(bitmap.width).toBeLessThanOrEqual(384)
+    }
+    expect(barcodeBitmap(ean, 384, 'small').width).toBeLessThan(barcodeBitmap(ean, 384, 'medium').width)
+  })
+
+  test('la taille choisie est envoyée pour chaque exemplaire ; « moyen » par défaut', () => {
+    const label = { productName: 'Savon', price: '500 FCFA', barcode: '3017620422003' }
+    const flatten = (blocks: Uint8Array[]) => blocks.flatMap((b) => Array.from(b))
+    const heights = (bytes: number[]) => bytes.flatMap((_, i) => (bytes[i] === 0x1d && bytes[i + 1] === 0x68 ? [bytes[i + 2]] : []))
+    expect(heights(flatten(encodeLabelEscPosBlocks(label, { copies: 2, barcodeSize: 'large' })))).toEqual([120, 120])
+    expect(heights(flatten(encodeLabelEscPosBlocks(label)))).toEqual([80])
   })
 })

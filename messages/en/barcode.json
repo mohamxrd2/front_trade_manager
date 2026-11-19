@@ -115,7 +115,14 @@
     "downloaded": "Label saved as an image.",
     "fallbackTitle": "Label",
     "fallbackHint": "Press and hold the image to save or share it.",
-    "close": "Close"
+    "close": "Close",
+    "size": "Barcode size",
+    "sizes": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    },
+    "sizeHeight": "{{height}} mm tall"
   },
   "settings": {
     "barcodeMode": "Label barcodes",

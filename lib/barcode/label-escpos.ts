@@ -31,6 +31,7 @@ export interface LabelEncodeOptions {
   copies?: number
   cutPaper?: boolean
   barcodeMode?: LabelBarcodeMode
+  barcodeSize?: LabelBarcodeSize
   maxBlockBytes?: number
 }
 
@@ -40,20 +41,42 @@ const ESC = 0x1b
 const GS = 0x1d
 const LF = 0x0a
 
-/** Hauteur des barres, en points (≈ 10 mm à 203 dpi). */
-export const LABEL_BARCODE_HEIGHT_DOTS = 80
+/** Taille du code-barre sur l'étiquette (choisie à l'impression). */
+export type LabelBarcodeSize = 'small' | 'medium' | 'large'
+export const LABEL_BARCODE_SIZES: LabelBarcodeSize[] = ['small', 'medium', 'large']
+
+/**
+ * Hauteur des barres (points, 8 points = 1 mm à 203 dpi) et largeur maximale
+ * d'une barre fine (points). La largeur réelle reste bornée par le papier :
+ * un code plus large que le papier ne se lirait plus.
+ */
+export const LABEL_BARCODE_SIZE_SPEC: Record<LabelBarcodeSize, { heightDots: number; maxModuleDots: number }> = {
+  small: { heightDots: 48, maxModuleDots: 2 }, // 6 mm
+  medium: { heightDots: 80, maxModuleDots: 3 }, // 10 mm
+  large: { heightDots: 120, maxModuleDots: 4 }, // 15 mm
+}
+
+/** Hauteur des barres par défaut (taille « moyenne »). */
+export const LABEL_BARCODE_HEIGHT_DOTS = LABEL_BARCODE_SIZE_SPEC.medium.heightDots
+
+/** Dimensions réelles du code imprimé (points) : la même pour GS k, l'image et l'aperçu. */
+export function labelBarcodeGeometry(encoded: EncodedBarcode, paperDots: number, size: LabelBarcodeSize = 'medium') {
+  const spec = LABEL_BARCODE_SIZE_SPEC[size]
+  const totalModules = encoded.modules.length + encoded.quietLeft + encoded.quietRight
+  const moduleDots = Math.max(1, Math.min(spec.maxModuleDots, Math.floor(paperDots / totalModules)))
+  return { moduleDots, heightDots: spec.heightDots, widthDots: Math.min(paperDots, totalModules * moduleDots), totalModules }
+}
 
 /** GS k (format 2 : m n d1…dn) avec ses réglages : HRI dessous, hauteur, largeur de module. */
-export function nativeBarcodeCommand(encoded: EncodedBarcode, paperDots: number, charset: PrinterCharset): Uint8Array {
-  const total = encoded.modules.length + encoded.quietLeft + encoded.quietRight
-  // Largeur de module la plus grande qui tient sur le papier (GS w accepte 2 à 6 partout ; 1 sur beaucoup).
-  const moduleWidth = Math.max(1, Math.min(4, Math.floor(paperDots / total)))
+export function nativeBarcodeCommand(encoded: EncodedBarcode, paperDots: number, charset: PrinterCharset, size: LabelBarcodeSize = 'medium'): Uint8Array {
+  // Largeur de module (GS w accepte 2 à 6 partout ; 1 sur beaucoup) et hauteur selon la taille choisie.
+  const { moduleDots, heightDots } = labelBarcodeGeometry(encoded, paperDots, size)
   const setup = [
     ESC, 0x61, 1, // centré
     GS, 0x48, 2, // numéro (HRI) sous les barres
     GS, 0x66, 0, // police A pour le numéro
-    GS, 0x68, LABEL_BARCODE_HEIGHT_DOTS,
-    GS, 0x77, moduleWidth,
+    GS, 0x68, heightDots,
+    GS, 0x77, moduleDots,
   ]
   let data: number[]
   let m: number
@@ -68,10 +91,8 @@ export function nativeBarcodeCommand(encoded: EncodedBarcode, paperDots: number,
 }
 
 /** Barres → image 1 bit, `moduleDots` points par module, marges blanches comprises. */
-export function barcodeBitmap(encoded: EncodedBarcode, paperDots: number, heightDots = LABEL_BARCODE_HEIGHT_DOTS): MonoBitmap {
-  const total = encoded.modules.length + encoded.quietLeft + encoded.quietRight
-  const moduleDots = Math.max(1, Math.min(4, Math.floor(paperDots / total)))
-  const width = Math.min(paperDots, total * moduleDots)
+export function barcodeBitmap(encoded: EncodedBarcode, paperDots: number, size: LabelBarcodeSize = 'medium'): MonoBitmap {
+  const { moduleDots, heightDots, widthDots: width } = labelBarcodeGeometry(encoded, paperDots, size)
   const row: boolean[] = []
   for (let x = 0; x < width; x++) {
     const index = Math.floor(x / moduleDots) - encoded.quietLeft
@@ -88,6 +109,7 @@ export function encodeLabelEscPosBlocks(label: LabelContent, options: LabelEncod
     copies = 1,
     cutPaper = false,
     barcodeMode = 'native',
+    barcodeSize = 'medium',
     maxBlockBytes = DEFAULT_MAX_BLOCK_BYTES,
   } = options
   const paperDots = printerDotsFor(width)
@@ -100,9 +122,9 @@ export function encodeLabelEscPosBlocks(label: LabelContent, options: LabelEncod
     if (label.variantName) blocks.push(textBlock(label.variantName, charset, { align: 'center' }))
     blocks.push(textBlock(label.price, charset, { align: 'center', bold: true, doubleHeight: true }))
     if (barcodeMode === 'native') {
-      blocks.push(nativeBarcodeCommand(encoded, paperDots, charset))
+      blocks.push(nativeBarcodeCommand(encoded, paperDots, charset, barcodeSize))
     } else {
-      blocks.push(...rasterCommands(barcodeBitmap(encoded, paperDots), paperDots, maxBlockBytes))
+      blocks.push(...rasterCommands(barcodeBitmap(encoded, paperDots, barcodeSize), paperDots, maxBlockBytes))
       blocks.push(textBlock(encoded.text, charset, { align: 'center' }))
     }
     const last = copy === count - 1

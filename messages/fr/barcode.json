@@ -115,7 +115,14 @@
     "downloaded": "Étiquette enregistrée en image.",
     "fallbackTitle": "Étiquette",
     "fallbackHint": "Appuyez longuement sur l'image pour l'enregistrer ou la partager.",
-    "close": "Fermer"
+    "close": "Fermer",
+    "size": "Taille du code-barre",
+    "sizes": {
+      "small": "Petit",
+      "medium": "Moyen",
+      "large": "Grand"
+    },
+    "sizeHeight": "{{height}} mm de haut"
   },
   "settings": {
     "barcodeMode": "Codes-barres des étiquettes",

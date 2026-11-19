@@ -154,3 +154,15 @@ describe('codes-barres des étiquettes', () => {
     expect(readLabelBarcodeMode()).toBe('native')
   })
 })
+
+describe('taille du code-barre des étiquettes', () => {
+  test('« moyen » par défaut ; dernier choix mémorisé sur cet appareil', async () => {
+    const { readLabelBarcodeSize, writeLabelBarcodeSize } = await import('./printer-preferences')
+    localStorage.removeItem('waelly-printer-label-barcode-size')
+    expect(readLabelBarcodeSize()).toBe('medium')
+    writeLabelBarcodeSize('large')
+    expect(readLabelBarcodeSize()).toBe('large')
+    localStorage.setItem('waelly-printer-label-barcode-size', 'géant')
+    expect(readLabelBarcodeSize()).toBe('medium')
+  })
+})

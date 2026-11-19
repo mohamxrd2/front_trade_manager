@@ -13,13 +13,14 @@ interface BarcodeSvgProps {
   className?: string
   /** Libellé pour les lecteurs d'écran ; absent : décoratif (le numéro est lu à côté). */
   label?: string
+  style?: React.CSSProperties
 }
 
 /**
  * Dessin vectoriel d'un code-barre (EAN-13, EAN-8, Code 128), le même que
  * l'étiquette imprimée en image : net à toutes les tailles, noir sur blanc.
  */
-export function BarcodeSvg({ value, barHeight = 40, showText = true, className, label }: BarcodeSvgProps) {
+export function BarcodeSvg({ value, barHeight = 40, showText = true, className, label, style }: BarcodeSvgProps) {
   const encoded = React.useMemo(() => {
     try {
       return encodeBarcode(value)
@@ -49,6 +50,7 @@ export function BarcodeSvg({ value, barHeight = 40, showText = true, className, 
       aria-label={label}
       aria-hidden={label ? undefined : true}
       className={cn('block bg-white', className)}
+      style={style}
       shapeRendering="crispEdges"
     >
       <rect width={width} height={height} fill="#fff" />

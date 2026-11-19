@@ -13,11 +13,12 @@ import { keys } from '@/lib/query-keys'
 import { getReceiptSettings, DEFAULT_RECEIPT_SETTINGS } from '@/lib/services/receipt-settings'
 import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import { getPlatformInfo, isShareOnlyPlatform, type PlatformInfo } from '@/lib/receipt/platform'
-import { readCutPaper, readLabelBarcodeMode, readPrinterCharset } from '@/lib/receipt/printer-preferences'
+import { readCutPaper, readLabelBarcodeMode, readLabelBarcodeSize, readPrinterCharset, writeLabelBarcodeSize } from '@/lib/receipt/printer-preferences'
 import { printerDotsFor } from '@/lib/receipt/escpos/raster'
 import { dataUrlToFile, downloadDataUrl, renderThermalReceiptPng } from '@/lib/receipt/share-receipt'
 import { shareFileNow } from '@/lib/receipt/ios-share'
-import { encodeLabelEscPosBlocks, MAX_LABEL_COPIES } from '@/lib/barcode/label-escpos'
+import { encodeLabelEscPosBlocks, labelBarcodeGeometry, LABEL_BARCODE_SIZE_SPEC, LABEL_BARCODE_SIZES, MAX_LABEL_COPIES, type LabelBarcodeSize } from '@/lib/barcode/label-escpos'
+import { encodeBarcode } from '@/lib/barcode/symbology'
 import { PrinterStatus } from '@/components/printer/printer-status'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { BarcodeSvg } from './barcode-svg'
@@ -37,6 +38,14 @@ interface LabelPrintDialogProps {
 
 /** Largeur d'affichage de l'aperçu (≈ largeur imprimable du papier). */
 const PREVIEW_WIDTH = { '58mm': 'w-[220px]', '80mm': 'w-[300px]' } as const
+const PREVIEW_PX = { '58mm': 220, '80mm': 300 } as const
+/** 8 points = 1 mm (imprimantes thermiques 203 dpi). */
+const DOTS_PER_MM = 8
+const LABEL_SIZE_HEIGHT_MM: Record<LabelBarcodeSize, number> = {
+  small: LABEL_BARCODE_SIZE_SPEC.small.heightDots / DOTS_PER_MM,
+  medium: LABEL_BARCODE_SIZE_SPEC.medium.heightDots / DOTS_PER_MM,
+  large: LABEL_BARCODE_SIZE_SPEC.large.heightDots / DOTS_PER_MM,
+}
 
 /**
  * Étiquette produit : aperçu, nombre d'exemplaires, impression Bluetooth
@@ -53,6 +62,7 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
 
   const [platform, setPlatform] = React.useState<PlatformInfo | null>(null)
   const [copies, setCopies] = React.useState(1)
+  const [size, setSize] = React.useState<LabelBarcodeSize>('medium')
   const [printing, setPrinting] = React.useState(false)
   const [prepared, setPrepared] = React.useState<{ dataUrl: string; file: File } | null>(null)
   const [fallbackImage, setFallbackImage] = React.useState<string | null>(null)
@@ -74,8 +84,54 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
       return
     }
     setPlatform(getPlatformInfo())
+    setSize(readLabelBarcodeSize())
     void init()
   }, [open, init])
+
+  // Aperçu à l'échelle du papier : même largeur de barres et même hauteur que l'impression.
+  const geometry = React.useMemo(() => {
+    if (!product) return null
+    try {
+      return labelBarcodeGeometry(encodeBarcode(product.barcode), printerDotsFor(width), size)
+    } catch {
+      return null
+    }
+  }, [product, width, size])
+  const previewScale = PREVIEW_PX[width] / printerDotsFor(width)
+
+  const chooseSize = (next: LabelBarcodeSize) => {
+    setSize(next)
+    setPrepared(null)
+    writeLabelBarcodeSize(next)
+  }
+
+  const sizePicker = (
+    <div className="flex flex-col gap-2">
+      <span id="label-size-label" className="text-sm font-semibold text-ink">
+        {t('barcode.label.size')}
+      </span>
+      <div role="radiogroup" aria-labelledby="label-size-label" className="grid grid-cols-3 gap-2">
+        {LABEL_BARCODE_SIZES.map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={size === option}
+            onClick={() => chooseSize(option)}
+            className={cn(
+              'flex min-h-12 flex-col items-center justify-center rounded-field border px-2 py-1.5 text-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500',
+              size === option ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line-strong text-ink-2 hover:bg-surface-soft'
+            )}
+          >
+            <span className="text-sm font-bold">{t(`barcode.label.sizes.${option}`)}</span>
+            <span className="text-[11px] font-semibold opacity-80">
+              {t('barcode.label.sizeHeight', { height: Math.round(LABEL_SIZE_HEIGHT_MM[option]) })}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 
   const shareOnly = platform !== null && (isShareOnlyPlatform(platform) || !platform.bluetooth)
   const connected = status === 'connected'
@@ -97,7 +153,7 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [open, product, platform, width, priceText, filename])
+  }, [open, product, platform, width, priceText, filename, size])
 
   const handlePrint = async () => {
     if (!product) return
@@ -105,7 +161,7 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
     try {
       const blocks = encodeLabelEscPosBlocks(
         { productName: product.productName, variantName: product.variantName, price: priceText, barcode: product.barcode },
-        { width, copies, charset: readPrinterCharset(), cutPaper: readCutPaper(), barcodeMode: readLabelBarcodeMode() }
+        { width, copies, charset: readPrinterCharset(), cutPaper: readCutPaper(), barcodeMode: readLabelBarcodeMode(), barcodeSize: size }
       )
       const result = await print(blocks)
       if (result.ok) {
@@ -226,10 +282,18 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
                   <span className="w-full break-words text-[14px] font-bold leading-tight">{product.productName}</span>
                   {product.variantName ? <span className="w-full break-words text-[13px] leading-tight">{product.variantName}</span> : null}
                   <span className="text-[20px] font-extrabold leading-tight">{priceText}</span>
-                  <BarcodeSvg value={product.barcode} barHeight={36} className="mt-1 w-full" label={t('barcode.detail.drawingAria', { code: product.barcode })} />
+                  <BarcodeSvg
+                    value={product.barcode}
+                    barHeight={geometry ? geometry.heightDots / geometry.moduleDots : 36}
+                    className="mt-1 max-w-full"
+                    style={geometry ? { width: `${Math.round(geometry.widthDots * previewScale)}px` } : { width: '100%' }}
+                    label={t('barcode.detail.drawingAria', { code: product.barcode })}
+                  />
                 </div>
               )}
             </section>
+
+            {sizePicker}
 
             {stepper}
 
