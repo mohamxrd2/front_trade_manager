@@ -19,7 +19,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useBarcodeWedge } from '@/hooks/useBarcodeWedge'
 import { BarcodeScanner } from '@/components/barcode/barcode-scanner'
 import { GenerateMissingDialog } from '@/components/barcode/generate-missing-dialog'
-import { primeScanSound } from '@/lib/barcode/camera'
+import { playScanSound, primeScanSound, type ScanSound } from '@/lib/barcode/camera'
 import { articleHasBarcode, findByBarcode, missingBarcodeCount } from '@/lib/barcode/scan-to-cart'
 import { lookupBarcode, serverErrorMessage } from '@/lib/services/barcodes'
 import { invalidateArticles } from '@/lib/hooks/useCache'
@@ -106,26 +106,30 @@ export default function ProductsPage() {
   const paginatedArticles = filteredArticles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   /** « Ajouter par code-barre » (scanner, douchette) : fiche du produit s'il existe, sinon ajout avec le code rempli. */
-  const openFromBarcode = async (code: string) => {
+  /** Renvoie le son à jouer : « found » si le produit existe, « error » sinon (le scanner ou la douchette le joue). */
+  const openFromBarcode = async (code: string): Promise<ScanSound> => {
     let found = findByBarcode(articles, code)
     if (!found) {
       try {
         found = await lookupBarcode(code)
       } catch (error) {
         toast.error(serverErrorMessage(error) || t('barcode.sale.lookupFailed'))
-        return
+        return 'error'
       }
     }
     if (found) {
       router.push(`/products/${found.article.id}`)
-    } else if (canEditStock) {
+      return 'found'
+    }
+    if (canEditStock) {
       router.push(`/products/new?barcode=${encodeURIComponent(code)}`)
     } else {
       toast.error(t('barcode.sale.notFoundTitle'), { description: t('barcode.sale.notFoundBody', { code }) })
     }
+    return 'error'
   }
 
-  useBarcodeWedge((code) => void openFromBarcode(code), { enabled: !scannerOpen && !generateOpen })
+  useBarcodeWedge((code) => void openFromBarcode(code).then(playScanSound), { enabled: !scannerOpen && !generateOpen })
 
   const openScanner = () => {
     primeScanSound()
@@ -549,7 +553,7 @@ export default function ProductsPage() {
         onOpenChange={setScannerOpen}
         mode="once"
         title={t('barcode.stock.addByBarcode')}
-        onDetected={(code) => void openFromBarcode(code)}
+        onDetected={async (code) => ((await openFromBarcode(code)) === 'error' ? { tone: 'error', message: '' } : undefined)}
       />
       <GenerateMissingDialog
         open={generateOpen}
