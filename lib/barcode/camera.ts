@@ -149,22 +149,20 @@ export async function createCodeReader(): Promise<CodeReader> {
 }
 
 /**
- * Ignore le même code relu pendant `windowMs` (la caméra le voit plusieurs
- * fois par seconde, une douchette peut doubler l'Entrée). Un autre code
- * passe tout de suite.
+ * Ignore un code relu moins de `windowMs` après la dernière fois qu'on l'a
+ * vu (la caméra le voit plusieurs fois par seconde, une douchette peut
+ * doubler l'Entrée). Mémoire PAR CODE : un article encore dans le champ
+ * pendant qu'on en scanne un autre n'est pas ajouté une seconde fois.
+ * Pour rescanner le même article, on l'écarte de la caméra 1,5 s.
  */
 export function createDuplicateFilter(windowMs = 1500, now: () => number = () => Date.now()) {
-  let lastCode: string | null = null
-  let lastAt = -Infinity
+  const lastSeen = new Map<string, number>()
   return (code: string): boolean => {
     const t = now()
-    if (code === lastCode && t - lastAt < windowMs) {
-      lastAt = t
-      return false
-    }
-    lastCode = code
-    lastAt = t
-    return true
+    const previous = lastSeen.get(code)
+    lastSeen.set(code, t)
+    for (const [other, at] of lastSeen) if (t - at >= windowMs) lastSeen.delete(other)
+    return previous === undefined || t - previous >= windowMs
   }
 }
 

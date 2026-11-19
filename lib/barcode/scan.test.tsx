@@ -109,7 +109,7 @@ describe('douchette : saisie rapide terminée par Entrée', () => {
 })
 
 describe('caméra : même code ignoré pendant 1,5 s', () => {
-  test('doublon ignoré, autre code accepté tout de suite, même code accepté après 1,5 s sans le voir', () => {
+  test('doublon ignoré tant qu’il reste visible ; autre code accepté tout de suite ; même code accepté après 1,5 s sans le voir', () => {
     let now = 0
     const accept = createDuplicateFilter(1500, () => now)
     expect(accept('A')).toBe(true)
@@ -117,9 +117,13 @@ describe('caméra : même code ignoré pendant 1,5 s', () => {
     expect(accept('A')).toBe(false)
     now = 500
     expect(accept('B')).toBe(true)
+    // A est toujours dans le champ pendant qu'on scanne B : pas de second ajout.
     now = 600
-    expect(accept('A')).toBe(true)
-    now = 2200
+    expect(accept('A')).toBe(false)
+    now = 1700
+    expect(accept('A')).toBe(false)
+    // A écarté de la caméra 1,5 s, puis rescanné : nouvel ajout.
+    now = 3300
     expect(accept('A')).toBe(true)
   })
 })
