@@ -21,7 +21,7 @@ import { BarcodeScanner } from '@/components/barcode/barcode-scanner'
 import { GenerateMissingDialog } from '@/components/barcode/generate-missing-dialog'
 import { primeScanSound } from '@/lib/barcode/camera'
 import { articleHasBarcode, findByBarcode } from '@/lib/barcode/scan-to-cart'
-import { lookupBarcode } from '@/lib/services/barcodes'
+import { lookupBarcode, serverErrorMessage } from '@/lib/services/barcodes'
 import { invalidateArticles } from '@/lib/hooks/useCache'
 
 const PAGE_SIZE = 10
@@ -111,8 +111,8 @@ export default function ProductsPage() {
     if (!found) {
       try {
         found = await lookupBarcode(code)
-      } catch {
-        toast.error(t('barcode.sale.lookupFailed'))
+      } catch (error) {
+        toast.error(serverErrorMessage(error) || t('barcode.sale.lookupFailed'))
         return
       }
     }

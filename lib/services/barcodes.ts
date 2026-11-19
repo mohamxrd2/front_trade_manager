@@ -59,10 +59,44 @@ export async function countMissingBarcodes(scope: MissingBarcodesScope = {}): Pr
   return response.data.data.count
 }
 
-/** Génère les codes manquants ; renvoie le nombre créé. */
-export async function generateMissingBarcodes(scope: MissingBarcodesScope = {}): Promise<number> {
-  const response = await api.post<Envelope<{ count: number }>>('/api/barcodes/generate-missing', scopeBody(scope))
-  return response.data.data.count
+export interface MissingBarcodesResult {
+  count: number
+  failedCount: number
+  /** Produits qui n'ont pas reçu de code, et pourquoi (message déjà traduit par le serveur). */
+  failed: Array<{ id: string; product: string; reason: string }>
+  /** Bilan rédigé par le serveur (« 2 codes-barres créés. 1 produit n'a pas pu… »). */
+  message: string
+}
+
+/**
+ * Génère les codes manquants. Réussite partielle possible : les produits en
+ * échec sont listés, les autres ont bien reçu leur code. Si AUCUN code n'a pu
+ * être créé, le serveur répond 422 avec le même détail (lu ici aussi).
+ */
+export async function generateMissingBarcodes(scope: MissingBarcodesScope = {}): Promise<MissingBarcodesResult> {
+  type Body = { count: number; failed_count: number; failed: MissingBarcodesResult['failed'] }
+  const read = (body: { message?: string; data?: Body }): MissingBarcodesResult => ({
+    count: body.data?.count ?? 0,
+    failedCount: body.data?.failed_count ?? 0,
+    failed: body.data?.failed ?? [],
+    message: body.message ?? '',
+  })
+  try {
+    const response = await api.post<{ message?: string; data: Body }>('/api/barcodes/generate-missing', scopeBody(scope))
+    return read(response.data)
+  } catch (error) {
+    const apiError = error as ApiError
+    const data = apiError.data as Body | undefined
+    if (apiError.status === 422 && data && typeof data.failed_count === 'number') return read({ message: apiError.message, data })
+    throw error
+  }
+}
+
+/** Message du serveur pour une erreur (déjà traduit), s'il y en a un d'utile. */
+export function serverErrorMessage(error: unknown): string | null {
+  const apiError = error as ApiError | null
+  if (!apiError?.status || apiError.status < 400) return null
+  return barcodeErrorMessage(error) ?? apiError.message ?? null
 }
 
 /** Message d'erreur du serveur (déjà dans la langue de l'utilisateur) pour un code refusé, s'il y en a un. */

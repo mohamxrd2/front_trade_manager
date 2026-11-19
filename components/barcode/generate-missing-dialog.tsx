@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useTranslation } from '@/lib/i18n/hooks/useTranslation'
-import { countMissingBarcodes, generateMissingBarcodes, type MissingBarcodesScope } from '@/lib/services/barcodes'
+import { countMissingBarcodes, generateMissingBarcodes, serverErrorMessage, type MissingBarcodesScope } from '@/lib/services/barcodes'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -52,12 +52,22 @@ export function GenerateMissingDialog({ open, onOpenChange, scope, onGenerated }
   const generate = async () => {
     setGenerating(true)
     try {
-      const created = await generateMissingBarcodes(scope ?? {})
-      toast.success(t('barcode.stock.generated', { count: created }))
-      onGenerated?.(created)
+      const result = await generateMissingBarcodes(scope ?? {})
+      if (result.failedCount === 0) {
+        toast.success(t('barcode.stock.generated', { count: result.count }))
+      } else {
+        // Réussite partielle : ce qui est créé l'est ; on dit combien ont échoué et pourquoi.
+        const details = result.failed.slice(0, 3).map((f) => `${f.product} : ${f.reason}`)
+        if (result.failed.length > 3) details.push(t('barcode.stock.andMore', { count: result.failed.length - 3 }))
+        toast.warning(result.message || t('barcode.stock.partial', { created: result.count, failed: result.failedCount }), {
+          description: details.join(' · '),
+          duration: 10000,
+        })
+      }
+      onGenerated?.(result.count)
       onOpenChange(false)
-    } catch {
-      toast.error(t('barcode.stock.generateFailed'))
+    } catch (error) {
+      toast.error(serverErrorMessage(error) || t('barcode.stock.generateFailed'))
     } finally {
       setGenerating(false)
     }

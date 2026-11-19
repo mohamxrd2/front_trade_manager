@@ -66,7 +66,9 @@
     "confirmAction": "Générer",
     "generated": "{count, plural, =0 {Aucun code créé} one {# code-barre créé} other {# codes-barres créés}}",
     "generateFailed": "Les codes n'ont pas pu être générés. Réessayez.",
-    "counting": "Calcul…"
+    "counting": "Calcul…",
+    "partial": "{{created}} code(s) créé(s), {{failed}} en échec.",
+    "andMore": "… et {{count}} autre(s)."
   },
   "field": {
     "label": "Code-barre",

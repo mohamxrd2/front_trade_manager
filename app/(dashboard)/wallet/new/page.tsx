@@ -37,7 +37,7 @@ import { BarcodeScanner, type ScanOutcome } from '@/components/barcode/barcode-s
 import { primeScanSound } from '@/lib/barcode/camera'
 import { validateBarcode } from '@/lib/barcode/validate'
 import { addScannedToCart, articleHasBarcode, findByBarcode, type ScannedProduct } from '@/lib/barcode/scan-to-cart'
-import { lookupBarcode } from '@/lib/services/barcodes'
+import { lookupBarcode, serverErrorMessage } from '@/lib/services/barcodes'
 import { useBarcodeWedge } from '@/hooks/useBarcodeWedge'
 import { usePermissions } from '@/hooks/usePermissions'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -226,8 +226,9 @@ function SaleCart() {
     if (!product) {
       try {
         product = await lookupBarcode(code)
-      } catch {
-        return { tone: 'error', message: t('barcode.sale.lookupFailed') }
+      } catch (error) {
+        // 422 : code mal formé (message clair du serveur) ; sinon panne réseau/serveur.
+        return { tone: 'error', message: serverErrorMessage(error) || t('barcode.sale.lookupFailed') }
       }
     }
     if (!product) {
