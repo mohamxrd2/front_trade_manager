@@ -78,7 +78,8 @@
     "willGenerate": "Un code-barre interne sera créé à l'enregistrement.",
     "cancelGenerate": "Annuler",
     "variantLabel": "Code-barre de {name}",
-    "generatedOnSave": "Code-barre créé : {code}"
+    "generatedOnSave": "Code-barre créé : {code}",
+    "duplicate": "Le code {code} est saisi deux fois."
   },
   "detail": {
     "title": "Code-barre",
