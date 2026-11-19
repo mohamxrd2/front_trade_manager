@@ -5,7 +5,7 @@ import * as React from 'react'
 
 import { createWedgeDetector, useBarcodeWedge } from '@/hooks/useBarcodeWedge'
 import { createDuplicateFilter } from './camera'
-import { addScannedToCart, articleHasBarcode, findByBarcode } from './scan-to-cart'
+import { addScannedToCart, articleHasBarcode, findByBarcode, missingBarcodeCount } from './scan-to-cart'
 import { useCartStore } from '@/lib/stores/cart'
 import type { Article, Variation } from '@/lib/services/articles'
 
@@ -174,5 +174,17 @@ describe('ajout au panier par code', () => {
     expect(findByBarcode(articles, '0036000291452')?.article.name).toBe('Coca')
     expect(articleHasBarcode(pagne, 'PAGNE-R')).toBe(true)
     expect(articleHasBarcode(soap, '30176204')).toBe(false)
+  })
+})
+
+describe('« Générer les codes manquants » : seulement s’il manque un code', () => {
+  test('compte les articles simples et les variantes sans code, jamais l’article à variantes lui-même', () => {
+    // Savon et Coca ont un code ; Pagne : Rouge et Bleu ont un code.
+    expect(missingBarcodeCount(articles)).toBe(0)
+    const lait = article(4, 'Lait', { barcode: null })
+    const pagneSansBleu = { ...pagne, variations: [pagne.variations![0], { ...pagne.variations![1], barcode: null }] }
+    expect(missingBarcodeCount([...articles, lait])).toBe(1)
+    expect(missingBarcodeCount([soap, pagneSansBleu, lait])).toBe(2)
+    expect(missingBarcodeCount([])).toBe(0)
   })
 })

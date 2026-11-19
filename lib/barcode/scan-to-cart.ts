@@ -43,6 +43,21 @@ export function articleHasBarcode(article: Article, code: string): boolean {
   )
 }
 
+/**
+ * Nombre de codes-barres manquants : articles simples sans code, et
+ * variantes sans code des articles à variantes (un article à variantes n'a
+ * jamais de code propre). Sert à n'afficher « Générer les codes manquants »
+ * que s'il y a quelque chose à générer.
+ */
+export function missingBarcodeCount(articles: Article[]): number {
+  return articles.reduce(
+    (count, article) =>
+      count +
+      (article.type === 'simple' ? (article.barcode ? 0 : 1) : (article.variations ?? []).filter((v) => !v.barcode).length),
+    0
+  )
+}
+
 export function scannedName(product: ScannedProduct): string {
   return product.variation ? `${product.article.name} — ${product.variation.name}` : product.article.name
 }

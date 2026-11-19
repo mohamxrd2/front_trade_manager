@@ -20,7 +20,7 @@ import { useBarcodeWedge } from '@/hooks/useBarcodeWedge'
 import { BarcodeScanner } from '@/components/barcode/barcode-scanner'
 import { GenerateMissingDialog } from '@/components/barcode/generate-missing-dialog'
 import { primeScanSound } from '@/lib/barcode/camera'
-import { articleHasBarcode, findByBarcode } from '@/lib/barcode/scan-to-cart'
+import { articleHasBarcode, findByBarcode, missingBarcodeCount } from '@/lib/barcode/scan-to-cart'
 import { lookupBarcode, serverErrorMessage } from '@/lib/services/barcodes'
 import { invalidateArticles } from '@/lib/hooks/useCache'
 
@@ -142,6 +142,9 @@ export default function ProductsPage() {
   const pageIds = paginatedArticles.map((a) => String(a.id))
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id))
   const generateLabel = selected.size > 0 ? t('barcode.stock.generateMissingSelection') : t('barcode.stock.generateMissing')
+  // « Générer les codes manquants » seulement s'il manque au moins un code (dans la sélection, s'il y en a une).
+  const missingCodes = missingBarcodeCount(selected.size > 0 ? articles.filter((a) => selected.has(String(a.id))) : articles)
+  const canGenerateMissing = canEditStock && missingCodes > 0
 
   const handleExport = () => {
     void exportToExcel(formatProductsForExport(articles, currency), 'stock-waelly', 'Stock')
@@ -216,7 +219,7 @@ export default function ProductsPage() {
             <ScanLine className="size-[18px]" aria-hidden="true" />
             {t('barcode.stock.addByBarcode')}
           </Button>
-          {canEditStock ? (
+          {canGenerateMissing ? (
             <Button variant="secondary" onClick={() => setGenerateOpen(true)}>
               <Barcode className="size-[18px]" aria-hidden="true" />
               {generateLabel}
@@ -287,7 +290,7 @@ export default function ProductsPage() {
             <ScanLine className="size-[18px]" aria-hidden="true" />
             {t('barcode.stock.addByBarcode')}
           </button>
-          {canEditStock ? (
+          {canEditStock && missingBarcodeCount(articles) > 0 ? (
             <button
               type="button"
               onClick={() => setGenerateOpen(true)}
