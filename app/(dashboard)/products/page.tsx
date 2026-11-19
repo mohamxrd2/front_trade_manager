@@ -16,6 +16,7 @@ import type { AppLanguage } from '@/lib/i18n/current-language'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, Card, FilterChips } from '@/components/waelly'
 import { usePermissions } from '@/hooks/usePermissions'
+import { articleStockStatus } from '@/lib/products/stock-status'
 import { useBarcodeWedge } from '@/hooks/useBarcodeWedge'
 import { BarcodeScanner } from '@/components/barcode/barcode-scanner'
 import { GenerateMissingDialog } from '@/components/barcode/generate-missing-dialog'
@@ -42,13 +43,8 @@ const priceRangeLabel = (
   return `${formatAmount(article.sale_price, language)} – ${formatAmount(article.price_max, language)} F`
 }
 
-/**
- * Stock faible si l'agrégat article l'indique, OU si au moins une variation
- * est elle-même sous son seuil — l'agrégat seul peut masquer une variation
- * en tension quand les autres compensent dans la moyenne.
- */
-const isLowStock = (article: { low_stock: boolean; variations?: { low_stock: boolean }[] }): boolean =>
-  article.low_stock || (article.variations?.some((v) => v.low_stock) ?? false)
+/** À réapprovisionner (filtre « Stock faible ») : en rupture, ou sous le seuil — voir articleStockStatus. */
+const isLowStock = (article: Parameters<typeof articleStockStatus>[0]): boolean => articleStockStatus(article) !== 'available'
 
 const THUMB_TINTS = [
   { bg: 'bg-brand-100', text: 'text-brand-700' },
@@ -343,8 +339,12 @@ export default function ProductsPage() {
               </span>
               <span className="flex flex-col items-end gap-1">
                 <span className="text-sm font-bold text-ink">{priceRangeLabel(article, language)}</span>
-                {isLowStock(article) ? (
-                  <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
+                {articleStockStatus(article) === 'out' ? (
+                  <span data-stock-status="out" className="rounded-full bg-danger-bg px-2 py-0.5 text-xs font-bold text-danger-strong">
+                    {t('products.list.statusOutOfStock')}
+                  </span>
+                ) : isLowStock(article) ? (
+                  <span data-stock-status="low" className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
                     {article.type === 'simple'
                       ? t('products.list.remainingBadge', { quantity: article.remaining_quantity })
                       : t('products.list.statusLowStock')}
@@ -424,7 +424,8 @@ export default function ProductsPage() {
                 paginatedArticles.map((article, i) => {
                   const total = article.sold_quantity + article.remaining_quantity
                   const barPercent = total > 0 ? Math.min(100, Math.round((article.remaining_quantity / total) * 100)) : 0
-                  const lowStock = isLowStock(article)
+                  const stockStatus = articleStockStatus(article)
+                  const lowStock = stockStatus !== 'available'
                   return (
                     <tr key={article.id} className="border-t border-divider">
                       {showSelection ? (
@@ -476,11 +477,20 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-2 py-2.5">
                         <span
+                          data-stock-status={stockStatus}
                           className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${
-                            lowStock ? 'bg-danger-bg text-danger-strong' : 'bg-success-bg text-success-strong'
+                            stockStatus === 'out'
+                              ? 'bg-danger-bg text-danger-strong'
+                              : stockStatus === 'low'
+                                ? 'bg-warning-bg text-warning'
+                                : 'bg-success-bg text-success-strong'
                           }`}
                         >
-                          {lowStock ? t('products.list.statusLowStock') : t('products.list.statusAvailable')}
+                          {stockStatus === 'out'
+                            ? t('products.list.statusOutOfStock')
+                            : stockStatus === 'low'
+                              ? t('products.list.statusLowStock')
+                              : t('products.list.statusAvailable')}
                         </span>
                       </td>
                       <td className="px-2 py-2.5 text-right">

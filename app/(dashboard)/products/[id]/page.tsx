@@ -55,6 +55,7 @@ import { ProductBarcode, VariantBarcode } from '@/components/barcode/product-bar
 import { GenerateMissingDialog } from '@/components/barcode/generate-missing-dialog'
 import { generateArticleBarcode, generateVariationBarcode, barcodeErrorMessage } from '@/lib/services/barcodes'
 import { normalizeBarcode, validateBarcode } from '@/lib/barcode/validate'
+import { variationStockStatus } from '@/lib/products/stock-status'
 import { Button, Card, CardHeader, CardTitle, StatusBadge, SegmentedControl } from '@/components/waelly'
 
 const formatAmount = (value: number, language: AppLanguage): string =>
@@ -618,8 +619,12 @@ export default function ProductDetailPage() {
                           onGenerated={onVariationBarcodeGenerated(variation.id)}
                         />
                       </span>
-                      {variation.low_stock ? (
-                        <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
+                      {variationStockStatus(variation) === 'out' ? (
+                        <span data-stock-status="out" className="rounded-full bg-danger-bg px-2 py-0.5 text-xs font-bold text-danger-strong">
+                          {t('products.detail.outBadge')}
+                        </span>
+                      ) : variationStockStatus(variation) === 'low' ? (
+                        <span data-stock-status="low" className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
                           {t('products.detail.lowBadge')}
                         </span>
                       ) : null}
@@ -920,7 +925,24 @@ export default function ProductDetailPage() {
                           </td>
                           <td className="px-2 py-2.5 font-bold text-ink">{variation.remaining_quantity}</td>
                           <td className="px-2 py-2.5">
-                            <StatusBadge status={variation.low_stock ? 'stock-faible' : 'disponible'} />
+                            {(() => {
+                              const status = variationStockStatus(variation)
+                              return (
+                                <span data-stock-status={status}>
+                                  <StatusBadge
+                                    tone={status === 'out' ? 'danger' : status === 'low' ? 'warning' : 'success'}
+                                    label={
+                                      status === 'out'
+                                        ? t('products.list.statusOutOfStock')
+                                        : status === 'low'
+                                          ? t('products.list.statusLowStock')
+                                          : t('products.list.statusAvailable')
+                                    }
+                                    className="whitespace-nowrap"
+                                  />
+                                </span>
+                              )
+                            })()}
                           </td>
                           <td className="px-2 py-2.5 text-right">
                             <span className="inline-flex items-center gap-1.5">
