@@ -16,6 +16,7 @@ import {
   writeRememberedPrinter,
   clearRememberedPrinter,
   writeDefaultPrintMode,
+  writeAutoPrintPreference,
 } from '@/lib/receipt/printer-preferences'
 
 export type BluetoothPrinterStatus = 'unsupported' | 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -105,11 +106,14 @@ function watchDisconnect(set: SetState, get: GetState, device: BluetoothDevice) 
 
 /**
  * Connexion établie à `device` (à la main, au chargement ou reconnexion
- * automatique) : état, écoute de la déconnexion, batterie — et « Bluetooth
- * direct » devient le mode d'impression de cet appareil.
+ * automatique) : état, écoute de la déconnexion, batterie — « Bluetooth
+ * direct » devient le mode d'impression de cet appareil, et l'impression
+ * automatique s'active.
  */
 async function adoptConnection(set: SetState, get: GetState, device: BluetoothDevice, connection: PrinterConnection, fallbackName: string | null) {
   writeDefaultPrintMode('bluetooth')
+  // Imprimante connectée : l'impression automatique après chaque vente s'active (désactivable ensuite).
+  writeAutoPrintPreference(true)
   set({ status: 'connected', connection, deviceId: device.id, deviceName: device.name ?? fallbackName, batteryLevel: null })
   watchDisconnect(set, get, device)
   const batteryLevel = await readBatteryLevel(device)

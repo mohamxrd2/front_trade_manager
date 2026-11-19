@@ -129,19 +129,20 @@ describe('coupe papier', () => {
 })
 
 describe('resolveAutoPrint — impression automatique après une vente', () => {
-  test('le choix fait sur cet appareil l’emporte sur le réglage de l’entreprise', async () => {
+  test('aucune imprimante connectée : toujours désactivée, quel que soit le choix enregistré', async () => {
     const { resolveAutoPrint } = await import('./printer-preferences')
-    expect(resolveAutoPrint(true, false)).toBe(true)
+    expect(resolveAutoPrint(false, null)).toBe(false)
     expect(resolveAutoPrint(false, true)).toBe(false)
+    expect(resolveAutoPrint(false, false)).toBe(false)
   })
 
-  test('aucun choix sur l’appareil : réglage de l’entreprise, sinon désactivé', async () => {
+  test('imprimante connectée : activée, sauf si on l’a coupée sur cet appareil', async () => {
     const { resolveAutoPrint } = await import('./printer-preferences')
-    expect(resolveAutoPrint(null, true)).toBe(true)
-    expect(resolveAutoPrint(null, undefined)).toBe(false)
+    expect(resolveAutoPrint(true, null)).toBe(true)
+    expect(resolveAutoPrint(true, true)).toBe(true)
+    expect(resolveAutoPrint(true, false)).toBe(false)
   })
 })
-
 
 describe('codes-barres des étiquettes', () => {
   test('commande native par défaut ; « image » mémorisée sur cet appareil', async () => {

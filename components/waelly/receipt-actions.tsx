@@ -238,15 +238,15 @@ function ReceiptActions({ operation, duplicate = false, autoPrintOnSuccess = fal
 
   React.useEffect(() => {
     if (!autoPrintOnSuccess || autoPrintedRef.current || !canAutoPrint(getPlatformInfo())) return
-    // Choix de cet appareil (réglable par le caissier) sinon réglage de
-    // l'entreprise — on attend ce dernier seulement s'il est nécessaire.
-    const devicePreference = readAutoPrintPreference()
-    if (devicePreference === null && receiptSettings === undefined) return
-    if (!resolveAutoPrint(devicePreference, receiptSettings?.auto_print)) return
     autoPrintedRef.current = true
-    handlePrint()
+    // Impression automatique seulement avec une imprimante connectée (après la
+    // reconnexion silencieuse éventuelle), et si elle n'a pas été coupée sur cet appareil.
+    void bluetoothInit().then(() => {
+      const connected = useBluetoothPrinterStore.getState().status === 'connected'
+      if (resolveAutoPrint(connected, readAutoPrintPreference())) void handlePrint()
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPrintOnSuccess, receiptSettings])
+  }, [autoPrintOnSuccess])
 
   return (
     <div className="flex w-full flex-col gap-3">
