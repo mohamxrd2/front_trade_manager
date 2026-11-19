@@ -142,3 +142,27 @@ describe('resolveAutoPrint — impression automatique après une vente', () => {
   })
 })
 
+
+describe('codes-barres des étiquettes', () => {
+  test('commande native par défaut ; « image » mémorisée sur cet appareil', async () => {
+    const { readLabelBarcodeMode, writeLabelBarcodeMode } = await import('./printer-preferences')
+    localStorage.removeItem('waelly-printer-label-barcode-mode')
+    expect(readLabelBarcodeMode()).toBe('native')
+    writeLabelBarcodeMode('image')
+    expect(readLabelBarcodeMode()).toBe('image')
+    writeLabelBarcodeMode('native')
+    expect(readLabelBarcodeMode()).toBe('native')
+  })
+})
+
+describe('taille du code-barre des étiquettes', () => {
+  test('« moyen » par défaut ; dernier choix mémorisé sur cet appareil', async () => {
+    const { readLabelBarcodeSize, writeLabelBarcodeSize } = await import('./printer-preferences')
+    localStorage.removeItem('waelly-printer-label-barcode-size')
+    expect(readLabelBarcodeSize()).toBe('medium')
+    writeLabelBarcodeSize('large')
+    expect(readLabelBarcodeSize()).toBe('large')
+    localStorage.setItem('waelly-printer-label-barcode-size', 'géant')
+    expect(readLabelBarcodeSize()).toBe('medium')
+  })
+})

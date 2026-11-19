@@ -33,6 +33,13 @@ import { ReceiptActions } from '@/components/waelly/receipt-actions'
 import { PrinterStatus } from '@/components/printer/printer-status'
 import { PaymentMethodChips } from '@/components/waelly/payment-method-chips'
 import { VariationPicker } from '@/components/products'
+import { BarcodeScanner, type ScanOutcome } from '@/components/barcode/barcode-scanner'
+import { primeScanSound } from '@/lib/barcode/camera'
+import { validateBarcode } from '@/lib/barcode/validate'
+import { addScannedToCart, articleHasBarcode, findByBarcode, type ScannedProduct } from '@/lib/barcode/scan-to-cart'
+import { lookupBarcode, serverErrorMessage } from '@/lib/services/barcodes'
+import { useBarcodeWedge } from '@/hooks/useBarcodeWedge'
+import { usePermissions } from '@/hooks/usePermissions'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Dialog, DialogContent, DialogOverlay, DialogPortal, DialogTitle } from '@/components/ui/dialog'
 
@@ -130,6 +137,8 @@ export default function NewTransactionPage() {
 
 function SaleCart() {
   const { t, language } = useTranslation()
+  const router = useRouter()
+  const { can } = usePermissions()
   const cart = useCartStore()
   const lines = cart.lines
 
@@ -143,6 +152,7 @@ function SaleCart() {
   const [checkoutOpen, setCheckoutOpen] = React.useState(false)
   const [justAddedId, setJustAddedId] = React.useState<string | null>(null)
   const [confirmedOperation, setConfirmedOperation] = React.useState<Operation | null>(null)
+  const [scannerOpen, setScannerOpen] = React.useState(false)
   const searchInputRef = React.useRef<HTMLInputElement>(null)
 
   const total = cartTotal(lines)
@@ -159,7 +169,8 @@ function SaleCart() {
   const filteredArticles = React.useMemo(() => {
     const term = search.trim().toLowerCase()
     if (!term) return articles
-    return articles.filter((a) => a.name.toLowerCase().includes(term))
+    // Nom, ou code-barre exact (le sien ou celui d'une variante).
+    return articles.filter((a) => a.name.toLowerCase().includes(term) || articleHasBarcode(a, search))
   }, [articles, search])
 
   const flashLine = (id: string) => {
@@ -202,9 +213,75 @@ function SaleCart() {
     }
   }
 
+  // --- Codes-barres : caméra, douchette, ou code tapé + Entrée dans la recherche ---
+
+  const createFromBarcode = (code: string) => {
+    setScannerOpen(false)
+    router.push(`/products/new?barcode=${encodeURIComponent(code)}&from=sale`)
+  }
+
+  /** Code lu → produit ajouté (ou +1), refus de stock, ou « Produit introuvable » avec « Créer ce produit ». */
+  const handleBarcode = async (code: string): Promise<ScanOutcome> => {
+    let product: ScannedProduct | null = findByBarcode(articles, code)
+    if (!product) {
+      try {
+        product = await lookupBarcode(code)
+      } catch (error) {
+        // 422 : code mal formé (message clair du serveur) ; sinon panne réseau/serveur.
+        return { tone: 'error', message: serverErrorMessage(error) || t('barcode.sale.lookupFailed') }
+      }
+    }
+    if (!product) {
+      return {
+        tone: 'error',
+        message: t('barcode.sale.notFoundTitle'),
+        detail: t('barcode.sale.notFoundBody', { code }),
+        action: can('stock.edit') ? { label: t('barcode.sale.createProduct'), onSelect: () => createFromBarcode(code) } : undefined,
+      }
+    }
+    const result = addScannedToCart(product, useCartStore.getState())
+    switch (result.kind) {
+      case 'added':
+        flashLine(result.lineId)
+        return { tone: 'success', message: t('barcode.sale.added', { name: result.name }) }
+      case 'incremented':
+        flashLine(result.lineId)
+        return { tone: 'success', message: t('barcode.sale.incremented', { name: result.name, count: result.quantity }) }
+      case 'out-of-stock':
+        return { tone: 'error', message: t('barcode.sale.outOfStock', { name: result.name }) }
+      case 'max-reached':
+        return { tone: 'error', message: t('barcode.sale.maxReached', { name: result.name }) }
+    }
+  }
+
+  /** Hors du scanner (douchette, recherche) : le résultat en toast court. */
+  const handleBarcodeWithToast = async (code: string) => {
+    const outcome = await handleBarcode(code)
+    if (outcome.tone === 'success') {
+      toast.success(outcome.message, { duration: 1800 })
+      return
+    }
+    toast.error(outcome.message, {
+      description: outcome.detail,
+      action: outcome.action ? { label: outcome.action.label, onClick: outcome.action.onSelect } : undefined,
+    })
+  }
+
+  useBarcodeWedge((code) => void handleBarcodeWithToast(code), {
+    enabled: !scannerOpen && !checkoutOpen && !variationPickerArticle && !confirmedOperation,
+  })
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
+      // Un code exact (douchette dans le champ, ou tapé) = un scan : ajouté directement.
+      const isCode = validateBarcode(search).ok && (findByBarcode(articles, search) !== null || /^\d{8}$|^\d{12,13}$/.test(search.trim()))
+      if (isCode) {
+        const code = search
+        setSearch('')
+        void handleBarcodeWithToast(code)
+        return
+      }
       const first = filteredArticles[0]
       if (first) pickArticle(first)
     }
@@ -256,16 +333,17 @@ function SaleCart() {
                 className="h-12 w-full min-w-0 rounded-full border border-line bg-canvas pl-10 pr-4 text-sm text-ink outline-none focus:border-brand-500"
               />
             </div>
-            {/* Réservé pour le scan de code-barres (étape à venir) — non actif. */}
             <button
               type="button"
-              disabled
-              aria-disabled
-              aria-label={t('wallet.new.scanButton')}
-              title={t('wallet.new.scanComingSoon')}
-              className="flex size-12 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface-soft text-subtle opacity-60"
+              onClick={() => {
+                primeScanSound()
+                setScannerOpen(true)
+              }}
+              aria-label={t('barcode.sale.scanAria')}
+              className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-active px-4 text-sm font-bold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             >
-              <ScanLine className="size-5" />
+              <ScanLine className="size-5" aria-hidden="true" />
+              <span>{t('barcode.sale.scanButton')}</span>
             </button>
           </div>
 
@@ -355,6 +433,8 @@ function SaleCart() {
           <EmptyCartState />
         )}
       </aside>
+
+      <BarcodeScanner open={scannerOpen} onOpenChange={setScannerOpen} mode="continuous" onDetected={handleBarcode} />
 
       {/* --- Sélecteur de variation (popup) --- */}
       <VariationPickerPopup

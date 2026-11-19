@@ -21,6 +21,8 @@ const AUTO_PRINT_KEY = 'waelly-auto-print'
 const CHARSET_KEY = 'waelly-printer-charset'
 const PRINT_LOGO_KEY = 'waelly-printer-print-logo'
 const PRINT_QR_KEY = 'waelly-printer-print-qr'
+const LABEL_BARCODE_MODE_KEY = 'waelly-printer-label-barcode-mode'
+const LABEL_BARCODE_SIZE_KEY = 'waelly-printer-label-barcode-size'
 
 function readLocalStorage(key: string): string | null {
   if (typeof localStorage === 'undefined') return null
@@ -111,6 +113,28 @@ export function readPrintQr(): boolean {
 
 export function writePrintQr(value: boolean): void {
   writeLocalStorage(PRINT_QR_KEY, value ? '1' : '0')
+}
+
+/**
+ * Codes-barres des étiquettes : commande native de l'imprimante (GS k) par
+ * défaut, ou image (raster) pour les imprimantes qui ne la comprennent pas.
+ */
+export function readLabelBarcodeMode(): 'native' | 'image' {
+  return readLocalStorage(LABEL_BARCODE_MODE_KEY) === 'image' ? 'image' : 'native'
+}
+
+export function writeLabelBarcodeMode(mode: 'native' | 'image'): void {
+  writeLocalStorage(LABEL_BARCODE_MODE_KEY, mode)
+}
+
+/** Dernière taille de code-barre choisie pour les étiquettes (sur cet appareil) ; « moyen » par défaut. */
+export function readLabelBarcodeSize(): 'small' | 'medium' | 'large' {
+  const raw = readLocalStorage(LABEL_BARCODE_SIZE_KEY)
+  return raw === 'small' || raw === 'large' ? raw : 'medium'
+}
+
+export function writeLabelBarcodeSize(size: 'small' | 'medium' | 'large'): void {
+  writeLocalStorage(LABEL_BARCODE_SIZE_KEY, size)
 }
 
 export function readCutPaper(): boolean {

@@ -5,14 +5,19 @@ import Link from 'next/link'
 import { ImageUploader } from '@/components/media/image-uploader'
 import { MediaImage } from '@/components/media/media-image'
 import type { UploadedMedia } from '@/lib/media/upload'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { ArrowLeft, Image as ImageIcon, Minus, Plus, X } from 'lucide-react'
 
-import { addArticle } from '@/lib/services/articles'
+import { addArticle, type Article } from '@/lib/services/articles'
+import { generateArticleBarcode, generateVariationBarcode } from '@/lib/services/barcodes'
+import { validateBarcode, normalizeBarcode } from '@/lib/barcode/validate'
+import { addScannedToCart, equivalentCodes } from '@/lib/barcode/scan-to-cart'
+import { useCartStore } from '@/lib/stores/cart'
+import { BarcodeField } from '@/components/barcode/barcode-field'
 import { invalidateArticles, invalidateUserStats } from '@/lib/hooks/useCache'
 import { useCurrency } from '@/lib/utils/currency'
 import { useSettings } from '@/contexts/SettingsContext'
@@ -44,16 +49,22 @@ function buildNewArticleSchema(t: ReturnType<typeof useTranslation>['t']) {
       // Article variable uniquement : pré-remplit le prix des NOUVELLES lignes,
       // n'est jamais envoyé à l'API (un article variable n'a pas de prix propre).
       default_price: z.string(),
+      barcode: z.string(),
       variations: z.array(
         z.object({
           name: z.string().min(1, t('products.new.validationVariationNameRequired')),
           quantity: z.string(),
           price: z.string(),
+          barcode: z.string(),
         })
       ),
     })
     .superRefine((data, ctx) => {
       if (data.type === 'simple') {
+        if (data.barcode.trim()) {
+          const check = validateBarcode(data.barcode)
+          if (!check.ok) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['barcode'], message: t(`barcode.scanner.invalid.${check.error}`) })
+        }
         const price = parseFloat(data.sale_price)
         if (data.sale_price.trim() === '' || Number.isNaN(price) || price <= 0) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sale_price'], message: t('products.new.validationPricePositive') })
@@ -70,7 +81,18 @@ function buildNewArticleSchema(t: ReturnType<typeof useTranslation>['t']) {
       }
 
       const seenNames = new Map<string, number>()
+      const seenBarcodes = new Set<string>()
       data.variations.forEach((variation, index) => {
+        const code = normalizeBarcode(variation.barcode)
+        if (code) {
+          const check = validateBarcode(code)
+          if (!check.ok) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['variations', index, 'barcode'], message: t(`barcode.scanner.invalid.${check.error}`) })
+          } else if (seenBarcodes.has(code)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['variations', index, 'barcode'], message: t('barcode.field.duplicate', { code }) })
+          }
+          seenBarcodes.add(code)
+        }
         const normalized = variation.name.trim().toLowerCase()
         if (normalized) {
           if (seenNames.has(normalized)) {
@@ -127,6 +149,10 @@ type NewArticleFormValues = z.infer<ReturnType<typeof buildNewArticleSchema>>
  */
 export default function NewArticlePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Arrivée depuis un code inconnu (vente ou stock) : code prérempli ; depuis la vente, on y retourne avec l'article au panier.
+  const scannedBarcode = normalizeBarcode(searchParams.get('barcode'))
+  const fromSale = searchParams.get('from') === 'sale'
   const { currency } = useCurrency()
   const { settings } = useSettings()
   const { t, language } = useTranslation()
@@ -137,12 +163,17 @@ export default function NewArticlePage() {
   const [photo, setPhoto] = React.useState<UploadedMedia | null>(null)
   const [variationPhotos, setVariationPhotos] = React.useState<Record<string, UploadedMedia>>({})
   const [quickAddValue, setQuickAddValue] = React.useState('')
+  // « Générer » : le code interne est créé juste après l'enregistrement (il faut l'article pour l'attribuer).
+  const [generateOnSave, setGenerateOnSave] = React.useState(false)
+  const [variationGenerate, setVariationGenerate] = React.useState<Record<string, boolean>>({})
 
   const newArticleSchema = React.useMemo(() => buildNewArticleSchema(t), [t])
   const {
     handleSubmit,
     watch,
     setValue,
+    getValues,
+    setError,
     control,
     formState: { errors, isSubmitting },
   } = useForm<NewArticleFormValues>({
@@ -153,6 +184,7 @@ export default function NewArticlePage() {
       sale_price: '',
       quantity: '0',
       default_price: '',
+      barcode: scannedBarcode,
       variations: [],
     },
   })
@@ -205,12 +237,14 @@ export default function NewArticlePage() {
   const handleTypeChange = (next: string) => {
     setValue('type', next as 'simple' | 'variable')
     if (next === 'variable' && fields.length === 0) {
-      append({ name: '', quantity: '0', price: defaultPriceStr || '' })
+      // Le code saisi (ou scanné) va à la première variante : un produit à variantes n'a pas de code propre.
+      append({ name: '', quantity: '0', price: defaultPriceStr || '', barcode: getValues('barcode') })
+      setValue('barcode', '')
     }
   }
 
   const addVariationRow = () => {
-    append({ name: '', quantity: '0', price: defaultPriceStr || '' })
+    append({ name: '', quantity: '0', price: defaultPriceStr || '', barcode: '' })
   }
 
   // "Créer plusieurs variations d'un coup" : taper "S, M, L, XL" puis Entrée
@@ -223,8 +257,70 @@ export default function NewArticlePage() {
       .map((n) => n.trim())
       .filter(Boolean)
     if (names.length === 0) return
-    names.forEach((n) => append({ name: n, quantity: '0', price: defaultPriceStr || '' }))
+    names.forEach((n) => append({ name: n, quantity: '0', price: defaultPriceStr || '', barcode: '' }))
     setQuickAddValue('')
+  }
+
+  /** Après l'enregistrement : vers la fiche, ou retour à la vente avec l'article (ou la variante scannée) au panier. */
+  const finish = async (article: Article) => {
+    toast.success(t('products.new.toastArticleAdded'))
+    await Promise.all([invalidateArticles(), invalidateUserStats()])
+    if (fromSale) {
+      const codes = scannedBarcode ? equivalentCodes(scannedBarcode) : []
+      const variation = article.type === 'variable' ? article.variations?.find((v) => v.barcode && codes.includes(v.barcode)) ?? null : null
+      if (article.type === 'simple' || variation) {
+        const result = addScannedToCart({ article, variation }, useCartStore.getState())
+        if (result.kind === 'added' || result.kind === 'incremented') toast.success(t('barcode.sale.createdAndAdded', { name: result.name }))
+      }
+      router.push('/wallet/new')
+      return
+    }
+    router.push(`/products/${article.id}`)
+  }
+
+  /** Codes demandés avec « Générer » : créés une fois l'article enregistré. */
+  const generateRequestedBarcodes = async (article: Article): Promise<Article> => {
+    try {
+      if (article.type === 'simple' && generateOnSave && !article.barcode) {
+        const barcode = await generateArticleBarcode(article.id)
+        toast.success(t('barcode.field.generatedOnSave', { code: barcode }))
+        return { ...article, barcode }
+      }
+      if (article.type === 'variable' && article.variations) {
+        const wanted = fields.map((f, i) => (variationGenerate[f.id] ? getValues(`variations.${i}.name`).trim().toLowerCase() : null))
+        const variations = await Promise.all(
+          article.variations.map(async (v) =>
+            !v.barcode && wanted.includes(v.name.trim().toLowerCase()) ? { ...v, barcode: await generateVariationBarcode(v.id) } : v
+          )
+        )
+        return { ...article, variations }
+      }
+    } catch {
+      // L'article est créé : un code manquant se génère ensuite depuis sa fiche.
+      toast.error(t('barcode.detail.generateFailed'))
+    }
+    return article
+  }
+
+  /** Code refusé par le serveur (déjà utilisé par « Savon »…) : message sous le bon champ. */
+  const showServerBarcodeErrors = (err: unknown): boolean => {
+    const serverErrors = (err as { errors?: Record<string, string[] | string> } | null)?.errors
+    if (!serverErrors || typeof serverErrors !== 'object') return false
+    let shown = false
+    for (const [key, value] of Object.entries(serverErrors)) {
+      const message = Array.isArray(value) ? value[0] : value
+      if (!message) continue
+      if (key === 'barcode') {
+        setError('barcode', { message })
+        shown = true
+      }
+      const match = /^variations\.(\d+)\.barcode$/.exec(key)
+      if (match) {
+        setError(`variations.${Number(match[1])}.barcode`, { message })
+        shown = true
+      }
+    }
+    return shown
   }
 
   const onSubmit = async (data: NewArticleFormValues) => {
@@ -238,10 +334,9 @@ export default function NewArticlePage() {
           quantity: qty,
           image: null,
           image_media_id: photo?.id ?? null,
+          barcode: generateOnSave ? null : normalizeBarcode(data.barcode) || null,
         })
-        toast.success(t('products.new.toastArticleAdded'))
-        await Promise.all([invalidateArticles(), invalidateUserStats()])
-        router.push(`/products/${article.id}`)
+        await finish(await generateRequestedBarcodes(article))
         return
       }
 
@@ -256,18 +351,64 @@ export default function NewArticlePage() {
           quantity: parseInt(v.quantity, 10) || 0,
           price: parseFloat(v.price),
           image_media_id: variationPhotos[fields[i]?.id]?.id ?? null,
+          barcode: variationGenerate[fields[i]?.id] ? null : normalizeBarcode(v.barcode) || null,
         })),
         image: null,
         image_media_id: photo?.id ?? null,
       })
 
-      toast.success(t('products.new.toastArticleAdded'))
-      await Promise.all([invalidateArticles(), invalidateUserStats()])
-      router.push(`/products/${article.id}`)
+      await finish(await generateRequestedBarcodes(article))
     } catch (err: unknown) {
-      toast.error((err as Error).message || t('products.new.errorAddFailed'))
+      const message = (err as Error).message || t('products.new.errorAddFailed')
+      if (showServerBarcodeErrors(err)) {
+        const serverErrors = (err as { errors: Record<string, string[] | string> }).errors
+        const first = Object.values(serverErrors).flat()[0]
+        toast.error(first || message)
+        return
+      }
+      toast.error(message)
     }
   }
+
+  const simpleBarcodeField = (id: string) => (
+    <Controller
+      control={control}
+      name="barcode"
+      render={({ field }) => (
+        <BarcodeField
+          id={id}
+          value={field.value}
+          onChange={field.onChange}
+          onBlur={field.onBlur}
+          error={errors.barcode?.message}
+          onGenerate={() => setGenerateOnSave(true)}
+          pendingGenerate={generateOnSave}
+          onCancelGenerate={() => setGenerateOnSave(false)}
+        />
+      )}
+    />
+  )
+
+  const variationBarcodeField = (fieldId: string, index: number, id: string) => (
+    <Controller
+      control={control}
+      name={`variations.${index}.barcode`}
+      render={({ field }) => (
+        <BarcodeField
+          id={id}
+          compact
+          value={field.value}
+          onChange={field.onChange}
+          onBlur={field.onBlur}
+          ariaLabel={t('barcode.field.variantLabel', { name: variationsWatch[index]?.name?.trim() || t('products.new.previewVariationFallback', { index: index + 1 }) })}
+          error={errors.variations?.[index]?.barcode?.message}
+          onGenerate={() => setVariationGenerate((prev) => ({ ...prev, [fieldId]: true }))}
+          pendingGenerate={Boolean(variationGenerate[fieldId])}
+          onCancelGenerate={() => setVariationGenerate((prev) => ({ ...prev, [fieldId]: false }))}
+        />
+      )}
+    />
+  )
 
   const photoButton = (previewClassName: string) => (
     <ImageUploader
@@ -512,6 +653,8 @@ export default function NewArticlePage() {
                 </button>
               </span>
             </div>
+
+            {simpleBarcodeField('m-article-barcode')}
           </>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -611,6 +754,7 @@ export default function NewArticlePage() {
                   {errors.variations?.[index]?.price ? (
                     <p className="pl-[50px] text-xs text-danger-strong">{errors.variations[index]?.price?.message}</p>
                   ) : null}
+                  <div className="pl-[50px]">{variationBarcodeField(field.id, index, `m-variation-barcode-${index}`)}</div>
                 </div>
               )
             })}
@@ -776,6 +920,9 @@ export default function NewArticlePage() {
                     </button>
                   </span>
                 </div>
+              ) : null}
+              {type === 'simple' ? (
+                <div className="max-w-[520px]">{simpleBarcodeField('article-barcode')}</div>
               ) : (
                 <div className="flex flex-col gap-3">
                   <div className="max-w-[420px]">{quickAddRow}</div>
@@ -793,13 +940,14 @@ export default function NewArticlePage() {
                     </p>
                   ) : null}
                   <div className="overflow-x-auto rounded-tile border border-line">
-                    <table className="w-full min-w-[560px] border-collapse text-sm">
+                    <table className="w-full min-w-[820px] border-collapse text-sm">
                       <thead>
                         <tr className="bg-surface-soft text-left text-xs font-semibold uppercase tracking-wide text-subtle">
                           <th className="px-3 py-2.5">{t('products.colPhoto')}</th>
                           <th className="px-3 py-2.5">{t('products.colVariation')}</th>
                           <th className="px-3 py-2.5">{t('products.colQuantity')}</th>
                           <th className="px-3 py-2.5">{t('products.colPrice')}</th>
+                          <th className="px-3 py-2.5">{t('barcode.field.label')}</th>
                           <th className="px-3 py-2.5">
                             <span className="sr-only">{t('products.colActions')}</span>
                           </th>
@@ -887,6 +1035,9 @@ export default function NewArticlePage() {
                                     {errors.variations[index]?.price?.message}
                                   </p>
                                 ) : null}
+                              </td>
+                              <td className="min-w-[260px] px-3 py-2.5">
+                                {variationBarcodeField(field.id, index, `variation-barcode-${index}`)}
                               </td>
                               <td className="px-3 py-2.5 text-right">
                                 <button

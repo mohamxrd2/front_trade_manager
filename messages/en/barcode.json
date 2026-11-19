@@ -1,0 +1,133 @@
+{
+  "scanner": {
+    "title": "Scan a barcode",
+    "titleContinuous": "Scan items",
+    "hint": "Place the barcode inside the frame.",
+    "hintContinuous": "Scan items one after another. Tap “Done” when you are finished.",
+    "close": "Close the scanner",
+    "done": "Done",
+    "torchOn": "Turn on the torch",
+    "torchOff": "Turn off the torch",
+    "starting": "Opening the camera…",
+    "read": "Code read: {{code}}",
+    "manualLabel": "Type the code",
+    "manualPlaceholder": "E.g. 3017620422003",
+    "manualSubmit": "Confirm",
+    "invalid": {
+      "empty": "Type a code.",
+      "check_digit": "The last digit (check digit) does not match. Check the code.",
+      "format": "Code not recognised: EAN-13, EAN-8, UPC-A or 4 to 32 characters (letters, digits, - . /)."
+    },
+    "problem": {
+      "denied": {
+        "title": "Camera access denied",
+        "body": "Allow the camera for this site: tap the icon left of the address (padlock, or “aA” on iPhone), then Camera → Allow. Then reload the page. You can also type the code below."
+      },
+      "no-camera": {
+        "title": "No camera found",
+        "body": "This device has no usable camera. Type the code below, or use a barcode scanner."
+      },
+      "in-use": {
+        "title": "Camera already in use",
+        "body": "Another app is using the camera. Close it and try again, or type the code below."
+      },
+      "unsupported": {
+        "title": "Camera not available here",
+        "body": "The browser only allows the camera on a secure page (https). Type the code below, or use a barcode scanner."
+      },
+      "unknown": {
+        "title": "The camera could not start",
+        "body": "Try again, or type the code below."
+      }
+    },
+    "retry": "Try again"
+  },
+  "sale": {
+    "scanButton": "Scan",
+    "scanAria": "Scan a barcode to add an item",
+    "added": "{{name}} added",
+    "incremented": "{{name}}: {{count}} in the cart",
+    "outOfStock": "{{name}}: out of stock",
+    "maxReached": "{{name}}: all the stock is already in the cart",
+    "notFoundTitle": "Product not found",
+    "notFoundBody": "No product has the code {{code}}.",
+    "createProduct": "Create this product",
+    "lookupFailed": "The code lookup failed. Check the connection and try again.",
+    "createdAndAdded": "{{name}} created and added to the cart"
+  },
+  "stock": {
+    "addByBarcode": "Add by barcode",
+    "addByBarcodeAria": "Scan a barcode to open or create a product",
+    "generateMissing": "Generate missing codes",
+    "generateMissingSelection": "Generate codes for the selection",
+    "confirmTitle": "Generate barcodes?",
+    "confirmBody": "{count, plural, one {# barcode will be created} other {# barcodes will be created}} (internal EAN-13 starting with 2). Existing codes are never changed.",
+    "confirmNone": "Every product already has a barcode.",
+    "confirmAction": "Generate",
+    "generated": "{count, plural, =0 {No code created} one {# barcode created} other {# barcodes created}}",
+    "generateFailed": "The codes could not be generated. Try again.",
+    "counting": "Counting…",
+    "partial": "{{created}} code(s) created, {{failed}} failed.",
+    "andMore": "… and {{count}} more."
+  },
+  "field": {
+    "label": "Barcode",
+    "placeholder": "Scan, type or generate",
+    "hint": "EAN-13, EAN-8, UPC-A or internal code. Unique in your shop.",
+    "scan": "Scan the code",
+    "generate": "Generate",
+    "generateAria": "Generate an internal barcode",
+    "willGenerate": "An internal barcode will be created when you save.",
+    "cancelGenerate": "Cancel",
+    "variantLabel": "Barcode for {{name}}",
+    "generatedOnSave": "Barcode created: {{code}}",
+    "duplicate": "Code {{code}} is entered twice."
+  },
+  "detail": {
+    "title": "Barcode",
+    "none": "No barcode yet.",
+    "generate": "Generate a barcode",
+    "generated": "Barcode created: {{code}}",
+    "generateFailed": "The barcode could not be created. Try again.",
+    "printLabel": "Print label",
+    "printLabelAria": "Print the label for {{name}}",
+    "generateMissingVariants": "Generate missing codes",
+    "variantsMissing": "{count, plural, one {# variant without a code} other {# variants without a code}}",
+    "drawingAria": "Barcode {{code}}"
+  },
+  "label": {
+    "title": "Print label",
+    "preview": "Preview",
+    "copies": "Number of copies",
+    "copiesDecrease": "One copy fewer",
+    "copiesIncrease": "One more copy",
+    "paper": "{{width}} paper",
+    "print": "{count, plural, one {Print # label} other {Print # labels}}",
+    "printing": "Printing…",
+    "printed": "{count, plural, one {Label sent to the printer} other {# labels sent to the printer}}",
+    "printFailed": "Printing failed. Check the printer is on, then try again.",
+    "notConnected": "No printer connected",
+    "notConnectedBody": "Connect the Bluetooth receipt printer to print the label.",
+    "share": "Share label",
+    "shareHelp": "This browser cannot talk to the printer directly: share the label as an image to the printer's app (or AirPrint).",
+    "shareFailed": "Sharing failed. Try again.",
+    "shareRetry": "Tap “Share label” again.",
+    "downloaded": "Label saved as an image.",
+    "fallbackTitle": "Label",
+    "fallbackHint": "Press and hold the image to save or share it.",
+    "close": "Close",
+    "size": "Barcode size",
+    "sizes": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large"
+    },
+    "sizeHeight": "{{height}} mm tall"
+  },
+  "settings": {
+    "barcodeMode": "Label barcodes",
+    "barcodeModeNative": "Printer command (recommended)",
+    "barcodeModeImage": "Image",
+    "barcodeModeHelp": "If the label comes out without bars or with odd characters, choose “Image”: the barcode is then drawn and printed as a picture."
+  }
+}

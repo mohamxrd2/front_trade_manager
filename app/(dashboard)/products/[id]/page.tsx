@@ -50,6 +50,11 @@ import { ImageUploader } from '@/components/media/image-uploader'
 import { MediaImage } from '@/components/media/media-image'
 import { PhotoViewer, ProductPhoto } from '@/components/media/product-photo'
 import { StockHistoryList } from '@/components/products/stock-history-list'
+import { BarcodeField } from '@/components/barcode/barcode-field'
+import { ProductBarcode, VariantBarcode } from '@/components/barcode/product-barcode'
+import { GenerateMissingDialog } from '@/components/barcode/generate-missing-dialog'
+import { generateArticleBarcode, generateVariationBarcode, barcodeErrorMessage } from '@/lib/services/barcodes'
+import { normalizeBarcode, validateBarcode } from '@/lib/barcode/validate'
 import { Button, Card, CardHeader, CardTitle, StatusBadge, SegmentedControl } from '@/components/waelly'
 
 const formatAmount = (value: number, language: AppLanguage): string =>
@@ -133,6 +138,11 @@ export default function ProductDetailPage() {
 
   const [name, setName] = React.useState('')
   const [salePrice, setSalePrice] = React.useState('')
+  const [barcode, setBarcode] = React.useState('')
+  const [barcodeError, setBarcodeError] = React.useState<string | null>(null)
+  const [generatingBarcode, setGeneratingBarcode] = React.useState(false)
+  const [generateVariantsOpen, setGenerateVariantsOpen] = React.useState(false)
+  const [variationBarcodeDraft, setVariationBarcodeDraft] = React.useState('')
   const [savingInfo, setSavingInfo] = React.useState(false)
 
 
@@ -145,6 +155,8 @@ export default function ProductDetailPage() {
     if (article) {
       setName(article.name)
       setSalePrice(String(article.sale_price))
+      setBarcode(article.barcode ?? '')
+      setBarcodeError(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [article?.id])
@@ -199,7 +211,18 @@ export default function ProductDetailPage() {
           setSavingInfo(false)
           return
         }
-        await updateArticle(article.id, { name: name.trim(), sale_price: priceNum, quantity: article.quantity })
+        const code = normalizeBarcode(barcode)
+        if (code) {
+          const check = validateBarcode(code)
+          if (!check.ok) {
+            setBarcodeError(t(`barcode.scanner.invalid.${check.error}`))
+            toast.error(t(`barcode.scanner.invalid.${check.error}`))
+            setSavingInfo(false)
+            return
+          }
+        }
+        setBarcodeError(null)
+        await updateArticle(article.id, { name: name.trim(), sale_price: priceNum, quantity: article.quantity, barcode: code || null })
       } else {
         // Un article variable n'a pas de prix/quantité propres : jamais
         // envoyés ici, ils resteraient ignorés côté backend de toute façon.
@@ -209,11 +232,45 @@ export default function ProductDetailPage() {
       await mutateArticle()
       await Promise.all([invalidateArticles(), invalidateUserStats()])
     } catch (err: unknown) {
-      toast.error((err as Error).message || t('products.detail.errorSaveFailed'))
+      // Code refusé par le serveur (déjà utilisé par « Savon »…) : sous le champ, et en toast.
+      const barcodeMessage = barcodeErrorMessage(err)
+      if (barcodeMessage) setBarcodeError(barcodeMessage)
+      toast.error(barcodeMessage || (err as Error).message || t('products.detail.errorSaveFailed'))
     } finally {
       setSavingInfo(false)
     }
   }
+
+  /** « Générer » dans le champ (fiche existante) : le code est créé tout de suite, jamais par-dessus un code existant. */
+  const handleGenerateBarcode = async () => {
+    if (!article) return
+    setGeneratingBarcode(true)
+    try {
+      const code = await generateArticleBarcode(article.id)
+      setBarcode(code)
+      setBarcodeError(null)
+      toast.success(t('barcode.detail.generated', { code }))
+      await mutateArticle()
+      await invalidateArticles()
+    } catch (err: unknown) {
+      toast.error(barcodeErrorMessage(err) || t('barcode.detail.generateFailed'))
+    } finally {
+      setGeneratingBarcode(false)
+    }
+  }
+
+  const onArticleBarcodeGenerated = async (code: string) => {
+    setBarcode(code)
+    await mutateArticle()
+    await invalidateArticles()
+  }
+
+  const onVariationBarcodeGenerated = (variationId: string) => (code: string) => {
+    setVariations((current) => current.map((v) => (v.id === variationId ? { ...v, barcode: code } : v)))
+    void invalidateArticles()
+  }
+
+  const variationsMissingBarcode = variations.filter((v) => !v.barcode).length
 
   const handleDeleteArticle = async () => {
     if (!article) return
@@ -282,6 +339,13 @@ export default function ProductDetailPage() {
       toast.error(t('products.detail.errorPricePositive'))
       return
     }
+    if (normalizeBarcode(variationBarcodeDraft)) {
+      const check = validateBarcode(variationBarcodeDraft)
+      if (!check.ok) {
+        toast.error(t(`barcode.scanner.invalid.${check.error}`))
+        return
+      }
+    }
     if (!article) return
     setSubmittingVariation(true)
     try {
@@ -291,15 +355,17 @@ export default function ProductDetailPage() {
         quantity: quantityNum,
         price: priceNum,
         image: null,
+        barcode: normalizeBarcode(variationBarcodeDraft) || null,
       })
       toast.success(t('products.detail.toastVariationAdded'))
       setVariationForm({ name: '', quantity: '', price: '' })
+      setVariationBarcodeDraft('')
       setAddVariationOpen(false)
       await mutateArticle()
       await fetchVariations()
       await Promise.all([invalidateArticles(), invalidateUserStats()])
     } catch (err: unknown) {
-      toast.error((err as Error).message || t('products.detail.errorCreateFailed'))
+      toast.error(barcodeErrorMessage(err) || (err as Error).message || t('products.detail.errorCreateFailed'))
     } finally {
       setSubmittingVariation(false)
     }
@@ -490,6 +556,18 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
+          {article.type === 'simple' ? (
+            <ProductBarcode
+              barcode={article.barcode}
+              productName={article.name}
+              price={article.sale_price}
+              canEdit={canEditStock}
+              generate={() => generateArticleBarcode(article.id)}
+              onGenerated={(code) => void onArticleBarcodeGenerated(code)}
+              className="rounded-tile border border-line bg-surface p-3.5"
+            />
+          ) : null}
+
           {article.type === 'variable' ? (
             <div className="flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
@@ -509,6 +587,17 @@ export default function ProductDetailPage() {
               ) : variations.length === 0 ? (
                 <p className="text-sm text-subtle">{t('products.detail.noVariationForArticle')}</p>
               ) : (
+                <>
+                {canEditStock && variationsMissingBarcode > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setGenerateVariantsOpen(true)}
+                    className="inline-flex min-h-11 items-center justify-between gap-2 rounded-tile border border-brand-200 bg-brand-50 px-3.5 text-sm font-bold text-brand-700"
+                  >
+                    <span>{t('barcode.detail.generateMissingVariants')}</span>
+                    <span className="text-xs font-semibold">{t('barcode.detail.variantsMissing', { count: variationsMissingBarcode })}</span>
+                  </button>
+                ) : null}
                 <div className="flex flex-col rounded-tile border border-line bg-surface">
                   {variations.map((variation, i) => (
                     <div
@@ -516,9 +605,18 @@ export default function ProductDetailPage() {
                       className={`flex items-center gap-3 p-3.5 ${i > 0 ? 'border-t border-divider' : ''}`}
                     >
                       {variationThumb(variation, 'size-11')}
-                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className="truncate text-sm font-semibold text-ink">{variation.name}</span>
                         <span className="text-xs text-subtle">{formatAmount(variation.price, language)} {currency}</span>
+                        <VariantBarcode
+                          barcode={variation.barcode}
+                          productName={article.name}
+                          variantName={variation.name}
+                          price={variation.price}
+                          canEdit={canEditStock}
+                          generate={() => generateVariationBarcode(variation.id)}
+                          onGenerated={onVariationBarcodeGenerated(variation.id)}
+                        />
                       </span>
                       {variation.low_stock ? (
                         <span className="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-bold text-warning">
@@ -542,6 +640,7 @@ export default function ProductDetailPage() {
                     </div>
                   ))}
                 </div>
+                </>
               )}
             </div>
           ) : null}
@@ -709,6 +808,19 @@ export default function ProductDetailPage() {
               </span>
             </div>
           </div>
+          {article.type === 'simple' && canEditStock ? (
+            <BarcodeField
+              id="article-barcode"
+              value={barcode}
+              onChange={(value) => {
+                setBarcode(value)
+                setBarcodeError(null)
+              }}
+              error={barcodeError}
+              onGenerate={article.barcode ? undefined : () => void handleGenerateBarcode()}
+              generating={generatingBarcode}
+            />
+          ) : null}
           <div className="flex flex-col gap-2">
             <span className="text-[13px] font-semibold text-ink">{t('products.detail.articleType')}</span>
             <SegmentedControl
@@ -749,10 +861,17 @@ export default function ProductDetailPage() {
               <CardHeader>
                 <CardTitle>{t('products.detail.variationsTitle')}</CardTitle>
                 {canEditStock ? (
-                  <Button variant="secondary" onClick={() => setAddVariationOpen(true)}>
-                    <Plus className="size-4" />
-                    {t('products.detail.addVariation')}
-                  </Button>
+                  <span className="flex flex-wrap gap-2">
+                    {variationsMissingBarcode > 0 ? (
+                      <Button variant="secondary" onClick={() => setGenerateVariantsOpen(true)}>
+                        {t('barcode.detail.generateMissingVariants')}
+                      </Button>
+                    ) : null}
+                    <Button variant="secondary" onClick={() => setAddVariationOpen(true)}>
+                      <Plus className="size-4" />
+                      {t('products.detail.addVariation')}
+                    </Button>
+                  </span>
                 ) : null}
               </CardHeader>
               {loadingVariations ? (
@@ -764,11 +883,12 @@ export default function ProductDetailPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] border-collapse text-sm">
+                  <table className="w-full min-w-[720px] border-collapse text-sm">
                     <thead>
                       <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
                         <th className="px-2 py-2">{t('products.colVariation')}</th>
                         <th className="px-2 py-2">{t('products.colPrice')}</th>
+                        <th className="px-2 py-2">{t('barcode.field.label')}</th>
                         <th className="px-2 py-2">{t('products.colQuantity')}</th>
                         <th className="px-2 py-2">{t('products.colStatus')}</th>
                         <th className="px-2 py-2 text-right">{t('products.colAction')}</th>
@@ -785,6 +905,18 @@ export default function ProductDetailPage() {
                           </td>
                           <td className="px-2 py-2.5 font-semibold text-ink">
                             {formatAmount(variation.price, language)} {currency}
+                          </td>
+                          <td className="px-2 py-2.5">
+                            <VariantBarcode
+                              barcode={variation.barcode}
+                              productName={article.name}
+                              variantName={variation.name}
+                              price={variation.price}
+                              canEdit={canEditStock}
+                              showDrawing
+                              generate={() => generateVariationBarcode(variation.id)}
+                              onGenerated={onVariationBarcodeGenerated(variation.id)}
+                            />
                           </td>
                           <td className="px-2 py-2.5 font-bold text-ink">{variation.remaining_quantity}</td>
                           <td className="px-2 py-2.5">
@@ -836,6 +968,19 @@ export default function ProductDetailPage() {
                   </table>
                 </div>
               )}
+            </Card>
+          ) : null}
+
+          {article.type === 'simple' ? (
+            <Card className="rounded-panel">
+              <ProductBarcode
+                barcode={article.barcode}
+                productName={article.name}
+                price={article.sale_price}
+                canEdit={canEditStock}
+                generate={() => generateArticleBarcode(article.id)}
+                onGenerated={(code) => void onArticleBarcodeGenerated(code)}
+              />
             </Card>
           ) : null}
 
@@ -914,6 +1059,19 @@ export default function ProductDetailPage() {
                   value={salePrice}
                   onChange={(e) => setSalePrice(e.target.value)}
                 />
+                <div className="pt-2">
+                  <BarcodeField
+                    id="mobile-article-barcode"
+                    value={barcode}
+                    onChange={(value) => {
+                      setBarcode(value)
+                      setBarcodeError(null)
+                    }}
+                    error={barcodeError}
+                    onGenerate={article.barcode ? undefined : () => void handleGenerateBarcode()}
+                    generating={generatingBarcode}
+                  />
+                </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -1078,12 +1236,14 @@ export default function ProductDetailPage() {
                 onChange={(e) => setVariationForm({ ...variationForm, price: e.target.value })}
               />
             </div>
+            <BarcodeField id="variation-barcode" value={variationBarcodeDraft} onChange={setVariationBarcodeDraft} />
             <div className="flex justify-end gap-2">
               <Button
                 variant="secondary"
                 onClick={() => {
                   setAddVariationOpen(false)
                   setVariationForm({ name: '', quantity: '', price: '' })
+                  setVariationBarcodeDraft('')
                 }}
               >
                 {t('products.cancel')}
@@ -1095,6 +1255,16 @@ export default function ProductDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <GenerateMissingDialog
+        open={generateVariantsOpen}
+        onOpenChange={setGenerateVariantsOpen}
+        scope={{ articleIds: [article.id] }}
+        onGenerated={() => {
+          void fetchVariations()
+          void invalidateArticles()
+        }}
+      />
 
       <PhotoViewer
         src={viewedVariation?.image}

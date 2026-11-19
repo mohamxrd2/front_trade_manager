@@ -18,6 +18,7 @@ export interface Variation {
   cost_price?: number | null
   low_stock_threshold?: number | null
   image?: string | null
+  barcode?: string | null
   sold_quantity: number
   remaining_quantity: number
   sales_percentage: number
@@ -36,6 +37,7 @@ export interface CreateVariationPayload {
   price: number
   cost_price?: number | null
   image?: string | null
+  barcode?: string | null
 }
 
 /**
@@ -214,6 +216,8 @@ export interface UpdateVariationPayload {
   price: number
   cost_price?: number | null
   image?: string | null
+  /** Absent : inchangé ; vide/null : retiré. */
+  barcode?: string | null
 }
 
 /**

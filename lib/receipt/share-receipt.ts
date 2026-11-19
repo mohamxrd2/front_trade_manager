@@ -104,7 +104,7 @@ export function dataUrlToFile(dataUrl: string, filename: string): File {
   return new File([bytes], filename, { type: mime })
 }
 
-function downloadDataUrl(dataUrl: string, filename: string): void {
+export function downloadDataUrl(dataUrl: string, filename: string): void {
   const link = document.createElement('a')
   link.href = dataUrl
   link.download = filename

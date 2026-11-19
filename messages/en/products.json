@@ -181,7 +181,9 @@
     "statusLowStock": "Low stock",
     "statusAvailable": "Available",
     "shownOfTotal": "{{shown}} item(s) shown out of {{total}}",
-    "genericLoadError": "An error occurred."
+    "genericLoadError": "An error occurred.",
+    "selectPageAria": "Select the items on this page",
+    "selectArticleAria": "Select {{name}}"
   },
   "detail": {
     "variationsLoadError": "Error loading variants",

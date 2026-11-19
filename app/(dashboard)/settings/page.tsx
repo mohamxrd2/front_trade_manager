@@ -62,6 +62,8 @@ import {
   writePrintQr,
   readCutPaper,
   writeCutPaper,
+  readLabelBarcodeMode,
+  writeLabelBarcodeMode,
   type DefaultPrintMode,
 } from '@/lib/receipt/printer-preferences'
 import { ReceiptView } from '@/components/waelly/receipt-view'
@@ -685,6 +687,7 @@ function BluetoothPrinterSection({
   const [printQr, setPrintQrState] = React.useState(false)
   const [charsetTesting, setCharsetTesting] = React.useState(false)
   const [cutPaper, setCutPaperState] = React.useState(false)
+  const [labelBarcodeMode, setLabelBarcodeModeState] = React.useState<'native' | 'image'>('native')
   const [testPrinting, setTestPrinting] = React.useState(false)
 
   const status = useBluetoothPrinterStore((s) => s.status)
@@ -703,6 +706,7 @@ function BluetoothPrinterSection({
     setPrintLogoState(readPrintLogo())
     setPrintQrState(readPrintQr())
     setCutPaperState(readCutPaper())
+    setLabelBarcodeModeState(readLabelBarcodeMode())
     init()
   }, [init])
 
@@ -945,6 +949,31 @@ function BluetoothPrinterSection({
           },
           true
         )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span id={`${idPrefix}-label-barcode-mode`} className="text-[13px] font-semibold text-ink">
+          {t('barcode.settings.barcodeMode')}
+        </span>
+        <div role="group" aria-labelledby={`${idPrefix}-label-barcode-mode`} className="flex flex-wrap gap-2">
+          {(['native', 'image'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => {
+                setLabelBarcodeModeState(mode)
+                writeLabelBarcodeMode(mode)
+              }}
+              aria-pressed={labelBarcodeMode === mode}
+              className={`flex min-h-11 flex-1 items-center justify-center rounded-field border px-3 text-center text-sm font-semibold ${
+                labelBarcodeMode === mode ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-line-strong text-ink-2'
+              }`}
+            >
+              {mode === 'native' ? t('barcode.settings.barcodeModeNative') : t('barcode.settings.barcodeModeImage')}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-subtle">{t('barcode.settings.barcodeModeHelp')}</span>
       </div>
     </div>
   )

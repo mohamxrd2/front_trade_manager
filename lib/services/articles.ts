@@ -45,6 +45,8 @@ export interface Variation {
   cost_price?: number | null
   low_stock_threshold?: number | null
   image?: string | null
+  /** Code-barre de la variante (unique dans le compte). */
+  barcode?: string | null
   sold_quantity: number
   remaining_quantity: number
   sales_percentage: number
@@ -68,6 +70,8 @@ export interface Article {
   quantity: number
   type: 'simple' | 'variable'
   image?: string | null
+  /** Code-barre d'un article simple (unique dans le compte) — un article à variantes n'en a pas, ses variantes oui. */
+  barcode?: string | null
   sold_quantity: number
   remaining_quantity: number
   sales_percentage: number
@@ -88,6 +92,7 @@ export interface VariationInput {
   cost_price?: number | null
   /** Photo de la variation, envoyée avant la création. */
   image_media_id?: string | null
+  barcode?: string | null
 }
 
 /**
@@ -101,6 +106,7 @@ export interface SimpleArticlePayload {
   image?: string | null
   /** Photo envoyée avant la création (POST /api/media sans owner_id). */
   image_media_id?: string | null
+  barcode?: string | null
 }
 
 /**
@@ -125,6 +131,8 @@ export interface UpdateSimpleArticlePayload {
   sale_price: number
   quantity: number
   image?: string | null
+  /** Absent : inchangé ; vide/null : retiré. */
+  barcode?: string | null
 }
 
 /**
