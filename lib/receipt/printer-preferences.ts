@@ -146,10 +146,10 @@ export function writeCutPaper(value: boolean): void {
 }
 
 /**
- * Impression automatique après chaque vente, réglée SUR CET APPAREIL (le
- * caissier ne peut pas modifier les réglages du ticket de l'entreprise).
- * `null` : pas de choix sur cet appareil → le réglage de l'entreprise
- * (receipt_settings.auto_print) s'applique.
+ * Impression automatique après chaque vente, SUR CET APPAREIL — liée à
+ * l'imprimante de l'appareil : activée automatiquement à chaque connexion
+ * d'une imprimante (voir lib/stores/bluetooth-printer.ts), désactivable à la
+ * main ensuite. `null` : jamais réglé.
  */
 export function readAutoPrintPreference(): boolean | null {
   const raw = readLocalStorage(AUTO_PRINT_KEY)
@@ -162,8 +162,11 @@ export function writeAutoPrintPreference(value: boolean): void {
   writeLocalStorage(AUTO_PRINT_KEY, value ? '1' : '0')
 }
 
-/** Choix de l'appareil s'il existe, sinon réglage de l'entreprise. */
-export function resolveAutoPrint(devicePreference: boolean | null, accountSetting: boolean | null | undefined): boolean {
-  return devicePreference ?? accountSetting ?? false
+/**
+ * Impression automatique effective : jamais sans imprimante connectée ; avec
+ * une imprimante connectée, active sauf si on l'a coupée sur cet appareil.
+ */
+export function resolveAutoPrint(printerConnected: boolean, devicePreference: boolean | null): boolean {
+  return printerConnected && devicePreference !== false
 }
 

@@ -411,7 +411,6 @@ const RECEIPT_TOGGLES: { key: keyof ReceiptSettings; labelKey: string }[] = [
   { key: 'show_tax_id', labelKey: 'settings.receipt.showTaxId' },
   { key: 'show_qr', labelKey: 'settings.receipt.showQr' },
   { key: 'show_waelly_mention', labelKey: 'settings.receipt.showWaellyMention' },
-  { key: 'auto_print', labelKey: 'settings.receipt.autoPrint' },
 ]
 
 /** Réglages "Ticket de caisse" + aperçu en direct — réutilisé onglet ordinateur / bottom sheet mobile (même principe que CompanyFields). */
@@ -491,7 +490,7 @@ function ReceiptSettingsFields({
             {isIOSDevice ? (
               <p className="text-xs text-subtle">{t('settings.receipt.autoPrintUnavailableIos')}</p>
             ) : (
-              <DeviceAutoPrintToggle idPrefix={idPrefix} accountAutoPrint={draft.auto_print} t={t} />
+              <DeviceAutoPrintToggle idPrefix={idPrefix} t={t} />
             )}
           </>
         ) : (
@@ -517,15 +516,6 @@ function ReceiptSettingsFields({
 
             <div className="flex flex-col">
               {RECEIPT_TOGGLES.map((toggle) => {
-                // iPhone : impression automatique impossible (le partage exige un geste).
-                if (toggle.key === 'auto_print' && isIOSDevice) {
-                  return (
-                    <div key={toggle.key} className="flex flex-col gap-0.5 border-b border-line py-2.5 last:border-b-0">
-                      <span className="text-sm font-semibold text-ink-3">{t(toggle.labelKey)}</span>
-                      <span className="text-xs text-subtle">{t('settings.receipt.autoPrintUnavailableIos')}</span>
-                    </div>
-                  )
-                }
                 const on = Boolean(draft[toggle.key])
                 return (
                   <div key={toggle.key} className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0">
@@ -552,6 +542,15 @@ function ReceiptSettingsFields({
                   </div>
                 )
               })}
+              {/* Impression automatique : réglage de CET APPAREIL, lié à son imprimante (plus un réglage d'entreprise). */}
+              {isIOSDevice ? (
+                <div className="flex flex-col gap-0.5 py-2.5">
+                  <span className="text-sm font-semibold text-ink-3">{t('settings.receipt.autoPrint')}</span>
+                  <span className="text-xs text-subtle">{t('settings.receipt.autoPrintUnavailableIos')}</span>
+                </div>
+              ) : (
+                <DeviceAutoPrintToggle idPrefix={idPrefix} t={t} />
+              )}
             </div>
 
             <div className="flex flex-col gap-2">
@@ -612,40 +611,39 @@ function ReceiptSettingsFields({
 }
 
 /**
- * « Imprimer automatiquement après chaque vente » SUR CET APPAREIL — pour le
- * caissier, qui ne modifie pas les réglages du ticket de l'entreprise. Par
- * défaut, suit le réglage de l'entreprise (receipt_settings.auto_print).
+ * « Imprimer automatiquement après chaque vente » SUR CET APPAREIL (propriétaire
+ * comme caissier) — liée à l'imprimante : désactivée et grisée sans imprimante
+ * connectée, activée automatiquement dès qu'une imprimante se connecte,
+ * désactivable ensuite.
  */
-function DeviceAutoPrintToggle({
-  idPrefix,
-  accountAutoPrint,
-  t,
-}: {
-  idPrefix: string
-  accountAutoPrint: boolean
-  t: ReturnType<typeof useTranslation>['t']
-}) {
+function DeviceAutoPrintToggle({ idPrefix, t }: { idPrefix: string; t: ReturnType<typeof useTranslation>['t'] }) {
+  const connected = useBluetoothPrinterStore((s) => s.status === 'connected')
   const [devicePreference, setDevicePreference] = React.useState<boolean | null>(null)
-  React.useEffect(() => setDevicePreference(readAutoPrintPreference()), [])
-  const on = resolveAutoPrint(devicePreference, accountAutoPrint)
+  // Relu à chaque changement de connexion : une connexion vient de la réactiver.
+  React.useEffect(() => setDevicePreference(readAutoPrintPreference()), [connected])
+  const on = resolveAutoPrint(connected, devicePreference)
   const id = `${idPrefix}-device-auto-print`
 
   return (
     <div className="flex items-center gap-3 border-b border-line py-2.5">
       <span id={id} className="flex flex-1 flex-col gap-0.5">
-        <span className="text-sm font-semibold text-ink">{t('settings.receipt.deviceAutoPrintLabel')}</span>
-        <span className="text-xs text-subtle">{t('settings.receipt.deviceAutoPrintHint')}</span>
+        <span className={`text-sm font-semibold ${connected ? 'text-ink' : 'text-ink-3'}`}>{t('settings.receipt.deviceAutoPrintLabel')}</span>
+        <span className="text-xs text-subtle">
+          {connected ? t('settings.receipt.deviceAutoPrintHint') : t('settings.receipt.deviceAutoPrintNoPrinter')}
+        </span>
       </span>
       <button
         type="button"
         role="switch"
         aria-checked={on}
         aria-labelledby={id}
+        disabled={!connected}
+        data-auto-print={on ? 'on' : 'off'}
         onClick={() => {
           writeAutoPrintPreference(!on)
           setDevicePreference(!on)
         }}
-        className="flex shrink-0 p-[3px]"
+        className="flex shrink-0 p-[3px] disabled:cursor-not-allowed disabled:opacity-50"
         style={{ width: 50, height: 30, borderRadius: 15, justifyContent: on ? 'flex-end' : 'flex-start', background: on ? '#5B3FE6' : '#C9C9D6' }}
       >
         <span className="rounded-full bg-white" style={{ width: 24, height: 24, boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />

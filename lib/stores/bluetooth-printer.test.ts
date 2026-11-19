@@ -195,6 +195,29 @@ describe('mode d’impression par défaut', () => {
   })
 })
 
+describe('impression automatique après une vente', () => {
+  test('imprimante connectée à la main : activée automatiquement, même si elle avait été coupée', async () => {
+    localStorage.setItem('waelly-auto-print', '0')
+    stubBluetooth({ chosen: fakePrinter() })
+    await store().connect()
+    expect(localStorage.getItem('waelly-auto-print')).toBe('1')
+  })
+
+  test('reconnexion silencieuse au chargement : activée aussi', async () => {
+    const printer = fakePrinter()
+    remember('imp-1', 'PT-210')
+    stubBluetooth({ known: [printer] })
+    await store().init()
+    expect(localStorage.getItem('waelly-auto-print')).toBe('1')
+  })
+
+  test('fenêtre fermée sans imprimante : rien n’est activé', async () => {
+    stubBluetooth({ chosen: null })
+    await store().connect()
+    expect(localStorage.getItem('waelly-auto-print')).toBeNull()
+  })
+})
+
 describe('impression', () => {
   test('connectée : les blocs partent à l’imprimante ; non connectée : refus clair', async () => {
     const printer = fakePrinter()
