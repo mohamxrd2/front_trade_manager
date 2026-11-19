@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react'
 import * as React from 'react'
 
 import { createWedgeDetector, useBarcodeWedge } from '@/hooks/useBarcodeWedge'
-import { createDuplicateFilter } from './camera'
+import { createDuplicateFilter, createReadConfirmer, scanRegions } from './camera'
 import { addScannedToCart, articleHasBarcode, findByBarcode, missingBarcodeCount } from './scan-to-cart'
 import { useCartStore } from '@/lib/stores/cart'
 import type { Article, Variation } from '@/lib/services/articles'
@@ -186,5 +186,49 @@ describe('« Générer les codes manquants » : seulement s’il manque un code'
     expect(missingBarcodeCount([...articles, lait])).toBe(1)
     expect(missingBarcodeCount([soap, pagneSansBleu, lait])).toBe(2)
     expect(missingBarcodeCount([])).toBe(0)
+  })
+})
+
+describe('zones analysées par la caméra', () => {
+  test('image entière, puis le centre agrandi 2× et 3× (code petit dans l’image), sans dépasser 1600 px', () => {
+    const [full, center, zoom] = scanRegions(1280, 720)
+    expect(full).toEqual({ sx: 0, sy: 0, sw: 1280, sh: 720, width: 1280, height: 720 })
+    expect(center).toMatchObject({ sw: 1024, sh: 360, sx: 128, sy: 180 })
+    expect(center.width).toBe(1600) // 2× plafonné à 1600 px
+    expect(zoom).toMatchObject({ sw: 640, sh: 252, sx: 320, sy: 234, width: 1600, height: 630 })
+    const [fullHd] = scanRegions(1920, 1080)
+    expect(fullHd.width).toBe(1600)
+  })
+})
+
+describe('caméra : un code n’est accepté que relu à l’identique', () => {
+  test('EAN-13 : 2 lectures identiques ; une lecture isolée (fausse) n’est jamais rendue', () => {
+    let now = 0
+    const confirm = createReadConfirmer(2000, () => now)
+    expect(confirm('5449000000996')).toBe(false)
+    now = 120
+    expect(confirm('5449000000996')).toBe(true)
+    now = 240
+    expect(confirm('5449000000996')).toBe(false) // déjà rendu : pas une seconde fois
+  })
+
+  test('code de 8 chiffres (risque de lecture partielle d’un EAN-13) : 3 lectures', () => {
+    let now = 0
+    const confirm = createReadConfirmer(2000, () => now)
+    expect(confirm('23228733')).toBe(false)
+    now = 100
+    expect(confirm('23228733')).toBe(false)
+    now = 200
+    expect(confirm('23228733')).toBe(true)
+  })
+
+  test('lectures trop espacées : oubliées', () => {
+    let now = 0
+    const confirm = createReadConfirmer(2000, () => now)
+    confirm('5449000000996')
+    now = 2500
+    expect(confirm('5449000000996')).toBe(false)
+    now = 2600
+    expect(confirm('5449000000996')).toBe(true)
   })
 })
