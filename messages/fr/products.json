@@ -183,7 +183,8 @@
     "shownOfTotal": "{{shown}} article(s) affiché(s) sur {{total}}",
     "genericLoadError": "Une erreur est survenue.",
     "selectPageAria": "Sélectionner les articles de la page",
-    "selectArticleAria": "Sélectionner {{name}}"
+    "selectArticleAria": "Sélectionner {{name}}",
+    "statusOutOfStock": "Rupture de stock"
   },
   "detail": {
     "variationsLoadError": "Erreur lors du chargement des variations",
@@ -255,7 +256,8 @@
     "errorStockAddFailed": "Échec de l'ajout de stock",
     "errorQuantityPositive": "La quantité doit être positive ou nulle",
     "errorPricePositive": "Le prix doit être supérieur à 0",
-    "errorCreateFailed": "Erreur lors de la création"
+    "errorCreateFailed": "Erreur lors de la création",
+    "outBadge": "Rupture"
   },
   "new": {
     "validationNameMin": "Le nom est obligatoire (2 caractères minimum)",

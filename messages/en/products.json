@@ -183,7 +183,8 @@
     "shownOfTotal": "{{shown}} item(s) shown out of {{total}}",
     "genericLoadError": "An error occurred.",
     "selectPageAria": "Select the items on this page",
-    "selectArticleAria": "Select {{name}}"
+    "selectArticleAria": "Select {{name}}",
+    "statusOutOfStock": "Out of stock"
   },
   "detail": {
     "variationsLoadError": "Error loading variants",
@@ -255,7 +256,8 @@
     "errorStockAddFailed": "Failed to add stock",
     "errorQuantityPositive": "Quantity must be positive or zero",
     "errorPricePositive": "Price must be greater than 0",
-    "errorCreateFailed": "Error creating"
+    "errorCreateFailed": "Error creating",
+    "outBadge": "Out"
   },
   "new": {
     "validationNameMin": "Name is required (2 characters minimum)",
