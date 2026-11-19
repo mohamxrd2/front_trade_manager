@@ -15,13 +15,13 @@ import { useBluetoothPrinterStore } from '@/lib/stores/bluetooth-printer'
 import { getPlatformInfo, isShareOnlyPlatform, type PlatformInfo } from '@/lib/receipt/platform'
 import { readCutPaper, readLabelBarcodeMode, readLabelBarcodeSize, readPrinterCharset, writeLabelBarcodeSize } from '@/lib/receipt/printer-preferences'
 import { printerDotsFor } from '@/lib/receipt/escpos/raster'
-import { dataUrlToFile, downloadDataUrl, renderThermalReceiptPng } from '@/lib/receipt/share-receipt'
+import { dataUrlToFile, downloadDataUrl } from '@/lib/receipt/share-receipt'
 import { shareFileNow } from '@/lib/receipt/ios-share'
-import { encodeLabelEscPosBlocks, labelBarcodeGeometry, LABEL_BARCODE_SIZE_SPEC, LABEL_BARCODE_SIZES, MAX_LABEL_COPIES, type LabelBarcodeSize } from '@/lib/barcode/label-escpos'
-import { encodeBarcode } from '@/lib/barcode/symbology'
+import { encodeLabelEscPosBlocks, labelBitmapsOf, MAX_LABEL_COPIES } from '@/lib/barcode/label-escpos'
+import { DOTS_PER_MM, LABEL_BARCODE_SIZES, LABEL_SIZE_SPEC, type LabelBarcodeSize } from '@/lib/barcode/label-layout'
+import { renderLabel, type RenderedLabel } from '@/lib/barcode/label-render'
 import { PrinterStatus } from '@/components/printer/printer-status'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { BarcodeSvg } from './barcode-svg'
 
 export interface LabelProduct {
   productName: string
@@ -38,14 +38,8 @@ interface LabelPrintDialogProps {
 
 /** Largeur d'affichage de l'aperçu (≈ largeur imprimable du papier). */
 const PREVIEW_WIDTH = { '58mm': 'w-[220px]', '80mm': 'w-[300px]' } as const
-const PREVIEW_PX = { '58mm': 220, '80mm': 300 } as const
-/** 8 points = 1 mm (imprimantes thermiques 203 dpi). */
-const DOTS_PER_MM = 8
-const LABEL_SIZE_HEIGHT_MM: Record<LabelBarcodeSize, number> = {
-  small: LABEL_BARCODE_SIZE_SPEC.small.heightDots / DOTS_PER_MM,
-  medium: LABEL_BARCODE_SIZE_SPEC.medium.heightDots / DOTS_PER_MM,
-  large: LABEL_BARCODE_SIZE_SPEC.large.heightDots / DOTS_PER_MM,
-}
+/** Hauteur des barres affichée sur chaque choix de taille (mm). */
+const barHeightMm = (size: LabelBarcodeSize) => Math.round(LABEL_SIZE_SPEC[size].barHeight / DOTS_PER_MM)
 
 /**
  * Étiquette produit : aperçu, nombre d'exemplaires, impression Bluetooth
@@ -58,13 +52,11 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
   const status = useBluetoothPrinterStore((s) => s.status)
   const print = useBluetoothPrinterStore((s) => s.print)
   const init = useBluetoothPrinterStore((s) => s.init)
-  const previewRef = React.useRef<HTMLDivElement>(null)
 
   const [platform, setPlatform] = React.useState<PlatformInfo | null>(null)
   const [copies, setCopies] = React.useState(1)
   const [size, setSize] = React.useState<LabelBarcodeSize>('medium')
   const [printing, setPrinting] = React.useState(false)
-  const [prepared, setPrepared] = React.useState<{ dataUrl: string; file: File } | null>(null)
   const [fallbackImage, setFallbackImage] = React.useState<string | null>(null)
 
   const { data: receiptSettings } = useQuery({
@@ -79,7 +71,6 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
   React.useEffect(() => {
     if (!open) {
       setCopies(1)
-      setPrepared(null)
       setFallbackImage(null)
       return
     }
@@ -88,20 +79,24 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
     void init()
   }, [open, init])
 
-  // Aperçu à l'échelle du papier : même largeur de barres et même hauteur que l'impression.
-  const geometry = React.useMemo(() => {
-    if (!product) return null
+  // L'étiquette dessinée au point d'imprimante près : l'aperçu, le partage et l'impression utilisent ces mêmes images.
+  const rendered = React.useMemo<RenderedLabel | null>(() => {
+    if (!open || !product || typeof document === 'undefined') return null
     try {
-      return labelBarcodeGeometry(encodeBarcode(product.barcode), printerDotsFor(width), size)
+      return renderLabel({ productName: product.productName, variantName: product.variantName, price: priceText, barcode: product.barcode }, printerDotsFor(width), size)
     } catch {
       return null
     }
-  }, [product, width, size])
-  const previewScale = PREVIEW_PX[width] / printerDotsFor(width)
+  }, [open, product, priceText, width, size])
+  // Image prête AVANT le clic : Safari n'ouvre la feuille de partage que pendant le geste.
+  const prepared = React.useMemo(() => {
+    if (!rendered) return null
+    const dataUrl = rendered.full.toDataURL('image/png')
+    return { dataUrl, file: dataUrlToFile(dataUrl, filename) }
+  }, [rendered, filename])
 
   const chooseSize = (next: LabelBarcodeSize) => {
     setSize(next)
-    setPrepared(null)
     writeLabelBarcodeSize(next)
   }
 
@@ -125,7 +120,7 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
           >
             <span className="text-sm font-bold">{t(`barcode.label.sizes.${option}`)}</span>
             <span className="text-[11px] font-semibold opacity-80">
-              {t('barcode.label.sizeHeight', { height: Math.round(LABEL_SIZE_HEIGHT_MM[option]) })}
+              {t('barcode.label.sizeHeight', { height: barHeightMm(option) })}
             </span>
           </button>
         ))}
@@ -136,33 +131,17 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
   const shareOnly = platform !== null && (isShareOnlyPlatform(platform) || !platform.bluetooth)
   const connected = status === 'connected'
 
-  // Partage : image préparée À L'AVANCE — Safari n'ouvre la feuille de partage que pendant le geste.
-  React.useEffect(() => {
-    if (!open || !product || platform === null) return
-    let cancelled = false
-    const timer = window.setTimeout(async () => {
-      if (!previewRef.current) return
-      try {
-        const dataUrl = await renderThermalReceiptPng(previewRef.current, printerDotsFor(width))
-        if (!cancelled) setPrepared({ dataUrl, file: dataUrlToFile(dataUrl, filename) })
-      } catch {
-        // Le bouton reste utilisable : l'image sera faite au clic (hors iPhone).
-      }
-    }, 150)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
-  }, [open, product, platform, width, priceText, filename, size])
-
   const handlePrint = async () => {
-    if (!product) return
+    if (!rendered) return
     setPrinting(true)
     try {
-      const blocks = encodeLabelEscPosBlocks(
-        { productName: product.productName, variantName: product.variantName, price: priceText, barcode: product.barcode },
-        { width, copies, charset: readPrinterCharset(), cutPaper: readCutPaper(), barcodeMode: readLabelBarcodeMode(), barcodeSize: size }
-      )
+      const blocks = encodeLabelEscPosBlocks(labelBitmapsOf(rendered), {
+        width,
+        copies,
+        charset: readPrinterCharset(),
+        cutPaper: readCutPaper(),
+        barcodeMode: readLabelBarcodeMode(),
+      })
       const result = await print(blocks)
       if (result.ok) {
         toast.success(t('barcode.label.printed', { count: copies }))
@@ -176,17 +155,10 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
   }
 
   const handleShare = async () => {
-    let ready = prepared
+    const ready = prepared
     if (!ready) {
-      if (!previewRef.current) return
-      try {
-        const dataUrl = await renderThermalReceiptPng(previewRef.current, printerDotsFor(width))
-        ready = { dataUrl, file: dataUrlToFile(dataUrl, filename) }
-        setPrepared(ready)
-      } catch {
-        toast.error(t('barcode.label.shareFailed'))
-        return
-      }
+      toast.error(t('barcode.label.shareFailed'))
+      return
     }
     const outcome = await shareFileNow(ready.file, t('barcode.label.fallbackTitle'))
     if (outcome === 'retry') toast(t('barcode.label.shareRetry'))
@@ -274,22 +246,17 @@ export function LabelPrintDialog({ open, onOpenChange, product }: LabelPrintDial
                   <p className="text-center text-[13px] text-subtle">{t('barcode.label.fallbackHint')}</p>
                 </>
               ) : (
-                <div
-                  ref={previewRef}
-                  data-label-preview
-                  className={cn(PREVIEW_WIDTH[width], 'flex flex-col items-center gap-1 bg-white px-2 py-3 text-center text-black shadow-card')}
-                >
-                  <span className="w-full break-words text-[14px] font-bold leading-tight">{product.productName}</span>
-                  {product.variantName ? <span className="w-full break-words text-[13px] leading-tight">{product.variantName}</span> : null}
-                  <span className="text-[20px] font-extrabold leading-tight">{priceText}</span>
-                  <BarcodeSvg
-                    value={product.barcode}
-                    barHeight={geometry ? geometry.heightDots / geometry.moduleDots : 36}
-                    className="mt-1 max-w-full"
-                    style={geometry ? { width: `${Math.round(geometry.widthDots * previewScale)}px` } : { width: '100%' }}
-                    label={t('barcode.detail.drawingAria', { code: product.barcode })}
+                prepared ? (
+                  // L'image exacte qui sera imprimée (largeur du papier, 8 points = 1 mm).
+                  // eslint-disable-next-line @next/next/no-img-element -- image générée localement (data:)
+                  <img
+                    src={prepared.dataUrl}
+                    data-label-preview
+                    data-label-size={size}
+                    alt={t('barcode.detail.drawingAria', { code: product.barcode })}
+                    className={cn(PREVIEW_WIDTH[width], 'bg-white shadow-card')}
                   />
-                </div>
+                ) : null
               )}
             </section>
 

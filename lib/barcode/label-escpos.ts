@@ -1,28 +1,37 @@
-import { DEFAULT_PRINTER_CHARSET, ESC_T_CODE, encodeTextForCharset, type PrinterCharset } from '@/lib/receipt/escpos/charsets'
-import { DEFAULT_MAX_BLOCK_BYTES, textBlock } from '@/lib/receipt/escpos-encoder'
+import { DEFAULT_PRINTER_CHARSET, ESC_T_CODE, type PrinterCharset } from '@/lib/receipt/escpos/charsets'
+import { DEFAULT_MAX_BLOCK_BYTES } from '@/lib/receipt/escpos-encoder'
 import { printerDotsFor, rasterCommands, type MonoBitmap } from '@/lib/receipt/escpos/raster'
-import { encodeBarcode, type EncodedBarcode } from './symbology'
+import type { EncodedBarcode } from './symbology'
+
+export { LABEL_BARCODE_SIZES, LABEL_SIZE_SPEC, type LabelBarcodeSize } from './label-layout'
 
 /**
- * Étiquette produit pour l'imprimante à tickets (58/80 mm) : nom (+ variante),
- * prix, code-barre et son numéro dessous.
+ * Étiquette produit pour l'imprimante à tickets (58/80 mm).
  *
- * Code-barre :
- * - « native » : commande GS k de l'imprimante (EAN-13 si c'est un EAN-13,
- *   sinon CODE128) — net, rapide ;
- * - « image » : barres dessinées puis imprimées en raster (GS v 0), pour les
- *   imprimantes qui ignorent GS k (réglage dans les Paramètres).
- * Même encodage du texte que les tickets (table de caractères choisie).
+ * Tout est imprimé aux dimensions de la mise en page (lib/barcode/label-layout.ts),
+ * au point près : nom, variante, prix et numéro en IMAGE (les polices de
+ * l'imprimante ont une taille fixe, impossible à faire correspondre à la
+ * taille choisie), les espaces en avance papier exacte (ESC J n).
+ * Barres :
+ * - « native » : commande GS k (EAN13 si c'est un EAN-13, sinon CODE128),
+ *   sans numéro imprimé par l'imprimante (il est dessiné juste dessous) ;
+ * - « image » : barres en raster (GS v 0), pour les imprimantes qui ignorent GS k.
+ * Barres, texte et numéro ont la même largeur et sont centrés sur le même axe.
  */
 
 export type LabelBarcodeMode = 'native' | 'image'
 
-export interface LabelContent {
-  productName: string
-  variantName?: string | null
-  /** Prix déjà formaté au format de la boutique (« 2 500 FCFA »). */
-  price: string
-  barcode: string
+/** Images et dimensions d'une étiquette, produites par renderLabel(). */
+export interface LabelBitmaps {
+  encoded: EncodedBarcode
+  header: MonoBitmap
+  bars: MonoBitmap
+  number: MonoBitmap
+  moduleDots: number
+  barHeight: number
+  /** Espace (points) entre le prix et les barres, puis entre les barres et le numéro. */
+  headerGap: number
+  numberGap: number
 }
 
 export interface LabelEncodeOptions {
@@ -31,51 +40,30 @@ export interface LabelEncodeOptions {
   copies?: number
   cutPaper?: boolean
   barcodeMode?: LabelBarcodeMode
-  barcodeSize?: LabelBarcodeSize
   maxBlockBytes?: number
 }
 
 export const MAX_LABEL_COPIES = 50
+/** Espace entre deux étiquettes : 4 mm. */
+export const LABEL_SPACING_DOTS = 32
 
 const ESC = 0x1b
 const GS = 0x1d
 const LF = 0x0a
 
-/** Taille du code-barre sur l'étiquette (choisie à l'impression). */
-export type LabelBarcodeSize = 'small' | 'medium' | 'large'
-export const LABEL_BARCODE_SIZES: LabelBarcodeSize[] = ['small', 'medium', 'large']
-
-/**
- * Hauteur des barres (points, 8 points = 1 mm à 203 dpi) et largeur maximale
- * d'une barre fine (points). La largeur réelle reste bornée par le papier :
- * un code plus large que le papier ne se lirait plus.
- */
-export const LABEL_BARCODE_SIZE_SPEC: Record<LabelBarcodeSize, { heightDots: number; maxModuleDots: number }> = {
-  small: { heightDots: 48, maxModuleDots: 2 }, // 6 mm
-  medium: { heightDots: 80, maxModuleDots: 3 }, // 10 mm
-  large: { heightDots: 120, maxModuleDots: 4 }, // 15 mm
+/** Avance du papier de `dots` points exactement (ESC J n, n ≤ 255). */
+export function feedDots(dots: number): Uint8Array[] {
+  const blocks: Uint8Array[] = []
+  for (let left = Math.round(dots); left > 0; left -= 255) blocks.push(Uint8Array.from([ESC, 0x4a, Math.min(255, left)]))
+  return blocks
 }
 
-/** Hauteur des barres par défaut (taille « moyenne »). */
-export const LABEL_BARCODE_HEIGHT_DOTS = LABEL_BARCODE_SIZE_SPEC.medium.heightDots
-
-/** Dimensions réelles du code imprimé (points) : la même pour GS k, l'image et l'aperçu. */
-export function labelBarcodeGeometry(encoded: EncodedBarcode, paperDots: number, size: LabelBarcodeSize = 'medium') {
-  const spec = LABEL_BARCODE_SIZE_SPEC[size]
-  const totalModules = encoded.modules.length + encoded.quietLeft + encoded.quietRight
-  const moduleDots = Math.max(1, Math.min(spec.maxModuleDots, Math.floor(paperDots / totalModules)))
-  return { moduleDots, heightDots: spec.heightDots, widthDots: Math.min(paperDots, totalModules * moduleDots), totalModules }
-}
-
-/** GS k (format 2 : m n d1…dn) avec ses réglages : HRI dessous, hauteur, largeur de module. */
-export function nativeBarcodeCommand(encoded: EncodedBarcode, paperDots: number, charset: PrinterCharset, size: LabelBarcodeSize = 'medium'): Uint8Array {
-  // Largeur de module (GS w accepte 2 à 6 partout ; 1 sur beaucoup) et hauteur selon la taille choisie.
-  const { moduleDots, heightDots } = labelBarcodeGeometry(encoded, paperDots, size)
+/** GS k (format 2 : m n d1…dn) : barres seules, hauteur et largeur de barre fine imposées, centrées, sans numéro. */
+export function nativeBarcodeCommand(encoded: EncodedBarcode, moduleDots: number, barHeight: number): Uint8Array {
   const setup = [
-    ESC, 0x61, 1, // centré
-    GS, 0x48, 2, // numéro (HRI) sous les barres
-    GS, 0x66, 0, // police A pour le numéro
-    GS, 0x68, heightDots,
+    ESC, 0x61, 1, // centré (même axe que les images, centrées sur le papier)
+    GS, 0x48, 0, // pas de numéro imprimé par l'imprimante : il est dessiné dessous, à la bonne taille
+    GS, 0x68, barHeight,
     GS, 0x77, moduleDots,
   ]
   let data: number[]
@@ -85,51 +73,59 @@ export function nativeBarcodeCommand(encoded: EncodedBarcode, paperDots: number,
     data = [...encoded.text].map((c) => c.charCodeAt(0))
   } else {
     m = 73 // CODE128, jeu B annoncé par « {B »
-    data = [0x7b, 0x42, ...encodeTextForCharset(encoded.text, charset)]
+    data = [0x7b, 0x42, ...[...encoded.text].map((c) => c.charCodeAt(0))]
   }
-  return Uint8Array.from([...setup, GS, 0x6b, m, data.length, ...data, LF])
+  return Uint8Array.from([...setup, GS, 0x6b, m, data.length, ...data, ESC, 0x61, 0])
 }
 
-/** Barres → image 1 bit, `moduleDots` points par module, marges blanches comprises. */
-export function barcodeBitmap(encoded: EncodedBarcode, paperDots: number, size: LabelBarcodeSize = 'medium'): MonoBitmap {
-  const { moduleDots, heightDots, widthDots: width } = labelBarcodeGeometry(encoded, paperDots, size)
-  const row: boolean[] = []
-  for (let x = 0; x < width; x++) {
-    const index = Math.floor(x / moduleDots) - encoded.quietLeft
-    row.push(index >= 0 && index < encoded.modules.length && encoded.modules[index])
-  }
-  return { width, height: heightDots, pixels: Array.from({ length: heightDots }, () => row) }
-}
-
-/** Blocs ESC/POS de `copies` étiquettes à la suite (un petit espace, et une coupe si l'imprimante en a une). */
-export function encodeLabelEscPosBlocks(label: LabelContent, options: LabelEncodeOptions = {}): Uint8Array[] {
+/** Blocs ESC/POS de `copies` étiquettes à la suite (4 mm entre deux, et une coupe si l'imprimante en a une). */
+export function encodeLabelEscPosBlocks(label: LabelBitmaps, options: LabelEncodeOptions = {}): Uint8Array[] {
   const {
     width = '58mm',
     charset = DEFAULT_PRINTER_CHARSET,
     copies = 1,
     cutPaper = false,
     barcodeMode = 'native',
-    barcodeSize = 'medium',
     maxBlockBytes = DEFAULT_MAX_BLOCK_BYTES,
   } = options
   const paperDots = printerDotsFor(width)
-  const encoded = encodeBarcode(label.barcode)
   const count = Math.max(1, Math.min(MAX_LABEL_COPIES, Math.floor(copies)))
 
   const blocks: Uint8Array[] = [Uint8Array.from([ESC, 0x40, ESC, 0x74, ESC_T_CODE[charset]])]
   for (let copy = 0; copy < count; copy++) {
-    blocks.push(textBlock(label.productName, charset, { align: 'center', bold: true }))
-    if (label.variantName) blocks.push(textBlock(label.variantName, charset, { align: 'center' }))
-    blocks.push(textBlock(label.price, charset, { align: 'center', bold: true, doubleHeight: true }))
+    blocks.push(...rasterCommands(label.header, paperDots, maxBlockBytes))
+    blocks.push(...feedDots(label.headerGap))
     if (barcodeMode === 'native') {
-      blocks.push(nativeBarcodeCommand(encoded, paperDots, charset, barcodeSize))
+      blocks.push(nativeBarcodeCommand(label.encoded, label.moduleDots, label.barHeight))
     } else {
-      blocks.push(...rasterCommands(barcodeBitmap(encoded, paperDots, barcodeSize), paperDots, maxBlockBytes))
-      blocks.push(textBlock(encoded.text, charset, { align: 'center' }))
+      blocks.push(...rasterCommands(label.bars, paperDots, maxBlockBytes))
     }
+    blocks.push(...feedDots(label.numberGap))
+    blocks.push(...rasterCommands(label.number, paperDots, maxBlockBytes))
     const last = copy === count - 1
-    blocks.push(Uint8Array.from(last ? [LF, LF, LF] : [LF, LF]))
+    if (last) blocks.push(Uint8Array.from([LF, LF, LF]))
+    else blocks.push(...feedDots(LABEL_SPACING_DOTS))
     if (cutPaper) blocks.push(Uint8Array.from([GS, 0x56, 0x00]))
   }
   return blocks
+}
+
+/** Les images d'une étiquette rendue (renderLabel) au format attendu par l'encodeur. */
+export function labelBitmapsOf(rendered: {
+  encoded: EncodedBarcode
+  header: MonoBitmap
+  bars: MonoBitmap
+  number: MonoBitmap
+  layout: { geometry: { moduleDots: number; barHeight: number }; headerGap: number; numberGap: number }
+}): LabelBitmaps {
+  return {
+    encoded: rendered.encoded,
+    header: rendered.header,
+    bars: rendered.bars,
+    number: rendered.number,
+    moduleDots: rendered.layout.geometry.moduleDots,
+    barHeight: rendered.layout.geometry.barHeight,
+    headerGap: rendered.layout.headerGap,
+    numberGap: rendered.layout.numberGap,
+  }
 }

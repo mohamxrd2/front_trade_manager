@@ -58,17 +58,17 @@ export function BarcodeSvg({ value, barHeight = 40, showText = true, className, 
         <rect key={bar.x} x={bar.x} y={0} width={bar.w} height={barHeight} fill="#000" />
       ))}
       {showText ? (
-        <text
-          x={width / 2}
-          y={height - 1}
-          textAnchor="middle"
-          fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-          fontSize={8}
-          letterSpacing={encoded.symbology === 'code128' ? 0.5 : 1.6}
-          fill="#000"
-        >
-          {encoded.text}
-        </text>
+        // Un chiffre au centre de chaque case, cases égales d'un bord à l'autre des barres : jamais décalé ni plus large que le code.
+        <g fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace" fontSize={Math.min(8, (encoded.modules.length / encoded.text.length) * 1.5)} textAnchor="middle" fill="#000">
+          {[...encoded.text].map((char, i) => {
+            const cell = encoded.modules.length / encoded.text.length
+            return (
+              <text key={i} x={encoded.quietLeft + cell * i + cell / 2} y={height - 1}>
+                {char}
+              </text>
+            )
+          })}
+        </g>
       ) : null}
     </svg>
   )
