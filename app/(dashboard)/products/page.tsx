@@ -145,6 +145,13 @@ export default function ProductsPage() {
   // « Générer les codes manquants » seulement s'il manque au moins un code (dans la sélection, s'il y en a une).
   const missingCodes = missingBarcodeCount(selected.size > 0 ? articles.filter((a) => selected.has(String(a.id))) : articles)
   const canGenerateMissing = canEditStock && missingCodes > 0
+  // Cases à cocher (sélection pour la génération) : seulement s'il reste au moins un code à créer dans le stock.
+  const showSelection = canEditStock && missingBarcodeCount(articles) > 0
+
+  // Plus rien à générer : la sélection n'a plus d'usage, on la vide.
+  React.useEffect(() => {
+    if (!showSelection && selected.size > 0) setSelected(new Set())
+  }, [showSelection, selected.size])
 
   const handleExport = () => {
     void exportToExcel(formatProductsForExport(articles, currency), 'stock-waelly', 'Stock')
@@ -290,7 +297,7 @@ export default function ProductsPage() {
             <ScanLine className="size-[18px]" aria-hidden="true" />
             {t('barcode.stock.addByBarcode')}
           </button>
-          {canEditStock && missingBarcodeCount(articles) > 0 ? (
+          {showSelection ? (
             <button
               type="button"
               onClick={() => setGenerateOpen(true)}
@@ -377,7 +384,7 @@ export default function ProductsPage() {
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-subtle">
-                {canEditStock ? (
+                {showSelection ? (
                   <th className="w-10 px-2 py-2.5">
                     <input
                       type="checkbox"
@@ -405,7 +412,7 @@ export default function ProductsPage() {
             <tbody>
               {paginatedArticles.length === 0 ? (
                 <tr>
-                  <td colSpan={canEditStock ? 7 : 6} className="py-10 text-center text-sm text-subtle">
+                  <td colSpan={showSelection ? 7 : 6} className="py-10 text-center text-sm text-subtle">
                     {t('products.list.noArticleFound')}
                   </td>
                 </tr>
@@ -416,7 +423,7 @@ export default function ProductsPage() {
                   const lowStock = isLowStock(article)
                   return (
                     <tr key={article.id} className="border-t border-divider">
-                      {canEditStock ? (
+                      {showSelection ? (
                         <td className="px-2 py-2.5">
                           <input
                             type="checkbox"
