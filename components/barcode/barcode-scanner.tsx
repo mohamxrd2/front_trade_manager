@@ -13,7 +13,7 @@ import {
   createDuplicateFilter,
   openCamera,
   primeScanSound,
-  scanFeedback,
+  playScanSound,
   setTorch,
   stopStream,
   torchCapable,
@@ -89,23 +89,24 @@ export function BarcodeScanner({ open, onOpenChange, mode, onDetected, title }: 
 
       chainRef.current = chainRef.current.then(async () => {
         if (!openRef.current) return
-        scanFeedback('ok')
         setAnnouncement(t('barcode.scanner.read', { code }))
+        // Une fois : le scanner se ferme tout de suite, la page enchaîne (recherche, formulaire…).
         if (mode === 'once') {
           stopCamera()
           onOpenChange(false)
-          await onDetectedRef.current(code)
-          return
         }
+        let result: void | ScanOutcome
         try {
-          const result = await onDetectedRef.current(code)
-          if (result) {
-            if (result.tone === 'error') scanFeedback('error')
-            setOutcome(result)
-            setAnnouncement([result.message, result.detail].filter(Boolean).join('. '))
-          }
+          result = await onDetectedRef.current(code)
         } catch {
-          // La page affiche sa propre erreur.
+          result = undefined // La page affiche sa propre erreur.
+        }
+        // Bip quand le produit est trouvé (ou le code pris), son grave sinon.
+        playScanSound(result?.tone === 'error' ? 'error' : 'found')
+        if (mode === 'once') return
+        if (result) {
+          setOutcome(result)
+          setAnnouncement([result.message, result.detail].filter(Boolean).join('. '))
         }
       })
     },

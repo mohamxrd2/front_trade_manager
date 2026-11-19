@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react'
 import * as React from 'react'
 
 import { createWedgeDetector, useBarcodeWedge } from '@/hooks/useBarcodeWedge'
-import { createDuplicateFilter, createReadConfirmer, scanRegions } from './camera'
+import { createDuplicateFilter, createReadConfirmer, playScanSound, resetScanSoundForTests, scanRegions, SCAN_TONES } from './camera'
 import { addScannedToCart, articleHasBarcode, findByBarcode, missingBarcodeCount } from './scan-to-cart'
 import { useCartStore } from '@/lib/stores/cart'
 import type { Article, Variation } from '@/lib/services/articles'
@@ -230,5 +230,54 @@ describe('caméra : un code n’est accepté que relu à l’identique', () => {
     expect(confirm('5449000000996')).toBe(false)
     now = 2600
     expect(confirm('5449000000996')).toBe(true)
+  })
+})
+
+describe('bip du scanner', () => {
+  function fakeAudio(initialState: 'running' | 'suspended') {
+    const played: number[] = []
+    const resume = vi.fn(async () => undefined)
+    class FakeContext {
+      state = initialState
+      currentTime = 0
+      destination = {}
+      resume = resume
+      createOscillator() {
+        const osc = { type: '', frequency: { value: 0 }, connect: (node: unknown) => node, start: () => played.push(osc.frequency.value), stop: () => undefined }
+        return osc
+      }
+      createGain() {
+        const ramp = () => undefined
+        return { gain: { setValueAtTime: ramp, exponentialRampToValueAtTime: ramp }, connect: (node: unknown) => node }
+      }
+    }
+    vi.stubGlobal('AudioContext', FakeContext)
+    return { played, resume }
+  }
+
+  afterEach(() => {
+    resetScanSoundForTests()
+    vi.unstubAllGlobals()
+  })
+
+  test('produit trouvé : un bip aigu ; introuvable : deux bips graves', () => {
+    const { played } = fakeAudio('running')
+    playScanSound('found')
+    expect(played).toEqual([2200])
+    playScanSound('error')
+    expect(played).toEqual([2200, 440, 330])
+    expect(SCAN_TONES.found[0].frequency).toBeGreaterThan(SCAN_TONES.error[0].frequency)
+  })
+
+  test('son en pause (navigateur) : relancé avant de jouer', () => {
+    const { played, resume } = fakeAudio('suspended')
+    playScanSound('found')
+    expect(resume).toHaveBeenCalled()
+    expect(played).toEqual([2200])
+  })
+
+  test('pas de son disponible : aucune erreur', () => {
+    vi.stubGlobal('AudioContext', undefined)
+    expect(() => playScanSound('found')).not.toThrow()
   })
 })

@@ -34,7 +34,7 @@ import { PrinterStatus } from '@/components/printer/printer-status'
 import { PaymentMethodChips } from '@/components/waelly/payment-method-chips'
 import { VariationPicker } from '@/components/products'
 import { BarcodeScanner, type ScanOutcome } from '@/components/barcode/barcode-scanner'
-import { primeScanSound } from '@/lib/barcode/camera'
+import { playScanSound, primeScanSound } from '@/lib/barcode/camera'
 import { validateBarcode } from '@/lib/barcode/validate'
 import { addScannedToCart, articleHasBarcode, findByBarcode, type ScannedProduct } from '@/lib/barcode/scan-to-cart'
 import { lookupBarcode, serverErrorMessage } from '@/lib/services/barcodes'
@@ -257,6 +257,8 @@ function SaleCart() {
   /** Hors du scanner (douchette, recherche) : le résultat en toast court. */
   const handleBarcodeWithToast = async (code: string) => {
     const outcome = await handleBarcode(code)
+    // Même bip que dans le scanner : produit trouvé (aigu) ou non (grave).
+    playScanSound(outcome.tone === 'success' ? 'found' : 'error')
     if (outcome.tone === 'success') {
       toast.success(outcome.message, { duration: 1800 })
       return

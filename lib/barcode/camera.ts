@@ -244,44 +244,77 @@ export function createDuplicateFilter(windowMs = 1500, now: () => number = () =>
 
 let audioContext: AudioContext | null = null
 
-/** Petit bip de confirmation (Web Audio, aucun fichier) + vibration courte si possible. */
-export function scanFeedback(kind: 'ok' | 'error' = 'ok'): void {
+/**
+ * Sons du scanner :
+ * - « found » : produit trouvé (ajouté, ouvert…) — un bip aigu et net, comme à une caisse ;
+ * - « error » : produit introuvable, plus de stock… — deux bips graves.
+ */
+export type ScanSound = 'found' | 'error'
+
+export const SCAN_TONES: Record<ScanSound, Array<{ frequency: number; start: number; duration: number }>> = {
+  found: [{ frequency: 2200, start: 0, duration: 0.13 }],
+  error: [
+    { frequency: 440, start: 0, duration: 0.13 },
+    { frequency: 330, start: 0.18, duration: 0.18 },
+  ],
+}
+/** Volume (0 à 1) : bien audible dans une boutique, sans agresser. */
+const SCAN_VOLUME = 0.22
+
+function audioCtx(): AudioContext | null {
+  const AudioCtx =
+    (globalThis as { AudioContext?: typeof AudioContext }).AudioContext ??
+    (globalThis as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!AudioCtx) return null
+  audioContext ??= new AudioCtx()
+  return audioContext
+}
+
+/** Bip (Web Audio, aucun fichier) + vibration courte si possible. */
+export function playScanSound(kind: ScanSound): void {
   try {
-    const AudioCtx = (globalThis as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
-      ?? (globalThis as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (AudioCtx) {
-      audioContext ??= new AudioCtx()
-      const ctx = audioContext
-      const oscillator = ctx.createOscillator()
-      const gain = ctx.createGain()
-      oscillator.type = 'square'
-      oscillator.frequency.value = kind === 'ok' ? 1760 : 330
-      gain.gain.setValueAtTime(0.08, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (kind === 'ok' ? 0.09 : 0.25))
-      oscillator.connect(gain).connect(ctx.destination)
-      oscillator.start()
-      oscillator.stop(ctx.currentTime + (kind === 'ok' ? 0.1 : 0.26))
+    const ctx = audioCtx()
+    if (ctx) {
+      // Contexte en pause (créé hors geste, onglet revenu au premier plan) : on le relance —
+      // permis ici, chaque scan suit un geste (clic, touche de la douchette).
+      if (ctx.state === 'suspended') void ctx.resume()
+      const t0 = ctx.currentTime + 0.01
+      for (const tone of SCAN_TONES[kind]) {
+        const oscillator = ctx.createOscillator()
+        const gain = ctx.createGain()
+        oscillator.type = 'square'
+        oscillator.frequency.value = tone.frequency
+        // Attaque et chute de 5 ms : pas de « clic » parasite.
+        gain.gain.setValueAtTime(0.0001, t0 + tone.start)
+        gain.gain.exponentialRampToValueAtTime(SCAN_VOLUME, t0 + tone.start + 0.005)
+        gain.gain.setValueAtTime(SCAN_VOLUME, t0 + tone.start + tone.duration - 0.005)
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + tone.start + tone.duration)
+        oscillator.connect(gain).connect(ctx.destination)
+        oscillator.start(t0 + tone.start)
+        oscillator.stop(t0 + tone.start + tone.duration + 0.01)
+      }
     }
   } catch {
     // Son indisponible : la vibration et le message suffisent.
   }
   try {
-    navigator.vibrate?.(kind === 'ok' ? 60 : [80, 60, 80])
+    navigator.vibrate?.(kind === 'found' ? 60 : [80, 60, 80])
   } catch {
     // Best-effort.
   }
 }
 
-/** À appeler pendant un geste (ouverture du scanner) : Safari ne joue un son que si le contexte audio a été créé par un geste. */
+/** À appeler pendant un geste (ouverture du scanner) : Safari ne joue un son que si le contexte audio a été débloqué par un geste. */
 export function primeScanSound(): void {
   try {
-    const AudioCtx = (globalThis as { AudioContext?: typeof AudioContext }).AudioContext
-      ?? (globalThis as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (AudioCtx) {
-      audioContext ??= new AudioCtx()
-      void audioContext.resume()
-    }
+    const ctx = audioCtx()
+    if (ctx && ctx.state === 'suspended') void ctx.resume()
   } catch {
     // Best-effort.
   }
+}
+
+/** Tests uniquement. */
+export function resetScanSoundForTests(): void {
+  audioContext = null
 }
