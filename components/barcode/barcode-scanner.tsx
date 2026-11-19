@@ -206,13 +206,14 @@ export function BarcodeScanner({ open, onOpenChange, mode, onDetected, title }: 
         <DialogPrimitive.Content
           aria-describedby="barcode-scanner-hint"
           className={cn(
-            'fixed inset-0 z-50 flex flex-col bg-black text-white outline-none',
-            'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[92dvh] sm:w-[min(560px,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:overflow-hidden sm:rounded-panel sm:shadow-2xl',
+            'fixed inset-0 z-50 flex flex-col overflow-y-auto bg-black text-white outline-none',
+            // Ordinateur : la fenêtre ne dépasse jamais l'écran ; la caméra rétrécit et le contenu défile si besoin.
+            'sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[92dvh] sm:w-[min(560px,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:overflow-y-auto sm:overscroll-contain sm:rounded-panel sm:shadow-2xl',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none'
           )}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <header className="flex items-center gap-3 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
+          <header className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
             <div className="min-w-0 flex-1">
               <DialogPrimitive.Title className="truncate text-base font-bold">{heading}</DialogPrimitive.Title>
               <DialogPrimitive.Description id="barcode-scanner-hint" className="text-[13px] text-white/70">
@@ -242,7 +243,7 @@ export function BarcodeScanner({ open, onOpenChange, mode, onDetected, title }: 
           </header>
 
           {/* --- Caméra et cadre de visée --- */}
-          <div className="relative min-h-0 flex-1 overflow-hidden bg-black sm:aspect-[4/3] sm:flex-none">
+          <div className="relative min-h-[180px] flex-1 overflow-hidden bg-black sm:h-[min(420px,45dvh)] sm:flex-none">
             <video
               ref={videoRef}
               playsInline
@@ -287,7 +288,7 @@ export function BarcodeScanner({ open, onOpenChange, mode, onDetected, title }: 
           </div>
 
           {/* --- Résultat du dernier code, saisie manuelle --- */}
-          <footer className="flex flex-col gap-3 bg-black px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <footer className="flex shrink-0 flex-col gap-3 bg-black px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <p role="status" aria-live="assertive" className="sr-only">
               {announcement}
             </p>
